@@ -1,6 +1,0 @@
-{
-  "name": "BitLogic Admin — Digital Subscription & Credential Fulfillment Console",
-  "description": "Enterprise admin dashboard for digital products, multi-variant subscriptions, pre-stocked token/key vault, instant digital delivery, warranty tracking, payment verification, and feature control.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

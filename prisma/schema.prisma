@@ -1,0 +1,100 @@
+// BitLogic — Prisma schema
+// Now: SQLite. Later: change provider to "postgresql" and use a Postgres DATABASE_URL.
+// Keep field types portable. See docs/adr/ADR-006.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  phone        String?
+  /// CUSTOMER | ADMIN
+  role         String   @default("CUSTOMER")
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  orders       Order[]
+}
+
+model Product {
+  id           String        @id @default(cuid())
+  slug         String        @unique
+  name         String
+  description  String        @default("")
+  tagline      String        @default("")
+  category     String
+  platform     String        @default("")
+  imageUrl     String?
+  galleryJson  String        @default("[]")
+  featuresJson String        @default("[]")
+  badge        String?
+  sale         Boolean       @default(false)
+  featured     Boolean       @default(false)
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  plans        ProductPlan[]
+  orderItems   OrderItem[]
+}
+
+model ProductPlan {
+  id               String      @id @default(cuid())
+  productId        String
+  product          Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  /// Stable public plan key (e.g. cg-shared-1m)
+  code             String
+  label            String
+  durationLabel    String
+  durationDays     Int
+  priceBdt         Decimal
+  warrantyBadge    String?
+  warrantyType     String?
+  warrantyHeadline String?
+  detailsJson      String      @default("[]")
+  isActive         Boolean     @default(true)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  orderItems       OrderItem[]
+
+  @@unique([productId, code])
+  @@index([productId])
+}
+
+model Order {
+  id        String      @id @default(cuid())
+  userId    String?
+  user      User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  status    String      @default("PENDING")
+  totalBdt  Decimal     @default(0)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  items     OrderItem[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model OrderItem {
+  id           String      @id @default(cuid())
+  orderId      String
+  order        Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product     @relation(fields: [productId], references: [id], onDelete: Restrict)
+  planId       String
+  plan         ProductPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  qty          Int         @default(1)
+  unitPriceBdt Decimal
+  createdAt    DateTime    @default(now())
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([planId])
+}

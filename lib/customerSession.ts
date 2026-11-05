@@ -1,5 +1,3 @@
-import { useSyncExternalStore } from 'react';
-
 const KEY = 'bitlogic-customer';
 
 export type CustomerSession = {
@@ -18,7 +16,7 @@ function emitChange() {
   }
 }
 
-function subscribe(listener: () => void) {
+export function subscribeCustomerSession(listener: () => void) {
   listeners.add(listener);
   if (typeof window !== 'undefined') {
     const onStorage = (e: StorageEvent) => {
@@ -35,7 +33,7 @@ function subscribe(listener: () => void) {
   };
 }
 
-function getSnapshot(): CustomerSession | null {
+export function getCustomerSessionSnapshot(): CustomerSession | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem(KEY);
@@ -55,16 +53,12 @@ function getSnapshot(): CustomerSession | null {
   }
 }
 
-function getServerSnapshot(): CustomerSession | null {
+export function getCustomerSessionServerSnapshot(): CustomerSession | null {
   return null;
 }
 
-export function useCustomerSession(): CustomerSession | null {
-  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-}
-
 export function readCustomer(): CustomerSession | null {
-  return getSnapshot();
+  return getCustomerSessionSnapshot();
 }
 
 export function writeCustomer(session: CustomerSession) {

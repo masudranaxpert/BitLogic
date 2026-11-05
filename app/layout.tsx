@@ -13,20 +13,23 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'BitLogic Admin | Digital Subscription & Credential Console',
+  title: {
+    default: 'BitLogic | Digital Subscriptions',
+    template: '%s | BitLogic',
+  },
   description:
-    'Enterprise admin dashboard for digital products, multi-variant subscriptions, pre-stocked token/key vault, instant digital delivery, warranty tracking, payment verification, and feature control.',
+    'Buy digital subscriptions with fast delivery, warranty tracking, and account access — plus an admin console for vault, payments, and support.',
   openGraph: {
-    title: 'BitLogic Admin | Digital Subscription & Credential Console',
+    title: 'BitLogic | Digital Subscriptions',
     description:
-      'Enterprise admin dashboard for digital products, multi-variant subscriptions, pre-stocked token/key vault, instant digital delivery, warranty tracking, payment verification, and feature control.',
+      'Buy digital subscriptions with fast delivery, warranty tracking, and account access.',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'BitLogic Admin | Digital Subscription & Credential Console',
+    title: 'BitLogic | Digital Subscriptions',
     description:
-      'Enterprise admin dashboard for digital products, multi-variant subscriptions, pre-stocked token/key vault, instant digital delivery, warranty tracking, payment verification, and feature control.',
+      'Buy digital subscriptions with fast delivery, warranty tracking, and account access.',
   },
 };
 

@@ -81,8 +81,14 @@
   }
 }
 
-::selection {
+/* Storefront-only text selection (coral brand). Admin uses emerald — see .admin-console. */
+.storefront-shell ::selection {
   background: color-mix(in srgb, var(--brand) 55%, white);
+}
+
+.admin-console ::selection {
+  background: #059669;
+  color: #ffffff;
 }
 
 .skip-link {
@@ -1938,12 +1944,19 @@
   gap: 0.85rem;
 }
 
-.auth-form label,
-.password-field > label {
+.auth-form label {
   display: grid;
   gap: 0.4rem;
   font-weight: 700;
   font-size: 0.88rem;
+}
+
+/* Keep asterisk inline with the label text (do not grid-stack children). */
+.password-field > label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.75rem;
+  line-height: 1.25rem;
 }
 
 .auth-form input,
@@ -1986,6 +1999,13 @@
 
 .password-field-control input {
   padding-inline-end: 2.85rem;
+}
+
+.password-field-control.is-invalid input,
+.password-field-control.is-invalid:focus-within input {
+  border-color: #fb7185;
+  background: color-mix(in srgb, #fff1f2 55%, white);
+  box-shadow: 0 0 0 3px color-mix(in srgb, #f43f5e 18%, transparent);
 }
 
 .password-toggle {
