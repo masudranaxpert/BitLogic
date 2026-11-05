@@ -1,0 +1,153 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --font-jakarta: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-dm-sans: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-jetbrains-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-playfair: "Playfair Display", Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-space: "Space Grotesk", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-fraunces: "Fraunces", Georgia, serif;
+}
+
+@theme inline {
+  --font-display: var(--font-jakarta), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-sans: var(--font-jakarta), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-serif: var(--font-playfair), Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-space: var(--font-space), -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-fraunces: var(--font-fraunces), Georgia, serif;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: #f6f8fa;
+    color: #0f172a;
+    line-height: 1.5;
+  }
+
+  .dark body {
+    background-color: #090d16;
+    color: #f1f5f9;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  p, li, dd {
+    text-wrap: pretty;
+  }
+
+  code, pre, .font-mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  button, a, input, select, textarea {
+    transition-property: background-color, border-color, color, box-shadow, transform, opacity;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  button:active:not(:disabled) {
+    transform: scale(0.985);
+  }
+}
+
+/* Jakub Krehel (better-ui) multi-layered border-shadow surfaces */
+.surface-card {
+  background-color: #ffffff;
+  box-shadow:
+    0px 0px 0px 1px rgba(15, 23, 42, 0.065),
+    0px 1px 2px -1px rgba(15, 23, 42, 0.06),
+    0px 2px 4px 0px rgba(15, 23, 42, 0.035);
+}
+
+.dark .surface-card {
+  background-color: #0f1623;
+  box-shadow:
+    0px 0px 0px 1px rgba(255, 255, 255, 0.075),
+    0px 2px 6px -1px rgba(0, 0, 0, 0.45);
+}
+
+.surface-elevated {
+  background-color: #ffffff;
+  box-shadow:
+    0px 0px 0px 1px rgba(15, 23, 42, 0.08),
+    0px 8px 20px -4px rgba(15, 23, 42, 0.1),
+    0px 2px 6px -1px rgba(15, 23, 42, 0.05);
+}
+
+.dark .surface-elevated {
+  background-color: #0f1623;
+  box-shadow:
+    0px 0px 0px 1px rgba(255, 255, 255, 0.1),
+    0px 12px 28px -6px rgba(0, 0, 0, 0.65);
+}
+
+.surface-pill-segment {
+  background-color: #f1f5f9;
+  box-shadow: inset 0px 0px 0px 1px rgba(15, 23, 42, 0.06);
+}
+
+.dark .surface-pill-segment {
+  background-color: rgba(30, 41, 59, 0.75);
+  box-shadow: inset 0px 0px 0px 1px rgba(255, 255, 255, 0.06);
+}
+
+.surface-segment-active {
+  background-color: #ffffff;
+  box-shadow:
+    0px 0px 0px 1px rgba(15, 23, 42, 0.06),
+    0px 1px 2px 0px rgba(15, 23, 42, 0.06);
+}
+
+.dark .surface-segment-active {
+  background-color: #0f172a;
+  box-shadow:
+    0px 0px 0px 1px rgba(255, 255, 255, 0.09),
+    0px 1px 2px 0px rgba(0, 0, 0, 0.4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.28);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(5, 150, 105, 0.55);
+}
