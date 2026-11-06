@@ -7,10 +7,18 @@ export type AdminTab =
   | 'products'
   | 'product-add'
   | 'product-option'
+  | 'warranties'
+  | 'credential-types'
+  | 'categories'
   | 'vault'
   | 'vault-manual'
   | 'vault-bulk'
+  | 'vault-view'
+  | 'vault-edit'
   | 'deliveries'
+  | 'orders-pinned'
+  | 'orders-renewals'
+  | 'warranty-claims'
   | 'tickets'
   | 'users'
   | 'user-detail'
@@ -49,7 +57,7 @@ export interface MediaAsset {
   url: string;
   dimensions: string;
   sizeKB: number;
-  mimeType: 'image/png' | 'image/webp' | 'image/svg+xml';
+  mimeType: 'image/png' | 'image/jpeg' | 'image/webp' | 'image/svg+xml';
   uploadedAt: string;
   usedByProduct?: string;
 }
@@ -68,6 +76,9 @@ export interface ProductVariant {
   durationLabel: string;
   priceBDT: number;
   priceUSD: number;
+  /** Taxonomy id from Product → Credential Types */
+  credentialSchemeId?: string;
+  /** Derived from scheme for vault/delivery compat */
   credentialType: CredentialType;
   deliveryMode: DeliveryMode;
   stockDisplayMode: StockDisplayMode;
@@ -87,7 +98,9 @@ export interface ProductVariant {
 export interface DigitalProduct {
   id: string;
   name: string;
-  category: 'AI & LLM Tools' | 'Creative & Design' | 'Streaming & OTT' | 'Developer & Cloud' | 'VPN & Security' | 'OS & Office Keys';
+  /** Display name from Product → Categories taxonomy */
+  category: string;
+  categoryId?: string;
   sku: string;
   imageUrl?: string;
   galleryUrls?: string[];
@@ -98,6 +111,56 @@ export interface DigitalProduct {
   totalSales: number;
   monthlyRevenueBDT: number;
   variants: ProductVariant[];
+}
+
+/** Reusable warranty plans (Product → Warranties taxonomy). */
+export interface WarrantyPlan {
+  id: string;
+  name: string;
+  badge: string;
+  headline: string;
+  kind: 'warranty' | 'login-only';
+  days: number;
+}
+
+/** Field keys vault / delivery can collect. */
+export type CredentialFieldKey =
+  | 'email'
+  | 'password'
+  | 'username'
+  | 'pin'
+  | 'phone'
+  | 'recovery_email'
+  | 'totp'
+  | 'profile_name'
+  | 'activation_code'
+  | 'token'
+  | 'link';
+
+export interface CredentialFieldDef {
+  key: CredentialFieldKey;
+  label: string;
+  required: boolean;
+  /** Shown on option/plan UI; false = vault-only extra (e.g. PIN). */
+  planVisible: boolean;
+}
+
+/**
+ * Login / delivery templates (Product → Credential Types).
+ * You name the type and pick which fields it uses — not hardcoded.
+ */
+export interface CredentialScheme {
+  id: string;
+  name: string;
+  fields: CredentialFieldDef[];
+}
+
+/** Product catalog categories (Product → Categories). */
+export interface ProductCategory {
+  id: string;
+  name: string;
+  /** ISO date `YYYY-MM-DD` when the category was created. */
+  createdAt: string;
 }
 
 export interface VaultCredential {
@@ -113,11 +176,46 @@ export interface VaultCredential {
   profilePin?: string;
   noteBBCode?: string;
   status: 'available' | 'delivered' | 'replaced' | 'expired';
+  /** Stock meyaad length in days (set when credential is added). */
+  validDays?: number;
+  /** Absolute stock end date (YYYY-MM-DD). */
+  expiresAt?: string;
   batchNote: string;
   addedAt: string;
   assignedOrderId?: string;
   assignedBuyerEmail?: string;
 }
+
+export type CredentialAuditAction =
+  | 'assigned'
+  | 'replaced'
+  | 'renewed'
+  | 'expired'
+  | 'cleared';
+export type CredentialAuditSource = 'vault' | 'custom' | 'system';
+
+export interface CredentialAuditEntry {
+  id: string;
+  at: string;
+  action: CredentialAuditAction;
+  source: CredentialAuditSource;
+  secretValue: string;
+  previousSecretValue?: string;
+  vaultCredentialId?: string;
+  note?: string;
+  /** When this credential window was due to end. */
+  credentialExpiresAt?: string;
+}
+
+export type OrderStatus =
+  | 'delivered'
+  | 'pending_dispatch'
+  | 'warranty_claim'
+  | 'replaced'
+  | 'revoked'
+  | 'refunded';
+
+export type PaymentKind = 'purchase' | 'renewal' | 'manual';
 
 export interface DigitalDelivery {
   id: string;
@@ -133,12 +231,19 @@ export interface DigitalDelivery {
   variantName: string;
   credentialType: CredentialType;
   deliveryMode: DeliveryMode;
-  status: 'delivered' | 'pending_dispatch' | 'warranty_claim' | 'replaced' | 'revoked';
+  status: OrderStatus;
+  /** Linked Vault row — source of truth for the current secret. */
+  vaultCredentialId?: string;
+  /**
+   * Hydrated view of the current secret (from Vault).
+   * Not persisted as a secret blob — rebuilt on load from vaultCredentialId.
+   */
   credentialPayload: {
     secretValue: string;
     email?: string;
     password?: string;
     profilePin?: string;
+    vaultCredentialId?: string;
   };
   vpnRequired: boolean;
   vpnRegionNote: string;
@@ -150,8 +255,31 @@ export interface DigitalDelivery {
   replacementHistoryCount: number;
   loginInstructions: string[];
   customAdminNote: string;
+  /** Newest-first — from CredentialAudit table. */
+  credentialAudit?: CredentialAuditEntry[];
   unreadChatCount?: number;
   chatMessages?: AdminChatMessage[];
+  /** Admin pinned this order for follow-up. */
+  pinned?: boolean;
+  /**
+   * Subscription / order window end (YYYY-MM-DD).
+   * Extended on renew — does not create a new order.
+   */
+  orderExpiresAt?: string;
+  /** How many days a delivered credential stays usable after assign. */
+  credentialValidDays?: number;
+  /** When current credential was assigned / renewed. */
+  credentialAssignedAt?: string;
+  /** When current credential auto-clears (assign + validDays). */
+  credentialExpiresAt?: string;
+  /** Renew paid; waiting for admin to assign next credential. */
+  renewalPending?: boolean;
+  /** Last credential was cleared by expiry while renew may be pending. */
+  credentialClearedAt?: string;
+  /** Units in this order line (same ORD may have multiple deliveries). */
+  orderQuantity?: number;
+  /** 1-based index within the order line (1…orderQuantity). */
+  unitIndex?: number;
 }
 
 export interface AdminSupportTicket {
@@ -194,10 +322,12 @@ export interface SubscriberUser {
   email: string;
   phone: string;
   joinedAt: string;
-  status: 'active' | 'past_due' | 'suspended';
+  status: 'active' | 'suspended';
   role: 'subscriber' | 'reseller' | 'vip';
   activeSubscriptions: {
     id: string;
+    orderId?: string;
+    deliveryId?: string;
     productName: string;
     variantName: string;
     credentialType: CredentialType;
@@ -206,6 +336,8 @@ export interface SubscriberUser {
     remainingDays: number;
     autoRenew: boolean;
     warrantyActive: boolean;
+    /** active = credential delivered; pending_credential = order placed, secret not sent yet */
+    status?: 'active' | 'pending_credential';
   }[];
   totalSpentBDT: number;
   ordersCount: number;
@@ -224,6 +356,9 @@ export interface PaymentTransaction {
   trxId: string;
   status: 'verified' | 'pending_verification' | 'refunded' | 'rejected';
   createdAt: string;
+  /** purchase = first order; renewal = same-order extend; manual = admin adjust */
+  kind?: PaymentKind;
+  deliveryId?: string;
 }
 
 export interface CouponCode {

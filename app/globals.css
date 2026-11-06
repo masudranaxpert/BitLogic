@@ -4,6 +4,7 @@
 :root {
   --font-jakarta: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-dm-sans: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-inter: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-jetbrains-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --font-playfair: "Playfair Display", Georgia, Cambria, "Times New Roman", Times, serif;
   --font-space: "Space Grotesk", -apple-system, BlinkMacSystemFont, sans-serif;
@@ -150,4 +151,227 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(5, 150, 105, 0.55);
+}
+
+/*
+  Admin type = shadcn-aligned Operate scale
+  label: text-sm / medium / foreground
+  field: text-sm / normal / foreground
+  muted: text-sm / normal / muted-foreground (~slate-500)
+  title: text-base / semibold
+*/
+.admin-console {
+  font-family: var(--font-inter);
+  font-optical-sizing: auto;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  /* tabular-nums only on .font-mono / prices — not whole UI prose */
+  font-size: 0.875rem; /* text-sm base ≈ shadcn Card */
+  line-height: 1.5;
+  color: #0f172a;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.dark .admin-console {
+  color: #f1f5f9;
+}
+
+.admin-console h1,
+.admin-console h2,
+.admin-console h3,
+.admin-console h4,
+.admin-console .font-display {
+  font-family: var(--font-inter);
+  letter-spacing: -0.015em;
+  color: #0f172a;
+}
+
+.dark .admin-console h1,
+.dark .admin-console h2,
+.dark .admin-console h3,
+.dark .admin-console h4,
+.dark .admin-console .font-display {
+  color: #f8fafc;
+}
+
+/* shadcn Label: text-sm font-medium leading-none */
+.admin-console label,
+.admin-console .admin-label {
+  color: #0f172a;
+  font-weight: 500;
+  font-size: 0.875rem;
+  line-height: 1.25;
+}
+
+.dark .admin-console label,
+.dark .admin-console .admin-label {
+  color: #f1f5f9;
+}
+
+/* shadcn Input/Textarea: text-base md:text-sm (16px mobile avoids iOS zoom) */
+.admin-console input:not([type='checkbox']):not([type='radio']),
+.admin-console select,
+.admin-console textarea {
+  color: #0f172a;
+  font-weight: 400;
+  font-size: 1rem; /* 16px mobile */
+  line-height: 1.5;
+}
+
+@media (min-width: 768px) {
+  .admin-console input:not([type='checkbox']):not([type='radio']),
+  .admin-console select,
+  .admin-console textarea {
+    font-size: 0.875rem; /* text-sm desktop */
+  }
+}
+
+.dark .admin-console input:not([type='checkbox']):not([type='radio']),
+.dark .admin-console select,
+.dark .admin-console textarea {
+  color: #f1f5f9;
+}
+
+.admin-console textarea {
+  font-family: var(--font-inter);
+}
+
+/* Tall form notes only — chat/auto-grow composers opt out via data-autogrow */
+.admin-console textarea:not([data-autogrow]) {
+  resize: vertical;
+  min-height: 5rem;
+}
+
+/* shadcn placeholder:text-muted-foreground */
+.admin-console input::placeholder,
+.admin-console textarea::placeholder {
+  color: #64748b;
+  font-weight: 400;
+  opacity: 1;
+}
+
+.dark .admin-console input::placeholder,
+.dark .admin-console textarea::placeholder {
+  color: #94a3b8;
+}
+
+.admin-console .font-mono {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-variant-ligatures: none;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Keep muted utilities readable on large / bright monitors */
+.admin-console .text-slate-400 {
+  color: #64748b; /* was too faint at utility default */
+}
+
+.dark .admin-console .text-slate-400 {
+  color: #94a3b8;
+}
+
+.admin-console .text-slate-500 {
+  color: #475569; /* slate-600: WCAG-friendlier secondary */
+}
+
+.dark .admin-console .text-slate-500 {
+  color: #94a3b8;
+}
+
+.admin-console .admin-section-label {
+  color: #475569;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  font-size: 0.75rem;
+}
+
+/* Secondary / helper copy */
+.admin-console .admin-body,
+.admin-console .admin-muted {
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.55;
+  color: #475569;
+}
+
+.dark .admin-console .admin-body,
+.dark .admin-console .admin-muted {
+  color: #94a3b8;
+}
+
+/*
+  Admin data tables — “comfortable” density (Substrate / BuiltUX):
+  header 12px · cell 14px · price/warranty never below 14px + high contrast
+*/
+.admin-console table {
+  font-size: 0.875rem; /* 14px */
+  line-height: 1.4;
+}
+
+.admin-console thead th {
+  font-size: 0.75rem; /* 12px */
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #64748b;
+}
+
+.dark .admin-console thead th {
+  color: #94a3b8;
+}
+
+.admin-console tbody td {
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: #1e293b; /* slate-800 — readable on PC */
+}
+
+.dark .admin-console tbody td {
+  color: #e2e8f0;
+}
+
+/*
+  Money (৳): JetBrains Mono 15px / 600 — readable on large monitors,
+  avoids display-face glyph fallback that makes ৳ look “cursive”.
+*/
+.admin-console .admin-price,
+.admin-console td.admin-price {
+  font-family: var(--font-mono);
+  font-size: 0.9375rem; /* 15px */
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.dark .admin-console .admin-price,
+.dark .admin-console td.admin-price {
+  color: #f8fafc;
+}
+
+.admin-console .admin-metric,
+.admin-console td.admin-metric {
+  font-family: var(--font-mono);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.dark .admin-console .admin-metric,
+.dark .admin-console td.admin-metric {
+  color: #f1f5f9;
+}
+
+/* Breadcrumb current segment */
+.admin-console .admin-crumb-current {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #334155;
+}
+
+.dark .admin-console .admin-crumb-current {
+  color: #cbd5e1;
 }

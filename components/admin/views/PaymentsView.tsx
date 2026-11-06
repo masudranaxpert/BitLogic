@@ -122,7 +122,7 @@ export default function PaymentsView({
         <SwitchToggle
           checked={showStatistics}
           onChange={setShowStatistics}
-          label="Show Statistics"
+          label="Stats"
         />
       </div>
 
@@ -145,15 +145,17 @@ export default function PaymentsView({
       )}
 
       <Card className="overflow-hidden">
-        {filteredPayments.length === 0 ? (
+        {payments.length === 0 ? (
+          <EmptyTableState title="No payments" />
+        ) : filteredPayments.length === 0 ? (
           <EmptyTableState
-            title="No payments in this tab"
-            description="Switch to All to inspect the payment ledger."
+            title="No matches"
             onReset={() => setPayFilter('all')}
+            resetLabel="Clear filters"
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[740px] text-left border-collapse text-[13px]">
+            <table className="w-full min-w-[740px] text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 text-xs text-slate-500 font-medium">
                   <th className="py-3 px-4 w-9">
@@ -222,7 +224,7 @@ export default function PaymentsView({
                         {pay.trxId}
                       </td>
 
-                      <td className="py-3 px-3 font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
+                      <td className="admin-price py-3 px-3 text-right">
                         {formatBDT(pay.amountBDT)}
                       </td>
 

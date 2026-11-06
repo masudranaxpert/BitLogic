@@ -43,7 +43,7 @@ export function PasswordField({
           aria-invalid={showError || undefined}
           aria-describedby={error ? `${id}-error` : undefined}
           type={visible ? 'text' : 'password'}
-          className={`w-full h-9.5 pl-3 pr-9 rounded-md border text-xs font-medium text-[#0F172A] focus:outline-none transition-colors ${
+          className={`password-field-input w-full rounded-md border text-xs font-medium text-[#0F172A] focus:outline-none transition-colors ${
             showError
               ? 'border-rose-400 bg-rose-50/40 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/15'
               : 'border-slate-200 focus:border-[#FF5E5B] focus:ring-2 focus:ring-[#FF5E5B]/15'
@@ -51,7 +51,7 @@ export function PasswordField({
         />
         <button
           type="button"
-          className="password-toggle absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center p-1 rounded text-slate-500 hover:text-slate-800 cursor-pointer border-0 bg-transparent"
+          className="password-toggle"
           onClick={() => setVisible((v) => !v)}
           aria-label={visible ? 'Hide password' : 'Show password'}
           aria-pressed={visible}

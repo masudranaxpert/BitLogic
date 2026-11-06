@@ -74,7 +74,7 @@ export function ProductDetailView({ productId }: { productId: string }) {
   if (!product) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-16 text-center text-sm text-slate-500">
-        No catalog products yet. Run <code className="font-mono">bun run db:seed</code>.
+        No products in the catalog yet. Add products from the admin panel.
       </div>
     );
   }

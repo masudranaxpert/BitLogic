@@ -263,7 +263,7 @@ export function ProductOptionForm({
       </div>
 
       <BBCodeEditor
-        label="Option Warning & Rules (BBCode)"
+        label="Option warning & rules"
         value={values.warningNote}
         onChange={(next) => onChange('warningNote', next)}
         rows={3}

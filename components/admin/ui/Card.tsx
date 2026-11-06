@@ -10,7 +10,7 @@ export function Card({
   className?: string;
 }) {
   return (
-    <div className={`surface-card rounded-[10px] ${className}`}>
+    <div className={`surface-card rounded-md ${className}`}>
       {children}
     </div>
   );

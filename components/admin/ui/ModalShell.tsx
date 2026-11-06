@@ -41,9 +41,9 @@ export function ModalShell({
         aria-modal="true"
         aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
-        className={`surface-elevated w-full ${maxWidth} rounded-xl max-h-[92dvh] flex flex-col overflow-hidden`}
+        className={`surface-elevated w-full ${maxWidth} rounded-lg max-h-[min(92dvh,40rem)] flex flex-col overflow-hidden`}
       >
-        <div className="flex items-start justify-between gap-4 px-4 sm:px-6 py-4 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/50">
+        <div className="flex items-start justify-between gap-4 px-4 sm:px-5 py-3.5 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/50 shrink-0">
           <div className="min-w-0">
             <h3
               id={titleId}
@@ -61,12 +61,14 @@ export function ModalShell({
             type="button"
             onClick={onClose}
             aria-label="Close modal"
-            className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 border border-slate-200 dark:border-slate-800 rounded-lg cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+            className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 border border-slate-200 dark:border-slate-800 rounded-md cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="p-4 sm:p-6 overflow-y-auto space-y-5">{children}</div>
+        <div className="p-4 sm:p-5 overflow-y-auto min-h-0 flex-1 space-y-5">
+          {children}
+        </div>
       </div>
     </div>
   );

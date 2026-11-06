@@ -59,16 +59,26 @@ function ClassicHomeView() {
   const { navigateTo } = useStoreNav();
   const { products } = useCatalog();
 
-  const slide = heroSlides[index];
+  const slides =
+    heroSlides.length > 0
+      ? heroSlides
+      : products.slice(0, 3).map((p) => ({
+          id: `slide-${p.id}`,
+          productId: p.id,
+          title: p.name,
+          image: p.image,
+        }));
+  const slide = slides[index] ?? slides[0];
   const offers = products.filter((p) => p.sale || p.featured);
   const featured = products.slice(0, 7);
 
   useEffect(() => {
+    if (slides.length <= 1) return;
     const id = window.setInterval(() => {
-      setIndex((i) => (i + 1) % heroSlides.length);
+      setIndex((i) => (i + 1) % slides.length);
     }, 6500);
     return () => window.clearInterval(id);
-  }, []);
+  }, [slides.length]);
 
   const move = (dir: number) => {
     const el = scroller.current;
@@ -78,6 +88,7 @@ function ClassicHomeView() {
 
   return (
     <div className="home">
+      {slide ? (
       <section className="offer-hero" aria-roledescription="carousel" aria-label="Offers">
         <div className="offer-stage">
           <button
@@ -105,16 +116,17 @@ function ClassicHomeView() {
           </aside>
         </div>
 
+        {slides.length > 1 ? (
         <div className="offer-controls">
           <button
             type="button"
             aria-label="Previous offer"
-            onClick={() => setIndex((i) => (i - 1 + heroSlides.length) % heroSlides.length)}
+            onClick={() => setIndex((i) => (i - 1 + slides.length) % slides.length)}
           >
             <ChevronLeft size={22} strokeWidth={2.4} />
           </button>
           <div className="offer-dots" role="tablist">
-            {heroSlides.map((s, i) => (
+            {slides.map((s, i) => (
               <button
                 key={s.id}
                 type="button"
@@ -129,12 +141,14 @@ function ClassicHomeView() {
           <button
             type="button"
             aria-label="Next offer"
-            onClick={() => setIndex((i) => (i + 1) % heroSlides.length)}
+            onClick={() => setIndex((i) => (i + 1) % slides.length)}
           >
             <ChevronRight size={22} strokeWidth={2.4} />
           </button>
         </div>
+        ) : null}
       </section>
+      ) : null}
 
       <section className="rail-section">
         <div className="section-rule">

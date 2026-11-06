@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { ShoppingBag, ArrowRight, Trash2, CheckCircle2, ArrowLeft, Minus, Plus } from 'lucide-react';
 import { formatPrice, getProduct } from '@/lib/products';
+import { useCatalog } from '@/context/CatalogContext';
 import { useCart } from '@/context/CartContext';
 import {
   CouponInputBox,
@@ -15,6 +16,7 @@ import { useStoreNav } from '@/context/StoreNavContext';
 
 export function CartPageView() {
   const { items, total, count, remove, updateQty, clear } = useCart();
+  const { products } = useCatalog();
   const { navigateTo } = useStoreNav();
 
   const [coupon, setCoupon] = useState('');
@@ -100,7 +102,7 @@ export function CartPageView() {
           <div className="lg:col-span-7 space-y-2.5">
             <div className="bg-white rounded-lg border border-slate-200/90 divide-y divide-slate-100 overflow-hidden">
               {items.map((item) => {
-                const product = getProduct(item.productId);
+                const product = getProduct(item.productId, products);
                 return (
                   <div
                     key={`${item.productId}-${item.plan.id}`}

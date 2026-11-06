@@ -1995,10 +1995,18 @@
 
 .password-field-control {
   position: relative;
+  display: block;
 }
 
-.password-field-control input {
-  padding-inline-end: 2.85rem;
+.password-field-control input,
+.password-field-control .password-field-input {
+  display: block;
+  width: 100%;
+  min-height: 2.75rem;
+  height: 2.75rem;
+  padding: 0 2.75rem 0 0.9rem;
+  line-height: 1.25;
+  box-sizing: border-box;
 }
 
 .password-field-control.is-invalid input,
@@ -2010,19 +2018,21 @@
 
 .password-toggle {
   position: absolute;
-  inset-block: 0;
-  inset-inline-end: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  top: 0;
+  right: 0;
+  bottom: 0;
   width: 2.75rem;
   margin: 0;
   padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: 0 8px 8px 0;
   background: transparent;
   color: var(--muted);
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
   -webkit-tap-highlight-color: transparent;
   transition: color 150ms ease-out;
 }

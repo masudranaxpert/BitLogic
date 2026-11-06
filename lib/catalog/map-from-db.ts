@@ -1,7 +1,14 @@
-import type { Product as DbProduct, ProductPlan as DbPlan } from '@prisma/client';
+import type {
+  CatalogCategory,
+  Product as DbProduct,
+  ProductPlan as DbPlan,
+} from '@prisma/client';
 import type { Category, Plan, Product } from '@/lib/products';
 
-type DbProductWithPlans = DbProduct & { plans: DbPlan[] };
+type DbProductWithPlans = DbProduct & {
+  plans: DbPlan[];
+  catalogCategory?: CatalogCategory | null;
+};
 
 function parseStringArray(raw: string): string[] {
   try {
@@ -10,6 +17,27 @@ function parseStringArray(raw: string): string[] {
   } catch {
     return [];
   }
+}
+
+function resolveCategoryCode(product: DbProductWithPlans): Category {
+  const fromRelation = product.catalogCategory?.code;
+  if (
+    fromRelation === 'AI' ||
+    fromRelation === 'STREAM' ||
+    fromRelation === 'WORK' ||
+    fromRelation === 'CREATE'
+  ) {
+    return fromRelation;
+  }
+  if (
+    product.category === 'AI' ||
+    product.category === 'STREAM' ||
+    product.category === 'WORK' ||
+    product.category === 'CREATE'
+  ) {
+    return product.category;
+  }
+  return 'AI';
 }
 
 function mapPlan(plan: DbPlan): Plan {
@@ -36,7 +64,7 @@ export function mapDbProductToCatalog(product: DbProductWithPlans): Product {
   return {
     id: product.slug,
     name: product.name,
-    code: product.category as Category,
+    code: resolveCategoryCode(product),
     tagline: product.tagline,
     description: product.description,
     badge: product.badge ?? undefined,

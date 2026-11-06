@@ -6,11 +6,13 @@ export function StatusIndicator({
   tone,
   label,
   detail,
+  size = 'sm',
 }: {
   tone: 'emerald' | 'amber' | 'red' | 'zinc' | 'blue' | 'purple';
   label: string;
   detail?: string;
   dot?: boolean;
+  size?: 'sm' | 'md';
 }) {
   const toneClasses = {
     emerald:
@@ -27,13 +29,22 @@ export function StatusIndicator({
       'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
   };
 
+  const sizeClasses =
+    size === 'md'
+      ? 'px-2.5 py-1 rounded-md text-sm font-semibold'
+      : 'px-2 py-0.5 rounded text-xs font-medium';
+
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[5px] text-xs font-medium whitespace-nowrap shrink-0 ${toneClasses[tone]}`}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 ${sizeClasses} ${toneClasses[tone]}`}
     >
       <span>{label}</span>
       {detail && (
-        <span className="font-mono tabular-nums text-[11px] opacity-80">
+        <span
+          className={`font-mono tabular-nums opacity-80 ${
+            size === 'md' ? 'text-xs' : 'text-[11px]'
+          }`}
+        >
           · {detail}
         </span>
       )}

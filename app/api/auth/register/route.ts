@@ -38,12 +38,15 @@ export async function POST(request: Request) {
     }
 
     const passwordHash = await hashPassword(password);
+    const adminCount = await db.user.count({ where: { role: ROLES.ADMIN } });
+    const role = adminCount === 0 ? ROLES.ADMIN : ROLES.CUSTOMER;
+
     const user = await db.user.create({
       data: {
         email,
         name,
         phone: body.phone?.trim() || null,
-        role: ROLES.CUSTOMER,
+        role,
         passwordHash,
       },
     });
@@ -52,7 +55,7 @@ export async function POST(request: Request) {
       id: user.id,
       email: user.email,
       name: user.name,
-      role: ROLES.CUSTOMER,
+      role,
     });
 
     const response = NextResponse.json({
@@ -61,7 +64,7 @@ export async function POST(request: Request) {
         email: user.email,
         name: user.name,
         phone: user.phone,
-        role: ROLES.CUSTOMER,
+        role,
       },
     });
     return attachSessionCookie(response, token);

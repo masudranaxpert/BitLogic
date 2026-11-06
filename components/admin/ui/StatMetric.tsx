@@ -26,20 +26,28 @@ export function StatMetric({
       'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
   };
 
+  const isMoney = typeof value === 'string' && value.includes('৳');
+
   return (
-    <div className="p-5">
-      <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
+    <div className="p-3 sm:p-5">
+      <div className="text-[11px] sm:text-sm font-medium text-slate-600 dark:text-slate-300">
         {label}
       </div>
-      <div className="font-display text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 tabular-nums mt-1.5">
+      <div
+        className={`mt-1 sm:mt-1.5 tracking-tight text-slate-900 dark:text-slate-50 tabular-nums ${
+          isMoney
+            ? 'admin-price text-base sm:text-2xl font-semibold'
+            : 'font-display text-lg sm:text-2xl font-bold'
+        }`}
+      >
         {value}
       </div>
       {hint || badge ? (
-        <div className="flex items-center gap-2 mt-2.5 text-xs text-slate-400 dark:text-slate-500">
+        <div className="flex items-center gap-1.5 sm:gap-2 mt-1.5 sm:mt-2.5 text-xs sm:text-sm text-slate-600 dark:text-slate-300">
           {hint ? <span>{hint}</span> : null}
           {badge ? (
             <span
-              className={`px-1.5 py-0.5 rounded-[4px] text-[11px] font-semibold tabular-nums ${badgeClasses[tone]}`}
+              className={`px-1.5 py-0.5 rounded-[4px] text-xs font-semibold tabular-nums ${badgeClasses[tone]}`}
             >
               {badge}
             </span>

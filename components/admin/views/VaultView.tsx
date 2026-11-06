@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import {
   Plus,
   Copy,
@@ -10,11 +10,19 @@ import {
   Trash2,
   Upload,
   Search,
+  MoreHorizontal,
+  Pencil,
+  ExternalLink,
 } from 'lucide-react';
 import {
   DigitalProduct,
   VaultCredential,
 } from '@/lib/admin-data';
+import {
+  addDaysYmd,
+  daysBetween,
+  todayYmd,
+} from '@/lib/admin/credential-lifecycle';
 import {
   Card,
   StatMetric,
@@ -26,16 +34,230 @@ import {
   PaginationFooter,
   FloatingBulkActionBar,
   EmptyTableState,
-  ModalShell,
-  BBCodeRenderer,
 } from '@/components/admin/ui/primitives';
+
+function resolveStockExpiry(item: VaultCredential): string | null {
+  if (item.expiresAt) return item.expiresAt.slice(0, 10);
+  if (item.validDays != null && item.addedAt) {
+    return addDaysYmd(item.addedAt.slice(0, 10), item.validDays);
+  }
+  return null;
+}
+
+function ExpiresCell({ item }: { item: VaultCredential }) {
+  const today = todayYmd();
+  const expiry = resolveStockExpiry(item);
+  const statusExpired = item.status === 'expired';
+
+  if (!expiry) {
+    return <span className="text-xs text-slate-400">No expiry</span>;
+  }
+
+  const left = daysBetween(today, expiry);
+  const expired = statusExpired || left < 0 || expiry <= today;
+
+  if (expired) {
+    return (
+      <div className="flex flex-col gap-0.5">
+        <span className="inline-flex w-fit items-center rounded-md bg-rose-50 px-1.5 py-0.5 text-[11px] font-semibold text-rose-700 dark:bg-rose-950/50 dark:text-rose-300">
+          Expired
+        </span>
+        <span className="font-mono text-[11px] tabular-nums text-slate-400">
+          {expiry}
+        </span>
+      </div>
+    );
+  }
+
+  const urgent = left <= 7;
+  const soon = left <= 14;
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span
+        className={`inline-flex w-fit items-center rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums ${
+          urgent
+            ? 'bg-amber-50 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300'
+            : soon
+              ? 'bg-sky-50 text-sky-800 dark:bg-sky-950/50 dark:text-sky-300'
+              : 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
+        }`}
+      >
+        {left === 0 ? 'Ends today' : `${left}d left`}
+      </span>
+      <span className="font-mono text-[11px] tabular-nums text-slate-500 dark:text-slate-400">
+        {expiry}
+      </span>
+    </div>
+  );
+}
 
 interface VaultViewProps {
   products: DigitalProduct[];
   vault: VaultCredential[];
   onOpenManualAddPage: () => void;
   onOpenBulkImportPage: () => void;
+  onViewCredential: (id: string) => void;
+  onEditCredential: (id: string) => void;
   onDeleteCredential: (id: string) => void;
+}
+
+type VaultRowActionsProps = {
+  item: VaultCredential;
+  revealed: boolean;
+  copied: boolean;
+  menuOpen: boolean;
+  onMenuToggle: () => void;
+  onMenuClose: () => void;
+  onView: () => void;
+  onEdit: () => void;
+  onToggleReveal: () => void;
+  onCopy: () => void;
+  onDelete?: () => void;
+};
+
+function VaultRowActions({
+  item,
+  revealed,
+  copied,
+  menuOpen,
+  onMenuToggle,
+  onMenuClose,
+  onView,
+  onEdit,
+  onToggleReveal,
+  onCopy,
+  onDelete,
+}: VaultRowActionsProps) {
+  const menuId = useId();
+  const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onMenuClose();
+        triggerRef.current?.focus();
+      }
+    };
+    const onPointer = (e: MouseEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) onMenuClose();
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('mousedown', onPointer);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('mousedown', onPointer);
+    };
+  }, [menuOpen, onMenuClose]);
+
+  const menuItemClass =
+    'flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-xs font-medium text-slate-800 hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none dark:text-slate-100 dark:hover:bg-slate-800 dark:focus-visible:bg-slate-800';
+
+  return (
+    <div className="relative inline-flex justify-end" ref={menuRef}>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={onMenuToggle}
+        className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:border-emerald-500 hover:text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 dark:border-slate-700 dark:hover:text-slate-200"
+        aria-label={`More actions for ${item.id}`}
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        aria-controls={menuOpen ? menuId : undefined}
+        title="More"
+      >
+        <MoreHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+      </button>
+      {menuOpen ? (
+        <div
+          id={menuId}
+          role="menu"
+          aria-label={`Actions for ${item.id}`}
+          className="absolute right-0 top-full z-20 mt-1 w-44 rounded-md border border-slate-200 bg-white py-1 shadow-md dark:border-slate-700 dark:bg-slate-900"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            className={menuItemClass}
+            onClick={() => {
+              onMenuClose();
+              onView();
+            }}
+          >
+            <ExternalLink className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
+            View
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className={menuItemClass}
+            onClick={() => {
+              onMenuClose();
+              onEdit();
+            }}
+          >
+            <Pencil className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
+            Edit
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className={menuItemClass}
+            onClick={() => {
+              onToggleReveal();
+              onMenuClose();
+            }}
+          >
+            {revealed ? (
+              <EyeOff className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
+            ) : (
+              <Eye className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
+            )}
+            {revealed ? 'Hide secret' : 'Reveal secret'}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className={menuItemClass}
+            onClick={() => {
+              onCopy();
+              onMenuClose();
+            }}
+          >
+            {copied ? (
+              <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden />
+            ) : (
+              <Copy className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
+            )}
+            {copied ? 'Copied' : 'Copy secret'}
+          </button>
+          {onDelete ? (
+            <>
+              <div
+                className="my-1 border-t border-slate-100 dark:border-slate-800"
+                role="separator"
+              />
+              <button
+                type="button"
+                role="menuitem"
+                className={`${menuItemClass} text-rose-700 dark:text-rose-300`}
+                onClick={() => {
+                  onMenuClose();
+                  onDelete();
+                }}
+              >
+                <Trash2 className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                Delete
+              </button>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export default function VaultView({
@@ -43,16 +265,20 @@ export default function VaultView({
   vault,
   onOpenManualAddPage,
   onOpenBulkImportPage,
+  onViewCredential,
+  onEditCredential,
   onDeleteCredential,
 }: VaultViewProps) {
-  const [statusFilter, setStatusFilter] = useState<'all' | 'available' | 'delivered'>('all');
+  const [statusFilter, setStatusFilter] = useState<
+    'all' | 'available' | 'delivered' | 'expired'
+  >('all');
   const [productFilter, setProductFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showStatistics, setShowStatistics] = useState(true);
   const [revealedIds, setRevealedIds] = useState<Record<string, boolean>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [inspectNoteItem, setInspectNoteItem] = useState<VaultCredential | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   const handleCopy = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
@@ -66,7 +292,7 @@ export default function VaultView({
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     );
   };
 
@@ -86,64 +312,75 @@ export default function VaultView({
 
   const availableCount = vault.filter((v) => v.status === 'available').length;
   const deliveredCount = vault.filter((v) => v.status === 'delivered').length;
-  const tokenCount = vault.filter((v) => v.credentialType === 'token' && v.status === 'available').length;
-  const emailLoginCount = vault.filter((v) => v.credentialType === 'email_login' && v.status === 'available').length;
+  const expiredCount = vault.filter((v) => v.status === 'expired').length;
+  const tokenCount = vault.filter(
+    (v) => v.credentialType === 'token' && v.status === 'available',
+  ).length;
+  const emailLoginCount = vault.filter(
+    (v) => v.credentialType === 'email_login' && v.status === 'available',
+  ).length;
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
-          Credential Vault
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="font-display text-xl font-bold tracking-tight text-slate-900 dark:text-slate-50 sm:text-2xl">
+          Credentials
         </h1>
 
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={onOpenBulkImportPage}
-            className="h-9 px-3.5 text-xs font-semibold bg-white dark:bg-slate-900 shadow-[0_0_0_1px_rgba(15,23,42,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1)] hover:shadow-[0_0_0_1px_#059669] text-slate-700 dark:text-slate-200 rounded-lg inline-flex items-center gap-1.5 cursor-pointer"
+            className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-[0_0_0_1px_rgba(15,23,42,0.08)] hover:shadow-[0_0_0_1px_#059669] dark:bg-slate-900 dark:text-slate-200 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1)]"
           >
-            <Upload className="w-3.5 h-3.5 text-emerald-600" />
+            <Upload className="h-3.5 w-3.5" aria-hidden />
             <span>Bulk Import</span>
           </button>
 
           <button
             type="button"
             onClick={onOpenManualAddPage}
-            className="h-9 px-3.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-2xs inline-flex items-center gap-1.5 cursor-pointer"
+            className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 text-xs font-semibold text-white shadow-2xs hover:bg-emerald-700"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="h-3.5 w-3.5" aria-hidden />
             <span>Manual Add</span>
           </button>
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2.5">
-          <SegmentedTabs
-            options={[
-              { value: 'all', label: 'All', count: vault.length },
-              { value: 'available', label: 'In Stock', count: availableCount },
-              { value: 'delivered', label: 'Delivered', count: deliveredCount },
-            ]}
-            value={statusFilter}
-            onChange={setStatusFilter}
-          />
+      <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
+        <div className="flex max-w-full items-center gap-2">
           <SwitchToggle
             checked={showStatistics}
             onChange={setShowStatistics}
-            label="Show Statistics"
+            label="Stats"
           />
+          <div className="min-w-0 flex-1 overflow-x-auto">
+            <SegmentedTabs
+              options={[
+                { value: 'all', label: 'All', count: vault.length },
+                { value: 'available', label: 'Available', count: availableCount },
+                { value: 'delivered', label: 'Delivered', count: deliveredCount },
+                { value: 'expired', label: 'Expired', count: expiredCount },
+              ]}
+              value={statusFilter}
+              onChange={setStatusFilter}
+            />
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
           <div className="relative w-full sm:w-56">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
+              aria-hidden
+            />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search ID, product, or key..."
-              className="w-full h-9 pl-8 pr-3 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:border-emerald-600"
+              placeholder="Search…"
+              className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-xs focus:border-emerald-600 focus:outline-none dark:border-slate-800 dark:bg-slate-900"
             />
           </div>
 
@@ -151,7 +388,7 @@ export default function VaultView({
             value={productFilter}
             onChange={(e) => setProductFilter(e.target.value)}
             aria-label="Filter by product"
-            className="h-9 px-3 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg"
+            className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs dark:border-slate-800 dark:bg-slate-900"
           >
             <option value="all">All Products</option>
             {products.map((p) => (
@@ -164,46 +401,53 @@ export default function VaultView({
       </div>
 
       {showStatistics && (
-        <Card className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-200/80 dark:divide-slate-800 overflow-hidden">
-          <StatMetric label="In Stock" value={availableCount} />
-          <StatMetric label="Tokens Ready" value={tokenCount} />
-          <StatMetric label="Email Logins" value={emailLoginCount} />
+        <Card className="grid grid-cols-2 overflow-hidden divide-x divide-y divide-slate-200/80 sm:divide-y-0 dark:divide-slate-800 lg:grid-cols-4 [&>*:nth-child(2)]:border-t-0 [&>*:nth-child(odd)]:border-l-0">
+          <StatMetric label="Available" value={availableCount} />
           <StatMetric label="Delivered" value={deliveredCount} />
+          <StatMetric label="Expired" value={expiredCount} tone="amber" />
+          <StatMetric
+            label="Tokens / Email"
+            value={`${tokenCount} / ${emailLoginCount}`}
+          />
         </Card>
       )}
 
       <Card className="overflow-hidden">
-        {filteredVault.length === 0 ? (
+        {vault.length === 0 ? (
+          <EmptyTableState title="No credentials" />
+        ) : filteredVault.length === 0 ? (
           <EmptyTableState
-            title="No credentials found"
-            description="Reset the filter or search query to view all Vault credentials."
+            title="No matches"
             onReset={() => {
               setStatusFilter('all');
               setProductFilter('all');
               setSearchQuery('');
             }}
+            resetLabel="Clear filters"
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left border-collapse text-[13px]">
+            <table className="w-full min-w-[720px] border-collapse text-left">
               <thead>
-                <tr className="border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 text-xs text-slate-500 font-medium">
-                  <th className="py-3 px-4 w-9">
+                <tr className="border-b border-slate-200/80 bg-slate-50/70 dark:border-slate-800 dark:bg-slate-900/50">
+                  <th className="w-9 px-4 py-3">
                     <ShadcnCheckbox
                       checked={
-                        filteredVault.length > 0 && selectedIds.length === filteredVault.length
+                        filteredVault.length > 0 &&
+                        selectedIds.length === filteredVault.length
                       }
                       onChange={(checked) =>
                         setSelectedIds(checked ? filteredVault.map((i) => i.id) : [])
                       }
                     />
                   </th>
-                  <th className="py-3 px-3 whitespace-nowrap">ID</th>
-                  <th className="py-3 px-3 whitespace-nowrap">Product &amp; Option</th>
-                  <th className="py-3 px-3 whitespace-nowrap">Type</th>
-                  <th className="py-3 px-3 whitespace-nowrap">Credential</th>
-                  <th className="py-3 px-3 whitespace-nowrap">Status</th>
-                  <th className="py-3 px-4 text-right whitespace-nowrap">Action</th>
+                  <th className="whitespace-nowrap px-3 py-3">ID</th>
+                  <th className="whitespace-nowrap px-3 py-3">Product</th>
+                  <th className="whitespace-nowrap px-3 py-3">Type</th>
+                  <th className="whitespace-nowrap px-3 py-3">Secret</th>
+                  <th className="whitespace-nowrap px-3 py-3">Expires</th>
+                  <th className="whitespace-nowrap px-3 py-3">Status</th>
+                  <th className="w-12 whitespace-nowrap px-4 py-3 text-right"> </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800">
@@ -218,91 +462,75 @@ export default function VaultView({
                   return (
                     <tr
                       key={item.id}
-                      className={`transition-colors whitespace-nowrap ${
+                      className={`whitespace-nowrap transition-colors ${
                         isSelected
                           ? 'bg-emerald-50/60 dark:bg-emerald-950/30'
                           : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/40'
                       }`}
                     >
-                      <td className="py-3 px-4">
+                      <td className="px-4 py-3">
                         <ShadcnCheckbox
                           checked={isSelected}
                           onChange={() => toggleSelect(item.id)}
                         />
                       </td>
 
-                      <td className="py-3 px-3 font-mono text-xs text-slate-600 dark:text-slate-400">
-                        {item.id}
+                      <td className="admin-metric px-3 py-3">{item.id}</td>
+
+                      <td className="max-w-[220px] truncate px-3 py-3 font-medium text-slate-900 dark:text-slate-100">
+                        {item.productName}
+                        <span className="font-normal text-slate-400">
+                          {' '}
+                          — {item.variantName}
+                        </span>
                       </td>
 
-                      <td className="py-3 px-3 font-medium text-slate-900 dark:text-slate-100">
-                        {item.productName}{' '}
-                        <span className="text-slate-400 font-normal">— {item.variantName}</span>
-                      </td>
-
-                      <td className="py-3 px-3 text-slate-600 dark:text-slate-400">
+                      <td className="px-3 py-3 text-sm text-slate-600 dark:text-slate-400">
                         {getCredentialTypeLabel(item.credentialType)}
                       </td>
 
-                      <td className="py-3 px-3 font-mono text-xs text-slate-700 dark:text-slate-300 max-w-[260px] truncate">
+                      <td className="admin-metric max-w-[220px] truncate px-3 py-3">
                         {isRevealed ? item.secretValue : maskedSecret}
                       </td>
 
-                      <td className="py-3 px-3">
+                      <td className="px-3 py-3">
+                        <ExpiresCell item={item} />
+                      </td>
+
+                      <td className="px-3 py-3">
                         {item.status === 'available' ? (
-                          <StatusIndicator tone="emerald" label="In Stock" />
+                          <StatusIndicator tone="emerald" label="Available" />
+                        ) : item.status === 'expired' ? (
+                          <StatusIndicator tone="red" label="Expired" />
+                        ) : item.status === 'replaced' ? (
+                          <StatusIndicator tone="blue" label="Replaced" />
                         ) : (
                           <StatusIndicator tone="zinc" label="Delivered" />
                         )}
                       </td>
 
-                      <td className="py-3 px-4 text-right">
-                        <div className="inline-flex items-center gap-1.5">
-                          {item.noteBBCode && (
-                            <button
-                              type="button"
-                              onClick={() => setInspectNoteItem(item)}
-                              className="px-2 py-1 text-[11px] font-medium border border-amber-300 dark:border-amber-800 bg-amber-50/80 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 rounded-md cursor-pointer"
-                            >
-                              Note
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => toggleReveal(item.id)}
-                            className="p-1.5 border border-slate-200 dark:border-slate-700 rounded-md hover:border-slate-400 text-slate-600 dark:text-slate-300 cursor-pointer"
-                            title={isRevealed ? 'Hide' : 'Reveal'}
-                          >
-                            {isRevealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleCopy(item.id, item.secretValue)}
-                            className="px-2.5 py-1 text-xs font-medium border border-slate-200 dark:border-slate-700 rounded-md hover:border-emerald-500 text-slate-700 dark:text-slate-300 inline-flex items-center gap-1 cursor-pointer"
-                          >
-                            {copiedId === item.id ? (
-                              <>
-                                <Check className="w-3 h-3 text-emerald-600" />
-                                <span>Copied</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-3 h-3" />
-                                <span>Copy</span>
-                              </>
-                            )}
-                          </button>
-                          {item.status === 'available' && (
-                            <button
-                              type="button"
-                              onClick={() => onDeleteCredential(item.id)}
-                              className="p-1.5 border border-slate-200 dark:border-slate-700 rounded-md hover:border-rose-500 hover:text-rose-600 text-slate-400 cursor-pointer"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
+                      <td className="px-4 py-3 text-right">
+                        <VaultRowActions
+                          item={item}
+                          revealed={isRevealed}
+                          copied={copiedId === item.id}
+                          menuOpen={openMenuId === item.id}
+                          onMenuToggle={() =>
+                            setOpenMenuId((prev) =>
+                              prev === item.id ? null : item.id,
+                            )
+                          }
+                          onMenuClose={() => setOpenMenuId(null)}
+                          onView={() => onViewCredential(item.id)}
+                          onEdit={() => onEditCredential(item.id)}
+                          onToggleReveal={() => toggleReveal(item.id)}
+                          onCopy={() => handleCopy(item.id, item.secretValue)}
+                          onDelete={
+                            item.status === 'available'
+                              ? () => onDeleteCredential(item.id)
+                              : undefined
+                          }
+                        />
                       </td>
                     </tr>
                   );
@@ -312,26 +540,12 @@ export default function VaultView({
           </div>
         )}
 
-        <PaginationFooter totalItems={filteredVault.length} pageSize={10} currentPage={1} />
+        <PaginationFooter
+          totalItems={filteredVault.length}
+          pageSize={10}
+          currentPage={1}
+        />
       </Card>
-
-      <ModalShell
-        open={Boolean(inspectNoteItem)}
-        onClose={() => setInspectNoteItem(null)}
-        title={`Credential Note (${inspectNoteItem?.id})`}
-        maxWidth="max-w-md"
-      >
-        {inspectNoteItem && (
-          <div className="space-y-3 text-xs">
-            <div className="font-semibold text-slate-900 dark:text-slate-100">
-              {inspectNoteItem.productName} — {inspectNoteItem.variantName}
-            </div>
-            {inspectNoteItem.noteBBCode && (
-              <BBCodeRenderer content={inspectNoteItem.noteBBCode} />
-            )}
-          </div>
-        )}
-      </ModalShell>
 
       <FloatingBulkActionBar
         selectedCount={selectedIds.length}

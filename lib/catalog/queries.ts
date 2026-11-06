@@ -6,6 +6,7 @@ export async function listCatalogProducts(): Promise<Product[]> {
   const rows = await db.product.findMany({
     where: { isActive: true },
     include: {
+      catalogCategory: true,
       plans: {
         where: { isActive: true },
         orderBy: { priceBdt: 'asc' },
@@ -23,6 +24,7 @@ export async function getCatalogProductBySlug(
   const row = await db.product.findFirst({
     where: { slug, isActive: true },
     include: {
+      catalogCategory: true,
       plans: {
         where: { isActive: true },
         orderBy: { priceBdt: 'asc' },

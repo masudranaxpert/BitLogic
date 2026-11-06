@@ -33,6 +33,8 @@ export function PaginationFooter({
     onPageChange?.(clamped);
   };
 
+  if (totalItems === 0) return null;
+
   return (
     <div className="px-4 py-3 border-t border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-400 bg-slate-50/40 dark:bg-slate-900/40 rounded-b-[10px]">
       <div className="flex flex-wrap items-center gap-2">

@@ -12,14 +12,22 @@ import type {
   SystemFeatureFlag,
   MediaAsset,
   ProductVariant,
+  WarrantyPlan,
+  CredentialScheme,
+  ProductCategory,
 } from '@/lib/admin/types';
 import OverviewView from '@/components/admin/views/OverviewView';
 import ProductsView from '@/components/admin/views/ProductsView';
 import ProductAddView from '@/components/admin/views/ProductAddView';
+import WarrantiesView from '@/components/admin/views/WarrantiesView';
+import CredentialSchemesView from '@/components/admin/views/CredentialSchemesView';
+import CategoriesView from '@/components/admin/views/CategoriesView';
 import VaultView from '@/components/admin/views/VaultView';
 import { useEffect } from 'react';
 import VaultManualAddView from '@/components/admin/views/VaultManualAddView';
 import VaultBulkImportView from '@/components/admin/views/VaultBulkImportView';
+import VaultCredentialView from '@/components/admin/views/VaultCredentialView';
+import VaultCredentialEditView from '@/components/admin/views/VaultCredentialEditView';
 import DeliveriesView from '@/components/admin/views/DeliveriesView';
 import TicketsView from '@/components/admin/views/TicketsView';
 import UsersSubscriptionsView from '@/components/admin/views/UsersSubscriptionsView';
@@ -65,6 +73,12 @@ export type AdminViewRouterProps = {
   openProductOptionPage: (productId?: string, variantId?: string) => void;
   openProductEditPage: (productId: string, variantId?: string) => void;
   products: DigitalProduct[];
+  warranties: WarrantyPlan[];
+  onWarrantiesChange: (next: WarrantyPlan[]) => void;
+  credentialSchemes: CredentialScheme[];
+  onCredentialSchemesChange: (next: CredentialScheme[]) => void;
+  productCategories: ProductCategory[];
+  onProductCategoriesChange: (next: ProductCategory[]) => void;
   vault: VaultCredential[];
   deliveries: DigitalDelivery[];
   tickets: AdminSupportTicket[];
@@ -94,12 +108,15 @@ export type AdminViewRouterProps = {
   handleAddVariant: (productId: string, variant: ProductVariant) => void;
   handleUpdateVariant: (productId: string, variant: ProductVariant) => void;
   handleDeleteCredential: (id: string) => void;
+  handleUpdateCredential: (item: VaultCredential) => void;
   handleAddCredentials: (items: VaultCredential[]) => void;
+  openVaultViewPage: (id: string) => void;
+  openVaultEditPage: (id: string) => void;
   handleSelectChatDelivery: (id: string | null) => void;
   handleSendOrderChatMessage: (...args: any[]) => void;
   handleSimulateBuyerMessage: (deliveryId: string) => void;
   handleFulfillDelivery: (...args: any[]) => void;
-  handleSimulateOrder: (...args: any[]) => void;
+  handleTogglePinOrder: (deliveryId: string) => void;
   handleSelectTicket: (id: string | null) => void;
   handleReplyTicket: (...args: any[]) => void;
   handleUpdateTicketStatus: (...args: any[]) => void;
@@ -108,10 +125,10 @@ export type AdminViewRouterProps = {
   handleSimulateBuyerTicketReply: (ticketId: string) => void;
   handleOpenOrderChatFromTicket: (orderId: string, deliveryId?: string) => void;
   handleAddCustomer: (customer: SubscriberUser) => void;
-  handleExtendSubscription: (...args: any[]) => void;
+  handleRenewSubscription: (...args: any[]) => void;
   handleAssignSubscription: (...args: any[]) => void;
   handleToggleUserStatus: (userId: string) => void;
-  handleChangeUserRole: (...args: any[]) => void;
+  handleUpdateCustomer: (...args: any[]) => void;
   handleAddMediaAsset: (asset: MediaAsset) => void;
   handleDeleteMediaAsset: (id: string) => void;
   handleRejectOrRefundPayment: (...args: any[]) => void;
@@ -128,6 +145,12 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
     openProductOptionPage,
     openProductEditPage,
     products,
+    warranties,
+    onWarrantiesChange,
+    credentialSchemes,
+    onCredentialSchemesChange,
+    productCategories,
+    onProductCategoriesChange,
     vault,
     deliveries,
     tickets,
@@ -149,12 +172,15 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
     handleAddVariant,
     handleUpdateVariant,
     handleDeleteCredential,
+    handleUpdateCredential,
     handleAddCredentials,
+    openVaultViewPage,
+    openVaultEditPage,
     handleSelectChatDelivery,
     handleSendOrderChatMessage,
     handleSimulateBuyerMessage,
     handleFulfillDelivery,
-    handleSimulateOrder,
+    handleTogglePinOrder,
     handleSelectTicket,
     handleReplyTicket,
     handleUpdateTicketStatus,
@@ -163,10 +189,10 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
     handleSimulateBuyerTicketReply,
     handleOpenOrderChatFromTicket,
     handleAddCustomer,
-    handleExtendSubscription,
+    handleRenewSubscription,
     handleAssignSubscription,
     handleToggleUserStatus,
-    handleChangeUserRole,
+    handleUpdateCustomer,
     handleAddMediaAsset,
     handleDeleteMediaAsset,
     handleRejectOrRefundPayment,
@@ -209,6 +235,9 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
             <ProductAddView
               key={searchParams.get('productId') ?? 'product-new'}
               mediaAssets={mediaAssets}
+              warranties={warranties}
+              credentialSchemes={credentialSchemes}
+              productCategories={productCategories}
               editingProduct={
                 searchParams.get('productId')
                   ? products.find((p) => p.id === searchParams.get('productId')) ||
@@ -220,6 +249,28 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
               onUpdateProduct={handleUpdateProduct}
               onCancel={() => setActiveTab('products')}
               onOpenMediaLibrary={() => setActiveTab('media')}
+              onOpenWarranties={() => setActiveTab('warranties')}
+              onOpenCredentialTypes={() => setActiveTab('credential-types')}
+              onOpenCategories={() => setActiveTab('categories')}
+            />
+          )}
+
+          {activeTab === 'warranties' && (
+            <WarrantiesView warranties={warranties} onChange={onWarrantiesChange} />
+          )}
+
+          {activeTab === 'credential-types' && (
+            <CredentialSchemesView
+              schemes={credentialSchemes}
+              onChange={onCredentialSchemesChange}
+            />
+          )}
+
+          {activeTab === 'categories' && (
+            <CategoriesView
+              categories={productCategories}
+              products={products}
+              onChange={onProductCategoriesChange}
             />
           )}
 
@@ -242,6 +293,8 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
               vault={vault}
               onOpenManualAddPage={() => setActiveTab('vault-manual')}
               onOpenBulkImportPage={() => setActiveTab('vault-bulk')}
+              onViewCredential={openVaultViewPage}
+              onEditCredential={openVaultEditPage}
               onDeleteCredential={handleDeleteCredential}
             />
           )}
@@ -250,6 +303,7 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
             <VaultManualAddView
               products={products}
               vault={vault}
+              credentialSchemes={credentialSchemes}
               preselectedTarget={preselectedVaultTarget}
               onClearPreselectedTarget={() => setPreselectedVaultTarget(null)}
               onAddCredentials={handleAddCredentials}
@@ -266,17 +320,64 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
             />
           )}
 
-          {activeTab === 'deliveries' && (
+          {activeTab === 'vault-view' && (
+            <VaultCredentialView
+              key={searchParams.get('id') || 'missing'}
+              item={
+                vault.find((v) => v.id === searchParams.get('id')) || null
+              }
+              onBack={() => setActiveTab('vault')}
+              onEdit={openVaultEditPage}
+              onDelete={handleDeleteCredential}
+            />
+          )}
+
+          {activeTab === 'vault-edit' && (
+            <VaultCredentialEditView
+              key={searchParams.get('id') || 'missing'}
+              item={
+                vault.find((v) => v.id === searchParams.get('id')) || null
+              }
+              onBack={() => setActiveTab('vault')}
+              onSave={handleUpdateCredential}
+            />
+          )}
+
+          {(activeTab === 'deliveries' ||
+            activeTab === 'orders-pinned' ||
+            activeTab === 'orders-renewals' ||
+            activeTab === 'warranty-claims') && (
             <DeliveriesView
               products={products}
               vault={vault}
               deliveries={deliveries}
+              payments={payments}
+              subscribers={subscribers}
+              onCreateOrderDelivery={handleAssignSubscription}
               selectedChatDeliveryId={selectedChatDeliveryId}
               onSelectChatDelivery={handleSelectChatDelivery}
               onSendOrderChatMessage={handleSendOrderChatMessage}
               onSimulateBuyerMessage={handleSimulateBuyerMessage}
               onFulfillDelivery={handleFulfillDelivery}
-              onSimulateOrder={handleSimulateOrder}
+              onTogglePinOrder={handleTogglePinOrder}
+              pageMode={
+                activeTab === 'orders-pinned'
+                  ? 'pinned'
+                  : activeTab === 'orders-renewals'
+                    ? 'renewals'
+                    : activeTab === 'warranty-claims'
+                      ? 'warranty'
+                      : 'all'
+              }
+              pageTitle={
+                activeTab === 'orders-pinned'
+                  ? 'Pinned Orders'
+                  : activeTab === 'orders-renewals'
+                    ? 'Renewals'
+                    : activeTab === 'warranty-claims'
+                      ? 'Warranty Claims'
+                      : 'Orders'
+              }
             />
           )}
 
@@ -316,10 +417,10 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
               onOpenAddCustomer={() => setActiveTab('user-add')}
               onBackToList={() => setActiveTab('users')}
               onAddCustomer={handleAddCustomer}
-              onExtendSubscription={handleExtendSubscription}
+              onRenewSubscription={handleRenewSubscription}
               onAssignSubscription={handleAssignSubscription}
               onToggleUserStatus={handleToggleUserStatus}
-              onChangeUserRole={handleChangeUserRole}
+              onUpdateCustomer={handleUpdateCustomer}
             />
           )}
 

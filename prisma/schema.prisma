@@ -24,45 +24,105 @@ model User {
   orders       Order[]
 }
 
+/// Product → Categories taxonomy
+model CatalogCategory {
+  id        String    @id
+  name      String
+  /// Storefront filter code: AI | STREAM | WORK | CREATE
+  code      String    @default("AI")
+  createdAt DateTime  @default(now())
+  products  Product[]
+}
+
+/// Product → Warranties taxonomy
+model WarrantyTemplate {
+  id        String   @id
+  name      String
+  badge     String
+  headline  String
+  /// warranty | login-only
+  kind      String   @default("warranty")
+  days      Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Product → Credential Types taxonomy
+model CredentialScheme {
+  id         String   @id
+  name       String
+  fieldsJson String   @default("[]")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
 model Product {
-  id           String        @id @default(cuid())
-  slug         String        @unique
-  name         String
-  description  String        @default("")
-  tagline      String        @default("")
-  category     String
-  platform     String        @default("")
-  imageUrl     String?
-  galleryJson  String        @default("[]")
-  featuresJson String        @default("[]")
-  badge        String?
-  sale         Boolean       @default(false)
-  featured     Boolean       @default(false)
-  isActive     Boolean       @default(true)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  plans        ProductPlan[]
-  orderItems   OrderItem[]
+  id               String           @id @default(cuid())
+  slug             String           @unique
+  name             String
+  description      String           @default("")
+  tagline          String           @default("")
+  /// Display category name (denormalized from CatalogCategory.name)
+  category         String
+  categoryId       String?
+  catalogCategory  CatalogCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  platform         String           @default("")
+  imageUrl         String?
+  galleryJson      String           @default("[]")
+  featuresJson     String           @default("[]")
+  badge            String?
+  sale             Boolean          @default(false)
+  featured         Boolean          @default(false)
+  isActive         Boolean          @default(true)
+  /// Admin SKU
+  sku              String           @default("")
+  /// active | draft | out_of_stock
+  status           String           @default("active")
+  totalSales       Int              @default(0)
+  monthlyRevenueBdt Int             @default(0)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  plans            ProductPlan[]
+  orderItems       OrderItem[]
+
+  @@index([categoryId])
+  @@index([status])
 }
 
 model ProductPlan {
-  id               String      @id @default(cuid())
-  productId        String
-  product          Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
-  /// Stable public plan key (e.g. cg-shared-1m)
-  code             String
-  label            String
-  durationLabel    String
-  durationDays     Int
-  priceBdt         Decimal
-  warrantyBadge    String?
-  warrantyType     String?
-  warrantyHeadline String?
-  detailsJson      String      @default("[]")
-  isActive         Boolean     @default(true)
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
-  orderItems       OrderItem[]
+  id                  String      @id @default(cuid())
+  productId           String
+  product             Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  /// Stable public plan key (e.g. cg-shared-1m) — also used as admin variant id when set
+  code                String
+  label               String
+  durationLabel       String
+  durationDays        Int
+  priceBdt            Decimal
+  warrantyBadge       String?
+  warrantyType        String?
+  warrantyHeadline    String?
+  detailsJson         String      @default("[]")
+  isActive            Boolean     @default(true)
+  isDefault           Boolean     @default(false)
+  credentialSchemeId  String?
+  /// email_login | token | license_key | invite_link
+  credentialType      String      @default("email_login")
+  /// auto_vault | manual_dispatch
+  deliveryMode        String      @default("auto_vault")
+  stockDisplayMode    String      @default("exact_count")
+  vpnRequired         Boolean     @default(false)
+  vpnRegionNote       String      @default("")
+  hasWarranty         Boolean     @default(true)
+  warrantyDays        Int         @default(0)
+  deviceLimit         String      @default("")
+  importantNote       String      @default("")
+  warningNote         String      @default("")
+  optionDescription   String      @default("")
+  specificationsJson  String      @default("[]")
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  orderItems          OrderItem[]
 
   @@unique([productId, code])
   @@index([productId])
@@ -97,4 +157,234 @@ model OrderItem {
   @@index([orderId])
   @@index([productId])
   @@index([planId])
+}
+
+/// Credential Vault inventory
+model VaultCredential {
+  id                 String   @id
+  productId          String
+  productName        String
+  variantId          String
+  variantName        String
+  credentialType     String
+  secretValue        String
+  email              String?
+  password           String?
+  profilePin         String?
+  noteBBCode         String?
+  /// available | delivered | replaced | expired
+  status             String   @default("available")
+  /// Stock meyaad in days from addedAt (set on Credentials add).
+  validDays          Int      @default(30)
+  /// Absolute stock end date YYYY-MM-DD
+  expiresAt          String?
+  batchNote          String   @default("")
+  addedAt            String
+  assignedOrderId    String?
+  assignedBuyerEmail String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([productId, variantId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+/// Fulfillment / order delivery + chat
+model DigitalDelivery {
+  id                      String   @id
+  orderId                 String
+  createdAtLabel          String
+  deliveredAt             String?
+  buyerName               String
+  buyerEmail              String
+  buyerPhone              String
+  productId               String
+  productName             String
+  variantId               String
+  variantName             String
+  credentialType          String
+  deliveryMode            String
+  /// delivered | pending_dispatch | warranty_claim | replaced | revoked
+  status                  String
+  /// Deprecated blob — kept empty; secret lives in Vault + CredentialAudit
+  payloadJson             String   @default("{}")
+  /// Current Vault row linked to this delivery (source of truth for secret)
+  vaultCredentialId       String?
+  vpnRequired             Boolean  @default(false)
+  vpnRegionNote           String   @default("")
+  hasWarranty             Boolean  @default(false)
+  warrantyDays            Int      @default(0)
+  warrantyRemainingDays   Int      @default(0)
+  warrantyTerms           String   @default("")
+  warrantyClaimReason     String?
+  replacementHistoryCount Int      @default(0)
+  loginInstructionsJson   String   @default("[]")
+  customAdminNote         String   @default("")
+  unreadChatCount         Int      @default(0)
+  chatMessagesJson        String   @default("[]")
+  pinned                  Boolean  @default(false)
+  orderExpiresAt          String?
+  credentialValidDays     Int      @default(30)
+  credentialAssignedAt    String?
+  credentialExpiresAt     String?
+  renewalPending          Boolean  @default(false)
+  credentialClearedAt     String?
+  /// Total units purchased on this ORD line
+  orderQuantity           Int      @default(1)
+  /// 1-based unit index within the order (1…orderQuantity)
+  unitIndex               Int      @default(1)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  credentialAudits        CredentialAudit[]
+
+  @@index([status])
+  @@index([orderId])
+  @@index([vaultCredentialId])
+  @@index([pinned])
+  @@index([renewalPending])
+  @@index([credentialExpiresAt])
+}
+
+/// Secret assign / replace history (production audit trail)
+model CredentialAudit {
+  id                  String          @id
+  deliveryId          String
+  delivery            DigitalDelivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  atLabel             String
+  /// assigned | replaced | renewed | expired | cleared
+  action              String
+  /// vault | custom | system
+  source              String
+  secretValue         String
+  previousSecretValue String?
+  vaultCredentialId   String?
+  note                String?
+  credentialExpiresAt String?
+  createdAt           DateTime        @default(now())
+
+  @@index([deliveryId, createdAt])
+  @@index([vaultCredentialId])
+}
+
+model SupportTicket {
+  id           String   @id
+  subject      String
+  orderId      String
+  deliveryId   String?
+  buyerName    String
+  buyerEmail   String
+  buyerPhone   String
+  productName  String
+  category     String
+  priority     String
+  /// open | answered | closed
+  status       String
+  updatedAtLabel String
+  unreadCount  Int      @default(0)
+  messagesJson String   @default("[]")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([status])
+}
+
+model AdminNotification {
+  id         String   @id
+  type       String
+  orderId    String?
+  deliveryId String?
+  ticketId   String?
+  title      String
+  message    String
+  timeLabel  String
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([read])
+}
+
+/// Admin CRM customer (may mirror User email)
+model AdminSubscriber {
+  id                    String   @id
+  name                  String
+  email                 String   @unique
+  phone                 String   @default("")
+  joinedAt              String
+  /// active | past_due | suspended
+  status                String   @default("active")
+  /// subscriber | reseller | vip
+  role                  String   @default("subscriber")
+  subscriptionsJson     String   @default("[]")
+  totalSpentBdt         Int      @default(0)
+  ordersCount           Int      @default(0)
+  warrantyClaimsCount   Int      @default(0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model PaymentTransaction {
+  id               String   @id
+  orderId          String
+  buyerName        String
+  buyerEmail       String
+  productSummary   String
+  amountBdt        Int
+  gateway          String
+  senderNumberOrRef String
+  trxId            String
+  /// verified | pending_verification | refunded | rejected
+  status           String
+  /// purchase | renewal | manual
+  kind             String   @default("purchase")
+  deliveryId       String?
+  createdAtLabel   String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([status])
+  @@index([orderId])
+  @@index([deliveryId])
+}
+
+model CouponCode {
+  id            String   @id
+  code          String   @unique
+  discountType  String
+  discountValue Int
+  minSpendBdt   Int      @default(0)
+  usedCount     Int      @default(0)
+  maxUses       Int      @default(0)
+  expiresAt     String
+  /// active | expired | disabled
+  status        String   @default("active")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model SystemFeatureFlag {
+  id          String   @id
+  category    String
+  name        String
+  key         String   @unique
+  description String   @default("")
+  enabled     Boolean  @default(false)
+  impactNote  String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model MediaAsset {
+  id             String   @id
+  name           String
+  fileName       String
+  folder         String
+  url            String
+  dimensions     String   @default("")
+  sizeKb         Int      @default(0)
+  mimeType       String
+  uploadedAt     String
+  usedByProduct  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
