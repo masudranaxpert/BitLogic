@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/auth/require-admin';
+import { requirePermission } from '@/lib/auth/require-admin';
 import {
   replaceCategories,
   replaceCredentialSchemes,
@@ -18,7 +18,7 @@ type TaxonomyBody = {
 };
 
 export async function PUT(request: Request) {
-  const { error } = await requireAdmin();
+  const { error } = await requirePermission('products');
   if (error) return error;
 
   try {

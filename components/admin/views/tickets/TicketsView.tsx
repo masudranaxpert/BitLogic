@@ -38,7 +38,6 @@ interface TicketsViewProps {
     priority: AdminSupportTicket['priority'];
     initialMessage: string;
   }) => void;
-  onSimulateBuyerTicketReply: (ticketId: string) => void;
   onOpenOrderChat: (orderId: string, deliveryId?: string) => void;
 }
 
@@ -51,7 +50,6 @@ export default function TicketsView({
   onUpdateTicketStatus,
   onUpdateTicketPriority,
   onCreateTicket,
-  onSimulateBuyerTicketReply,
   onOpenOrderChat,
 }: TicketsViewProps) {
   const [statusFilter, setStatusFilter] = useState<
@@ -99,7 +97,6 @@ export default function TicketsView({
         onReplyTicket={onReplyTicket}
         onUpdateTicketStatus={onUpdateTicketStatus}
         onUpdateTicketPriority={onUpdateTicketPriority}
-        onSimulateBuyerTicketReply={onSimulateBuyerTicketReply}
         onOpenOrderChat={onOpenOrderChat}
       />
     );

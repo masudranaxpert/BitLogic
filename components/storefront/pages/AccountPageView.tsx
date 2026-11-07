@@ -1,5 +1,6 @@
-﻿'use client';
+'use client';
 
+import { RenewOrderCard } from '@/components/storefront/ui/RenewOrderCard';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   LayoutDashboard,
@@ -11,30 +12,23 @@ import {
   ShoppingBag,
   Menu,
   X,
-  CheckCircle2,
-  Plus,
-  Send,
-  ArrowLeft,
-  Lock,
-  Phone,
-  Mail,
-  Paperclip,
-  FileText,
-  Reply,
   Bell,
   MessageSquare,
-  ArrowUpRight,
   Check,
-  KeyRound,
 } from 'lucide-react';
-import { clearCustomer, writeCustomer } from '@/lib/customerSession';
+import {
+  clearCustomer,
+  getOrderAccessToken,
+  orderAccessProofs,
+  readRememberedOrderIds,
+  writeCustomer,
+} from '@/lib/customerSession';
 import { useCustomerSession } from '@/hooks/use-customer-session';
 import { formatPrice } from '@/lib/products';
 import {
   DurationBadge,
   OrderAccessDetailView,
   OrderRowCard,
-  StatusBadge,
   StoreButton,
   StoreInputField,
   StorePagination,
@@ -44,622 +38,115 @@ import {
   StoreSurfaceCard,
   StoreTextareaField,
   WarrantyBadge,
-  WhatsAppIcon,
   type ChatAttachment,
   type CustomerOrderItem,
   type OrderChatMessage,
   type SearchableSelectOption,
 } from '@/components/storefront/ui';
 import { useStoreNav, type AccountTab } from '@/context/StoreNavContext';
+import {
+  AccountSkeleton,
+  useHydrated,
+} from '@/components/storefront/pages/account/AccountSkeleton';
+import type {
+  AccountNotificationItem,
+  SupportTicketItem,
+  SupportTicketMessage,
+  WarrantyClaimItem,
+} from '@/components/storefront/pages/account/account-types';
+import {
+  CLAIMS_PER_PAGE,
+  ISSUE_TYPES,
+  MAX_FILE_BYTES,
+  MAX_NOTIFICATIONS_SHOWN,
+  ORDERS_PER_PAGE,
+  TICKETS_PER_PAGE,
+} from '@/components/storefront/pages/account/account-utils';
+import { AccountProfilePanel } from '@/components/storefront/pages/account/AccountProfilePanel';
+import { AccountOverviewPanel } from '@/components/storefront/pages/account/AccountOverviewPanel';
+import { AccountTicketsPanel } from '@/components/storefront/pages/account/AccountTicketsPanel';
+import { AccountWarrantyPanel } from '@/components/storefront/pages/account/AccountWarrantyPanel';
 
-interface SupportTicketMessage {
-  id: string;
-  sender: 'customer' | 'support';
-  senderName: string;
-  text: string;
-  time: string;
-  replyTo?: {
-    id: string;
-    senderName: string;
-    text: string;
-  };
-  attachment?: ChatAttachment;
-}
+const INITIAL_ORDERS: CustomerOrderItem[] = [];
+const INITIAL_TICKETS: SupportTicketItem[] = [];
+const INITIAL_WARRANTY_CLAIMS: WarrantyClaimItem[] = [];
+const INITIAL_NOTIFICATIONS: AccountNotificationItem[] = [];
 
-interface SupportTicketItem {
-  id: string;
-  subject: string;
-  orderId: string;
-  category: string;
-  priority: 'Normal' | 'High' | 'Urgent';
-  status: 'Open' | 'Answered' | 'Closed';
-  updatedAt: string;
-  messages: SupportTicketMessage[];
-}
-
-interface WarrantyClaimItem {
-  id: string;
-  orderId: string;
-  productName: string;
-  planName: string;
-  issueType: string;
-  description: string;
-  date: string;
-  status: 'In Review' | 'Resolved';
-}
-
-interface AccountNotificationItem {
-  id: string;
-  type: 'order_chat' | 'ticket' | 'warranty';
-  orderId?: string;
-  ticketId?: string;
-  title: string;
-  message: string;
-  time: string;
-  read: boolean;
-}
-
-const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5MB
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-}
-
-const INITIAL_ORDERS: CustomerOrderItem[] = [
-  {
-    id: 'ORD-9995',
-    productName: 'Coursera Plus Annual',
-    planName: 'Personal Mail Activation',
-    duration: '12 Months',
-    date: '2026-11-04',
-    expiryDate: '2027-11-04',
-    daysRemaining: 365,
-    totalDays: 365,
-    price: 950,
-    paymentMethod: 'bkash',
-    trxId: 'BKX99410P',
-    status: 'Pending (10–24h)',
-    warrantyLabel: '300D Warranty',
-    warrantyDaysLeft: 300,
-    deliveryEta: '10–24h delivery',
-    loginEmail: 'masud132213@gmail.com',
-    unreadChatCount: 1,
-    extraInfo: [
-      { label: 'Activation', value: 'Personal Email Invite' },
-      { label: 'Target Email', value: 'masud132213@gmail.com' },
-      { label: 'Delivery Time', value: '10–24 Hours' },
-      { label: 'Certificates', value: 'Included' },
-    ],
-    usageRules: [
-      'Invite is sent to masud132213@gmail.com within 10–24 hours.',
-      'Accept the invitation link within 48 hours of receipt.',
-    ],
-    chatMessages: [
-      {
-        id: 'm-1',
-        sender: 'support',
-        senderName: 'Support',
-        text: 'Payment BKX99410P verified. Activation on masud132213@gmail.com is scheduled (10–24h).',
-        time: '10:15 AM',
-      },
-      {
-        id: 'm-2',
-        sender: 'customer',
-        senderName: 'You',
-        text: 'Please send the invite to masud132213@gmail.com.',
-        time: '10:17 AM',
-      },
-      {
-        id: 'm-3',
-        sender: 'support',
-        senderName: 'Support',
-        text: 'Confirmed! Your Coursera Plus invite is now at the top of the batch queue.',
-        time: '10:22 AM',
-      },
-    ],
-  },
-  {
-    id: 'ORD-9982',
-    productName: 'Gemini Advanced',
-    planName: 'Gemini Jio 18M + 2TB',
-    duration: '18 Months',
-    date: '2026-11-02',
-    expiryDate: '2028-05-02',
-    daysRemaining: 544,
-    totalDays: 548,
-    price: 1450,
-    paymentMethod: 'bkash',
-    trxId: 'BKX98271A',
-    status: 'Active',
-    warrantyLabel: '25D Warranty',
-    warrantyDaysLeft: 23,
-    loginEmail: 'gemini.masud@bl-auth.com',
-    loginPassword: 'BL@Jio2026!#',
-    twoFactorCode: '8492-1104',
-    accessUrl: 'https://gemini.google.com',
-    secretText: 'gemini.masud@bl-auth.com | BL@Jio2026!#',
-    unreadChatCount: 1,
-    extraInfo: [
-      { label: 'Type', value: 'Private Account' },
-      { label: 'Storage', value: '2 TB Google One' },
-      { label: 'Devices', value: 'Up to 3 Devices' },
-    ],
-    usageRules: [
-      'Sign in at accounts.google.com.',
-      'Keep the 2FA backup code saved for device verification.',
-    ],
-    chatMessages: [
-      {
-        id: 'm-10',
-        sender: 'support',
-        senderName: 'Support',
-        text: 'Credentials delivered for Gemini Advanced 18M + 2TB. Backup code 8492-1104 is attached.',
-        time: 'Nov 02',
-      },
-    ],
-  },
-  {
-    id: 'ORD-9921',
-    productName: 'ChatGPT Plus',
-    planName: 'Private Mail Access',
-    duration: '1 Month',
-    date: '2026-10-28',
-    expiryDate: '2026-11-28',
-    daysRemaining: 24,
-    totalDays: 30,
-    price: 320,
-    paymentMethod: 'nagad',
-    trxId: 'NGD44812K',
-    status: 'Active',
-    warrantyLabel: '25D Warranty',
-    warrantyDaysLeft: 18,
-    loginEmail: 'chat.masud99@bitlogic.com.bd',
-    loginPassword: 'Blgpt@2026#',
-    accessUrl: 'https://chatgpt.com',
-    secretText: 'chat.masud99@bitlogic.com.bd | Blgpt@2026#',
-    unreadChatCount: 0,
-    extraInfo: [
-      { label: 'Workspace', value: 'Team Seat #4' },
-      { label: 'Devices', value: '1 PC + 1 Mobile' },
-    ],
-    usageRules: [
-      'Do not change the account password.',
-      'Select Team Workspace after login.',
-    ],
-    chatMessages: [
-      {
-        id: 'm-20',
-        sender: 'support',
-        senderName: 'Support',
-        text: 'ChatGPT Plus seat is active.',
-        time: 'Oct 28',
-      },
-    ],
-  },
-  {
-    id: 'ORD-9844',
-    productName: 'Netflix 4K Ultra HD',
-    planName: '1 Screen PIN Profile',
-    duration: '1 Month',
-    date: '2026-10-15',
-    expiryDate: '2026-11-15',
-    daysRemaining: 11,
-    totalDays: 30,
-    price: 280,
-    paymentMethod: 'bkash',
-    trxId: 'BKX77301M',
-    status: 'Active',
-    warrantyLabel: '25D Warranty',
-    warrantyDaysLeft: 11,
-    loginEmail: 'netflix.stream2@bdplay.io',
-    loginPassword: 'Stream@Bl2026',
-    profilePin: '4891',
-    accessUrl: 'https://www.netflix.com/login',
-    secretText: 'netflix.stream2@bdplay.io | Stream@Bl2026 | PIN: 4891',
-    extraInfo: [
-      { label: 'Profile', value: 'Profile #3 (Masud)' },
-      { label: 'PIN', value: '4891' },
-      { label: 'Screens', value: '1 Device' },
-    ],
-    usageRules: [
-      'Use Profile #3 (PIN 4891) only.',
-      'Do not modify other profiles or account settings.',
-    ],
-    chatMessages: [],
-  },
-  {
-    id: 'ORD-9790',
-    productName: 'Perplexity Pro',
-    planName: 'Private Account',
-    duration: '1 Month',
-    date: '2026-10-12',
-    expiryDate: '2026-11-12',
-    daysRemaining: 8,
-    totalDays: 30,
-    price: 350,
-    paymentMethod: 'bkash',
-    trxId: 'BKX66210Q',
-    status: 'Active',
-    warrantyLabel: '25D Warranty',
-    warrantyDaysLeft: 8,
-    loginEmail: 'pplx.masud@bitlogic.com.bd',
-    loginPassword: 'Pplx@2026!',
-    accessUrl: 'https://www.perplexity.ai',
-    secretText: 'pplx.masud@bitlogic.com.bd | Pplx@2026!',
-    extraInfo: [
-      { label: 'Models', value: 'Claude 3.5, GPT-4o, Sonar' },
-      { label: 'Devices', value: '2 Devices' },
-    ],
-    usageRules: ['Sign in directly at perplexity.ai.'],
-    chatMessages: [],
-  },
-  {
-    id: 'ORD-9715',
-    productName: 'Spotify Premium',
-    planName: 'Individual Invite',
-    duration: '3 Months',
-    date: '2026-10-01',
-    expiryDate: '2027-01-01',
-    daysRemaining: 58,
-    totalDays: 90,
-    price: 390,
-    paymentMethod: 'nagad',
-    trxId: 'NGD30192L',
-    status: 'Active',
-    warrantyLabel: '90D Warranty',
-    warrantyDaysLeft: 58,
-    loginEmail: 'masud132213@gmail.com',
-    accessUrl: 'https://open.spotify.com',
-    secretText: 'Family Plan Invite: masud132213@gmail.com',
-    extraInfo: [
-      { label: 'Plan', value: 'Premium Family Slot' },
-      { label: 'Account', value: 'masud132213@gmail.com' },
-    ],
-    usageRules: ['Keep region matched with the family address provided.'],
-    chatMessages: [],
-  },
-  {
-    id: 'ORD-9680',
-    productName: 'YouTube Premium',
-    planName: 'Personal Gmail Invite',
-    duration: '1 Month',
-    date: '2026-09-25',
-    expiryDate: '2026-10-25',
-    daysRemaining: 0,
-    totalDays: 30,
-    price: 160,
-    paymentMethod: 'bkash',
-    trxId: 'BKX21094Z',
-    status: 'Expired',
-    warrantyLabel: '25D Warranty',
-    warrantyDaysLeft: 0,
-    loginEmail: 'masud132213@gmail.com',
-    extraInfo: [{ label: 'Type', value: 'Family Invite' }],
-    usageRules: [],
-    chatMessages: [],
-  },
-  {
-    id: 'ORD-9610',
-    productName: 'Canva Pro',
-    planName: 'Team Invite',
-    duration: 'Lifetime',
-    date: '2026-09-10',
-    expiryDate: 'Lifetime',
-    price: 99,
-    paymentMethod: 'nagad',
-    trxId: 'NGD11094B',
-    status: 'Delivered',
-    warrantyLabel: '1Y Warranty',
-    warrantyDaysLeft: 310,
-    loginEmail: 'masud132213@gmail.com',
-    accessUrl: 'https://www.canva.com',
-    secretText: 'Invite active: masud132213@gmail.com',
-    extraInfo: [
-      { label: 'Team', value: 'Bitlogic Creative' },
-      { label: 'Email', value: 'masud132213@gmail.com' },
-    ],
-    usageRules: ['Switch to Bitlogic Creative from the profile menu.'],
-    chatMessages: [],
-  },
-  {
-    id: 'ORD-9540',
-    productName: 'CapCut Pro',
-    planName: 'Cloud Team Account',
-    duration: '1 Month',
-    date: '2026-09-02',
-    expiryDate: '2026-10-02',
-    daysRemaining: 0,
-    totalDays: 30,
-    price: 220,
-    paymentMethod: 'bkash',
-    trxId: 'BKX10942M',
-    status: 'Expired',
-    warrantyLabel: '25D Warranty',
-    warrantyDaysLeft: 0,
-    loginEmail: 'capcut.pro2@bitlogic.com.bd',
-    loginPassword: 'Cc@2026Pro',
-    extraInfo: [{ label: 'Platform', value: 'PC + Mobile + Web' }],
-    usageRules: [],
-    chatMessages: [],
-  },
-  {
-    id: 'ORD-9490',
-    productName: 'Grammarly Premium',
-    planName: 'Shared Workspace',
-    duration: '1 Month',
-    date: '2026-08-25',
-    expiryDate: '2026-09-25',
-    daysRemaining: 0,
-    totalDays: 30,
-    price: 180,
-    paymentMethod: 'nagad',
-    trxId: 'NGD88310P',
-    status: 'Expired',
-    warrantyLabel: '25D Warranty',
-    warrantyDaysLeft: 0,
-    loginEmail: 'gram.seat8@bitlogic.com.bd',
-    loginPassword: 'Gr@2026#',
-    extraInfo: [{ label: 'Tier', value: 'Business Member' }],
-    usageRules: [],
-    chatMessages: [],
-  },
-  {
-    id: 'ORD-9402',
-    productName: 'Claude 3.5 Sonnet Pro',
-    planName: 'Shared Pro Workspace',
-    duration: '1 Month',
-    date: '2026-08-19',
-    expiryDate: '2026-09-19',
-    daysRemaining: 0,
-    totalDays: 30,
-    price: 420,
-    paymentMethod: 'bkash',
-    trxId: 'BKX55109C',
-    status: 'Refunded',
-    warrantyLabel: '25D Warranty',
-    warrantyDaysLeft: 0,
-    loginEmail: 'claude.pro4@bitlogic.com.bd',
-    extraInfo: [
-      { label: 'Refund Status', value: 'Full Refund Processed' },
-      { label: 'Refund Method', value: 'bKash (BKX55109C)' },
-    ],
-    usageRules: [],
-    chatMessages: [
-      {
-        id: 'm-9402',
-        sender: 'support',
-        senderName: 'Support',
-        text: 'Full refund of ৳420 has been processed to your bKash account.',
-        time: 'Aug 21',
-      },
-    ],
-  },
-  {
-    id: 'ORD-9318',
-    productName: 'Prime Video 4K',
-    planName: '1 Screen Profile',
-    duration: '6 Months',
-    date: '2026-08-05',
-    expiryDate: '2027-02-05',
-    daysRemaining: 93,
-    totalDays: 180,
-    price: 450,
-    paymentMethod: 'bkash',
-    trxId: 'BKX44012V',
-    status: 'Active',
-    warrantyLabel: '180D Warranty',
-    warrantyDaysLeft: 93,
-    loginEmail: 'prime.bd4@bitlogic.com.bd',
-    loginPassword: 'Pv@2026#',
-    profilePin: '2049',
-    accessUrl: 'https://www.primevideo.com',
-    extraInfo: [
-      { label: 'Profile', value: 'Profile #2' },
-      { label: 'PIN', value: '2049' },
-    ],
-    usageRules: ['Sign in and select Profile #2.'],
-    chatMessages: [],
-  },
-];
-
-const INITIAL_TICKETS: SupportTicketItem[] = [
-  {
-    id: 'TKT-4092',
-    subject: 'Coursera Plus activation email',
-    orderId: 'ORD-9995',
-    category: 'Access & Delivery',
-    priority: 'High',
-    status: 'Answered',
-    updatedAt: '10:19 AM',
-    messages: [
-      {
-        id: 'tm-1',
-        sender: 'customer',
-        senderName: 'Masud Ahmed',
-        text: 'Please activate ORD-9995 on masud132213@gmail.com.',
-        time: '10:16 AM',
-      },
-      {
-        id: 'tm-2',
-        sender: 'support',
-        senderName: 'Support',
-        text: 'Queued for masud132213@gmail.com. Delivery takes 10–24 hours.',
-        time: '10:19 AM',
-      },
-    ],
-  },
-  {
-    id: 'TKT-3810',
-    subject: 'Netflix TV verification code',
-    orderId: 'ORD-9844',
-    category: 'Login / Credentials',
-    priority: 'Normal',
-    status: 'Closed',
-    updatedAt: 'Oct 20',
-    messages: [
-      {
-        id: 'tm-3',
-        sender: 'customer',
-        senderName: 'Masud Ahmed',
-        text: 'Need the household verification code for Smart TV.',
-        time: 'Oct 20',
-      },
-      {
-        id: 'tm-4',
-        sender: 'support',
-        senderName: 'Support',
-        text: 'Code: 7741 (valid 15m).',
-        time: 'Oct 20',
-      },
-    ],
-  },
-];
-
-const INITIAL_WARRANTY_CLAIMS: WarrantyClaimItem[] = [
-  {
-    id: 'WRN-204',
-    orderId: 'ORD-9844',
-    productName: 'Netflix 4K Ultra HD',
-    planName: '1 Screen PIN Profile',
-    issueType: 'Profile PIN',
-    description: 'Profile #3 PIN was reset and updated in credentials.',
-    date: '2026-10-18',
-    status: 'Resolved',
-  },
-  {
-    id: 'WRN-189',
-    orderId: 'ORD-9921',
-    productName: 'ChatGPT Plus',
-    planName: 'Private Mail Access',
-    issueType: 'Login / Password',
-    description: 'Workspace invitation re-sent to account email.',
-    date: '2026-10-29',
-    status: 'Resolved',
-  },
-  {
-    id: 'WRN-162',
-    orderId: 'ORD-9715',
-    productName: 'Spotify Premium',
-    planName: 'Individual Invite',
-    issueType: 'Deactivated Early',
-    description: 'Family slot renewed and re-linked to account.',
-    date: '2026-10-09',
-    status: 'Resolved',
-  },
-  {
-    id: 'WRN-145',
-    orderId: 'ORD-9318',
-    productName: 'Prime Video 4K',
-    planName: '1 Screen Profile',
-    issueType: '2FA / OTP Code',
-    description: 'Sent login OTP code for new TV sign-in.',
-    date: '2026-09-14',
-    status: 'Resolved',
-  },
-];
-
-const INITIAL_NOTIFICATIONS: AccountNotificationItem[] = [
-  {
-    id: 'notif-1',
-    type: 'order_chat',
-    orderId: 'ORD-9995',
-    title: 'Coursera Plus Annual',
-    message:
-      'Confirmed! Your Coursera Plus invite is now at the top of the batch queue.',
-    time: '10:22 AM',
-    read: false,
-  },
-  {
-    id: 'notif-2',
-    type: 'order_chat',
-    orderId: 'ORD-9982',
-    title: 'Gemini Advanced',
-    message:
-      'Credentials delivered for Gemini Advanced 18M + 2TB. Backup code 8492-1104 is attached.',
-    time: 'Nov 02',
-    read: false,
-  },
-  {
-    id: 'notif-3',
-    type: 'ticket',
-    ticketId: 'TKT-4092',
-    orderId: 'ORD-9995',
-    title: 'Ticket TKT-4092 replied',
-    message: 'Queued for masud132213@gmail.com. Delivery takes 10–24 hours.',
-    time: '10:19 AM',
-    read: true,
-  },
-  {
-    id: 'notif-4',
-    type: 'order_chat',
-    orderId: 'ORD-9921',
-    title: 'ChatGPT Plus',
-    message: 'ChatGPT Plus Team Workspace seat #4 is now active.',
-    time: 'Oct 28',
-    read: true,
-  },
-  {
-    id: 'notif-5',
-    type: 'warranty',
-    orderId: 'ORD-9844',
-    title: 'Warranty WRN-204 resolved',
-    message: 'Profile #3 PIN was reset to 4891 and updated in credentials.',
-    time: 'Oct 18',
-    read: true,
-  },
-  {
-    id: 'notif-6',
-    type: 'ticket',
-    ticketId: 'TKT-3810',
-    orderId: 'ORD-9844',
-    title: 'Ticket TKT-3810 closed',
-    message: 'Household verification code 7741 delivered.',
-    time: 'Oct 20',
-    read: true,
-  },
-  {
-    id: 'notif-7',
-    type: 'order_chat',
-    orderId: 'ORD-9715',
-    title: 'Spotify Premium',
-    message: 'Family Plan invite active on masud132213@gmail.com.',
-    time: 'Oct 01',
-    read: true,
-  },
-];
-
-const MAX_NOTIFICATIONS_SHOWN = 7;
-
-const ISSUE_TYPES = [
-  'Login / Password',
-  'Deactivated Early',
-  'Profile PIN',
-  '2FA / OTP Code',
-  'Other',
-];
-
-const ORDERS_PER_PAGE = 10;
-const TICKETS_PER_PAGE = 10;
-const CLAIMS_PER_PAGE = 10;
-
+/** Signed-out visitors get a sign-in prompt — never someone else's demo data. */
 export function AccountPageView() {
-  const { accountTab, navigateTo } = useStoreNav();
+  const { navigateTo } = useStoreNav();
   const storedSession = useCustomerSession();
-  const session = storedSession || {
-    name: 'Masud Ahmed',
-    email: 'masud132213@gmail.com',
-    phone: '01712345678',
-  };
+  const hydrated = useHydrated();
+  // No saved session in this browser: ask the server before showing the sign-in prompt
+  // (the login cookie can outlive the local copy).
+  const [serverCheck, setServerCheck] = useState<'idle' | 'checking' | 'none'>('idle');
+  useEffect(() => {
+    if (!hydrated || storedSession || serverCheck !== 'idle') return;
+    setServerCheck('checking');
+    fetch('/api/account/profile', { cache: 'no-store' })
+      .then(async (r) => {
+        const d = r.ok ? await r.json().catch(() => null) : null;
+        if (d?.user?.email) {
+          writeCustomer({ name: d.user.name || d.user.email.split('@')[0], email: d.user.email, phone: d.user.phone || '' });
+        } else setServerCheck('none');
+      })
+      .catch(() => setServerCheck('none'));
+  }, [hydrated, storedSession, serverCheck]);
+  // Refresh name/phone from the account. Guest buyers (no login) get 401 and keep their order-link access.
+  useEffect(() => {
+    if (!storedSession) return;
+    let alive = true;
+    fetch('/api/account/profile', { cache: 'no-store' })
+      .then(async (r) => {
+        if (!alive || !r.ok) return;
+        const d = await r.json().catch(() => null);
+        if (d?.user && (d.user.name !== storedSession.name || (d.user.phone || '') !== (storedSession.phone || ''))) {
+          writeCustomer({ name: d.user.name || storedSession.name, email: d.user.email, phone: d.user.phone || '' });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storedSession?.email]);
+  if (!storedSession && (!hydrated || serverCheck !== 'none')) return <AccountSkeleton />;
+  if (!storedSession) {
+    return (
+      <div className="mx-auto max-w-md py-16 text-center">
+        <h1 className="text-xl font-extrabold text-[#0F172A]">Sign in to see your account</h1>
+        <p className="mt-2 text-sm text-slate-500">
+          Your orders, credentials, warranty claims and support tickets live here.
+        </p>
+        <button
+          type="button"
+          onClick={() => navigateTo('login')}
+          className="mt-5 h-10 px-5 rounded-md bg-[#0F172A] hover:bg-slate-800 text-white font-extrabold text-sm cursor-pointer border-0"
+        >
+          Sign in
+        </button>
+      </div>
+    );
+  }
+  return <AccountPageInner key={storedSession.email} session={storedSession} />;
+}
 
-  const initialTab: AccountTab =
+function AccountPageInner({
+  session,
+}: {
+  session: { name: string; email: string; phone?: string };
+}) {
+  const { accountTab, navigateTo } = useStoreNav();
+
+  const activeTab: AccountTab =
     accountTab === 'credentials' || accountTab === 'library'
       ? 'orders'
       : accountTab || 'overview';
-
-  const [activeTab, setActiveTab] = useState<AccountTab>(initialTab);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const setActiveTab = (tab: AccountTab) => {
+    setDrawerOpen(false);
+    navigateTo('account', { accountTab: tab });
+  };
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Orders & Access View State
@@ -725,6 +212,114 @@ export function AccountPageView() {
     return () => document.removeEventListener('mousedown', onDocClick);
   }, []);
 
+  useEffect(() => {
+    const fetchRealOrders = async () => {
+      try {
+        const email = session.email;
+        const ids = readRememberedOrderIds();
+        const proofs = orderAccessProofs();
+        const url =
+          `/api/orders?email=${encodeURIComponent(email)}` +
+          (ids.length ? `&orderIds=${encodeURIComponent(ids.join(','))}` : '') +
+          (proofs.length
+            ? `&accessProofs=${encodeURIComponent(JSON.stringify(proofs))}`
+            : '');
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.ok && Array.isArray(data.orders)) {
+          const apiOrders: CustomerOrderItem[] = data.orders.map((o: any) => {
+            const lines = new Map<string, { name: string; plan: string; n: number }>();
+            for (const u of (o.units || []) as Array<{ productName: string; variantName: string }>) {
+              const k = u.productName + '|' + u.variantName;
+              const cur = lines.get(k);
+              if (cur) cur.n += 1;
+              else lines.set(k, { name: u.productName, plan: u.variantName, n: 1 });
+            }
+            const list = Array.from(lines.values());
+            const multi = new Set(list.map((l) => l.name)).size > 1;
+            return {
+            id: o.id,
+            productName: multi
+              ? list.map((l) => l.name).filter((v, i, a) => a.indexOf(v) === i).join(' + ')
+              : o.productName,
+            planName: multi
+              ? list.map((l) => `${l.name} ${l.plan}${l.n > 1 ? ` ×${l.n}` : ''}`).join(', ')
+              : o.planName,
+            duration: '',
+            date: o.date,
+            expiryDate: o.expiryDate,
+            // Days left on the order window, not the warranty.
+            daysRemaining: o.expiryDate && o.expiryDate !== 'N/A'
+              ? Math.max(0, Math.ceil((new Date(o.expiryDate).getTime() - Date.now()) / 86_400_000))
+              : undefined,
+            totalDays: o.expiryDate && o.expiryDate !== 'N/A' && o.date
+              ? Math.max(1, Math.round((new Date(o.expiryDate).getTime() - new Date(o.date).getTime()) / 86_400_000))
+              : undefined,
+            price: o.price,
+            paymentMethod: o.paymentMethod || 'bkash',
+            trxId: o.trxId,
+            status: o.status,
+            warrantyLabel: o.warrantyLabel || '25D Warranty',
+            warrantyDaysLeft: o.warrantyDaysLeft || 25,
+            deliveryEta: '10–24h delivery',
+            loginEmail: o.units?.[0]?.email || o.buyerEmail,
+            loginPassword: o.units?.[0]?.password,
+            profilePin: o.units?.[0]?.profilePin,
+            secretText: o.units?.[0]?.secretValue,
+            chatMessages: o.chatMessages || [],
+            unreadChatCount: o.unreadChatCount || 0,
+            quantity: o.quantity || 1,
+            units: [...(o.units || [])].sort(
+              (a: { deliveryId: string }, b: { deliveryId: string }) =>
+                a.deliveryId.localeCompare(b.deliveryId, undefined, { numeric: true }),
+            ),
+          };
+          });
+
+          setOrders(apiOrders);
+        }
+      } catch (err) {
+        console.error('Failed to load orders from api', err);
+      }
+    };
+    fetchRealOrders();
+  }, [session.email]);
+
+  useEffect(() => {
+    if (!session.email) return;
+    const fetchTickets = async () => {
+      try {
+        const res = await fetch(
+          `/api/account/tickets?email=${encodeURIComponent(session.email)}`,
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (Array.isArray(data.tickets)) setTickets(data.tickets);
+      } catch (err) {
+        console.error('Failed to load tickets from api', err);
+      }
+    };
+    fetchTickets();
+  }, [session.email]);
+
+  useEffect(() => {
+    if (!session.email) return;
+    const fetchWarrantyClaims = async () => {
+      try {
+        const res = await fetch(
+          `/api/account/warranty?email=${encodeURIComponent(session.email)}`,
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (Array.isArray(data.claims)) setClaims(data.claims);
+      } catch (err) {
+        console.error('Failed to load warranty claims from api', err);
+      }
+    };
+    fetchWarrantyClaims();
+  }, [session.email]);
+
   // Only orders with active warranty (> 0 days remaining) can be claimed
   const warrantyEligibleOrders = useMemo(
     () => orders.filter((o) => (o.warrantyDaysLeft ?? 0) > 0),
@@ -737,8 +332,9 @@ export function AccountPageView() {
   );
   const [warrantyModalOpen, setWarrantyModalOpen] = useState(false);
   const [claimOrderId, setClaimOrderId] = useState<string>(
-    INITIAL_ORDERS[1].id,
+    '',
   );
+  const [claimUnitId, setClaimUnitId] = useState('');
   const [claimIssueType, setClaimIssueType] = useState<string>(ISSUE_TYPES[0]);
   const [claimDescription, setClaimDescription] = useState<string>('');
   const [claimError, setClaimError] = useState<string>('');
@@ -761,7 +357,7 @@ export function AccountPageView() {
 
   // New Ticket & Reply Form State
   const [newTicketSubject, setNewTicketSubject] = useState('');
-  const [newTicketOrderId, setNewTicketOrderId] = useState(INITIAL_ORDERS[0].id);
+  const [newTicketOrderId, setNewTicketOrderId] = useState('');
   const [newTicketCategory, setNewTicketCategory] = useState(
     'Access & Delivery',
   );
@@ -784,12 +380,10 @@ export function AccountPageView() {
   const ticketReplyTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Profile State
-  const [profileName, setProfileName] = useState(session.name || 'Masud Ahmed');
+  const [profileName, setProfileName] = useState(session.name || '');
   const [profilePhone, setProfilePhone] = useState(
-    (session.phone || '01712345678').replace(/[-\s]/g, ''),
+    (session.phone || '').replace(/[-\s]/g, ''),
   );
-  const [recoveryEmail, setRecoveryEmail] = useState('masud.backup@gmail.com');
-  const [telegramHandle, setTelegramHandle] = useState('@masud_bd');
   const [profileSaved, setProfileSaved] = useState(false);
 
   // Password State
@@ -798,11 +392,11 @@ export function AccountPageView() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [passwordSaved, setPasswordSaved] = useState(false);
+  const [passwordBusy, setPasswordBusy] = useState(false);
+  const [profileBusy, setProfileBusy] = useState(false);
+  const [profileError, setProfileError] = useState('');
 
   // Notification Toggles
-  const [notifyWhatsapp, setNotifyWhatsapp] = useState(true);
-  const [notifyEmail, setNotifyEmail] = useState(true);
-  const [notifyExpiry, setNotifyExpiry] = useState(true);
 
   const handleCopy = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
@@ -930,17 +524,20 @@ export function AccountPageView() {
       ),
     );
 
-    // Simulated live support response after 2.2 seconds
-    setTimeout(() => {
-      const isStillViewingOrder =
-        activeOrderViewRef.current.tab === 'orders' &&
-        activeOrderViewRef.current.orderId === orderId;
-      pushIncomingOrderMessage(
-        orderId,
-        `Received your message on ${orderId}. Checking this right now.`,
-        isStillViewingOrder,
-      );
-    }, 2200);
+    try {
+      fetch('/api/orders/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId,
+          text: payload.text,
+          buyerEmail: session.email,
+          senderName: profileName || session.name || 'You',
+          attachment: payload.attachment,
+          accessToken: getOrderAccessToken(orderId),
+        }),
+      }).catch((e) => console.error('Chat post failed:', e));
+    } catch {}
   };
 
   const parseFileUpload = (
@@ -978,7 +575,7 @@ export function AccountPageView() {
       orders.map((o) => ({
         value: o.id,
         label: o.productName,
-        sublabel: `${o.planName} · ${o.duration}`,
+        sublabel: o.duration ? `${o.planName} · ${o.duration}` : o.planName,
         badge: o.status,
       })),
     [orders],
@@ -990,7 +587,7 @@ export function AccountPageView() {
       warrantyEligibleOrders.map((o) => ({
         value: o.id,
         label: o.productName,
-        sublabel: `${o.planName} · ${o.duration}`,
+        sublabel: o.duration ? `${o.planName} · ${o.duration}` : o.planName,
         badge: `${o.warrantyDaysLeft}d left`,
         badgeTone: 'emerald',
       })),
@@ -1104,52 +701,70 @@ export function AccountPageView() {
       ? 'Invalid BD phone number (01XXXXXXXXX)'
       : '';
 
-  const isRecoveryEmailValid =
-    recoveryEmail.trim() === '' ||
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recoveryEmail.trim());
-  const recoveryEmailError = !isRecoveryEmailValid
-    ? 'Invalid email address'
-    : '';
-
   const isNameValid = profileName.trim().length >= 3;
   const nameError =
     profileName.length > 0 && !isNameValid ? 'Minimum 3 characters' : '';
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isNameValid || !isPhoneValid || !isRecoveryEmailValid) return;
-    writeCustomer({
-      name: profileName.trim(),
-      email: session.email,
-      phone: cleanPhone,
-    });
-    setProfileSaved(true);
-    setTimeout(() => setProfileSaved(false), 2500);
+    if (!isNameValid || !isPhoneValid || profileBusy) return;
+    setProfileBusy(true);
+    setProfileError('');
+    try {
+      const res = await fetch('/api/account/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: profileName.trim(), phone: cleanPhone }),
+      });
+      const d = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(d?.error || 'Could not save. Try again.');
+      writeCustomer({ name: profileName.trim(), email: session.email, phone: cleanPhone });
+      setProfileSaved(true);
+      setTimeout(() => setProfileSaved(false), 2500);
+    } catch (err) {
+      setProfileError(err instanceof Error ? err.message : 'Could not save. Try again.');
+    } finally {
+      setProfileBusy(false);
+    }
   };
 
-  const handleUpdatePassword = (e: React.FormEvent) => {
+  const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordError('');
     if (!currentPassword) {
-      setPasswordError('Enter current password');
+      setPasswordError('Enter your current password.');
       return;
     }
-    if (newPassword.length < 8) {
-      setPasswordError('Minimum 8 characters required');
+    if (newPassword.length < 8 || !/[a-z]/i.test(newPassword) || !/[0-9]/.test(newPassword)) {
+      setPasswordError('Use at least 8 characters, with letters and numbers.');
       return;
     }
     if (newPassword !== confirmPassword) {
-      setPasswordError('Passwords do not match');
+      setPasswordError('Passwords do not match.');
       return;
     }
-    setPasswordSaved(true);
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    setTimeout(() => setPasswordSaved(false), 2500);
+    setPasswordBusy(true);
+    try {
+      const res = await fetch('/api/account/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const d = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(d?.error || 'Could not change the password.');
+      setPasswordSaved(true);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => setPasswordSaved(false), 4000);
+    } catch (err) {
+      setPasswordError(err instanceof Error ? err.message : 'Could not change the password.');
+    } finally {
+      setPasswordBusy(false);
+    }
   };
 
-  const handleSubmitWarranty = (e: React.FormEvent) => {
+  const handleSubmitWarranty = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedClaimOrder || (selectedClaimOrder.warrantyDaysLeft ?? 0) <= 0) {
       setClaimError('Selected order does not have active warranty.');
@@ -1160,17 +775,46 @@ export function AccountPageView() {
       return;
     }
     setClaimError('');
+    let res: Response;
+    try {
+      res = await fetch('/api/account/warranty', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: selectedClaimOrder.id,
+          deliveryIds: claimUnitId ? [claimUnitId] : undefined,
+          issueType: claimIssueType,
+          description: claimDescription.trim(),
+          buyerName: profileName || session.name,
+          accessToken: getOrderAccessToken(selectedClaimOrder.id),
+        }),
+      });
+    } catch {
+      setClaimError('Network error. Try again.');
+      return;
+    }
+    if (!res.ok) {
+      const d = await res.json().catch(() => null);
+      setClaimError(d?.error || 'Could not submit the claim. Try again.');
+      return;
+    }
     const newClaim: WarrantyClaimItem = {
-      id: `WRN-${Math.floor(300 + Math.random() * 600)}`,
+      id: `WRN-${selectedClaimOrder.id.replace(/[^0-9]/g, '')}`,
       orderId: selectedClaimOrder.id,
       productName: selectedClaimOrder.productName,
       planName: selectedClaimOrder.planName,
       issueType: claimIssueType,
       description: claimDescription.trim(),
-      date: '2026-11-04',
+      date: new Date().toISOString().slice(0, 10),
       status: 'In Review',
     };
     setClaims((prev) => [newClaim, ...prev]);
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === selectedClaimOrder.id ? { ...o, status: 'Warranty Claim' } : o,
+      ),
+    );
+
     setClaimDescription('');
     setClaimPage(1);
     setWarrantyModalOpen(false);
@@ -1179,38 +823,98 @@ export function AccountPageView() {
     );
   };
 
-  const handleCreateTicket = (e: React.FormEvent) => {
+  const handleCreateTicket = async (e: React.FormEvent) => {
     e.preventDefault();
     if (
       !newTicketSubject.trim() ||
       (!newTicketMessage.trim() && !newTicketAttachment)
     )
       return;
-    const created: SupportTicketItem = {
-      id: `TKT-${Math.floor(5000 + Math.random() * 4000)}`,
-      subject: newTicketSubject.trim(),
-      orderId: newTicketOrderId,
-      category: newTicketCategory,
-      priority: newTicketPriority,
-      status: 'Open',
-      updatedAt: 'Just now',
-      messages: [
-        {
-          id: `tm-${Date.now()}`,
-          sender: 'customer',
-          senderName: session.name,
-          text: newTicketMessage.trim(),
-          time: 'Just now',
-          attachment: newTicketAttachment || undefined,
-        },
-      ],
-    };
-    setTickets((prev) => [created, ...prev]);
+    const msgText = newTicketMessage.trim() || newTicketAttachment?.name || '';
+    const tempId = `TKT-${Math.floor(5000 + Math.random() * 4000)}`;
+
+    try {
+      const ticketOrderId = newTicketOrderId || 'General';
+      const res = await fetch('/api/account/tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subject: newTicketSubject.trim(),
+          orderId: ticketOrderId,
+          category: newTicketCategory,
+          priority: newTicketPriority,
+          message: msgText,
+          buyerName: profileName || session.name,
+          buyerEmail: session.email,
+          buyerPhone: profilePhone || session.phone,
+          accessToken: getOrderAccessToken(ticketOrderId),
+        }),
+      });
+      const data = await res.json();
+      const created: SupportTicketItem =
+        data.ok && data.ticket
+          ? {
+              ...data.ticket,
+              messages: data.ticket.messages || [
+                {
+                  id: `tm-${Date.now()}`,
+                  sender: 'customer',
+                  senderName: profileName || session.name,
+                  text: msgText,
+                  time: 'Just now',
+                  attachment: newTicketAttachment || undefined,
+                },
+              ],
+            }
+          : {
+              id: tempId,
+              subject: newTicketSubject.trim(),
+              orderId: newTicketOrderId || 'General',
+              category: newTicketCategory,
+              priority: newTicketPriority,
+              status: 'Open',
+              updatedAt: 'Just now',
+              messages: [
+                {
+                  id: `tm-${Date.now()}`,
+                  sender: 'customer',
+                  senderName: profileName || session.name,
+                  text: msgText,
+                  time: 'Just now',
+                  attachment: newTicketAttachment || undefined,
+                },
+              ],
+            };
+      setTickets((prev) => [created, ...prev]);
+      setSelectedTicketId(created.id);
+    } catch (err) {
+      console.error('Failed to create ticket API:', err);
+      const fallback: SupportTicketItem = {
+        id: tempId,
+        subject: newTicketSubject.trim(),
+        orderId: newTicketOrderId || 'General',
+        category: newTicketCategory,
+        priority: newTicketPriority,
+        status: 'Open',
+        updatedAt: 'Just now',
+        messages: [
+          {
+            id: `tm-${Date.now()}`,
+            sender: 'customer',
+            senderName: profileName || session.name,
+            text: msgText,
+            time: 'Just now',
+            attachment: newTicketAttachment || undefined,
+          },
+        ],
+      };
+      setTickets((prev) => [fallback, ...prev]);
+      setSelectedTicketId(fallback.id);
+    }
     setNewTicketSubject('');
     setNewTicketMessage('');
     setNewTicketAttachment(null);
     setCreatingTicket(false);
-    setSelectedTicketId(created.id);
   };
 
   const submitTicketReply = () => {
@@ -1219,11 +923,12 @@ export function AccountPageView() {
       (!ticketReplyDraft.trim() && !ticketReplyAttachment)
     )
       return;
+    const replyText = ticketReplyDraft.trim();
     const replyMsg: SupportTicketMessage = {
       id: `tm-${Date.now()}`,
       sender: 'customer',
-      senderName: session.name,
-      text: ticketReplyDraft.trim(),
+      senderName: profileName || session.name || 'You',
+      text: replyText || (ticketReplyAttachment ? ticketReplyAttachment.name : ''),
       time: 'Just now',
       replyTo: ticketReplyingTo
         ? {
@@ -1249,6 +954,22 @@ export function AccountPageView() {
           : t,
       ),
     );
+
+    const ticket = tickets.find((t) => t.id === selectedTicketId);
+    void fetch('/api/account/tickets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ticketId: selectedTicketId,
+        message: replyMsg.text,
+        senderName: profileName || session.name || 'You',
+        buyerEmail: session.email,
+        accessToken: ticket
+          ? getOrderAccessToken(ticket.orderId)
+          : undefined,
+      }),
+    }).catch((err) => console.error('Failed to post ticket reply to API:', err));
+
     setTicketReplyDraft('');
     setTicketReplyingTo(null);
     setTicketReplyAttachment(null);
@@ -1384,8 +1105,37 @@ export function AccountPageView() {
                 required
                 options={warrantyOrderSelectOptions}
                 value={claimOrderId}
-                onChange={setClaimOrderId}
+                onChange={(v) => {
+                  setClaimOrderId(v);
+                  setClaimUnitId('');
+                }}
               />
+
+              {selectedClaimOrder?.units && selectedClaimOrder.units.length > 1 ? (
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-bold text-slate-800">Which item has the problem?</span>
+                  <select
+                    value={claimUnitId}
+                    onChange={(e) => setClaimUnitId(e.target.value)}
+                    className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm"
+                  >
+                    <option value="">All items in this order</option>
+                    {selectedClaimOrder.units
+                      .filter((u) => u.status !== 'refunded' && u.status !== 'revoked')
+                      .map((u) => (
+                        <option
+                          key={u.deliveryId}
+                          value={u.deliveryId}
+                          disabled={u.hasWarranty === false || (u.warrantyRemainingDays ?? 1) <= 0}
+                        >
+                          {u.productName} · {u.variantName} #{u.unitIndex}
+                          {u.hasWarranty === false ? ' (no warranty)' : (u.warrantyRemainingDays ?? 1) <= 0 ? ' (warranty ended)' : ` (${u.warrantyRemainingDays}d left)`}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              ) : null}
+
 
               {selectedClaimOrder && (
                 <div className="p-3 rounded bg-slate-50 border border-slate-200 space-y-2">
@@ -1511,7 +1261,7 @@ export function AccountPageView() {
             <button
               type="button"
               onClick={() => navigateTo('home', { code: 'ALL' })}
-              className="flex items-center gap-2 cursor-pointer border-0 bg-transparent p-0 shrink-0"
+              className="flex lg:hidden items-center gap-2 cursor-pointer border-0 bg-transparent p-0 shrink-0"
               aria-label="Bitlogic home"
             >
               <span className="w-8 h-8 rounded-xl bg-[#FF5E5B] text-white font-extrabold text-sm flex items-center justify-center shadow-md shadow-[#FF5E5B]/25 rotate-[-4deg] shrink-0">
@@ -1830,108 +1580,32 @@ export function AccountPageView() {
           </div>
         </header>
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1040px] w-full mx-auto space-y-6">
-          {/* 1. OVERVIEW */}
+        <div className="flex-1 w-full p-4 sm:p-6 lg:p-8 xl:px-10 space-y-6">
           {activeTab === 'overview' && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between gap-3">
-                <h1 className="text-lg font-bold text-slate-900 m-0">
-                  Overview
-                </h1>
-
-                <div className="flex items-center gap-2">
-                  <StoreButton
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setActiveTab('tickets');
-                      setCreatingTicket(true);
-                    }}
-                  >
-                    <Plus size={13} />
-                    <span>New Ticket</span>
-                  </StoreButton>
-                  <StoreButton
-                    variant="dark"
-                    size="sm"
-                    onClick={() => {
-                      setActiveTab('orders');
-                      setSelectedAccessOrderId(null);
-                    }}
-                  >
-                    <Package size={13} />
-                    <span>Orders</span>
-                  </StoreButton>
-                </div>
-              </div>
-
-              {/* 4 Stat Cards */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-                <StoreStatCard
-                  label="Active Access"
-                  value={activeOrdersCount}
-                  badge="Active"
-                  tone="emerald"
-                />
-                <StoreStatCard
-                  label="Pending (10–24h)"
-                  value={pendingOrdersCount}
-                  badge="Queue"
-                  tone="amber"
-                />
-                <StoreStatCard
-                  label="Unread Messages"
-                  value={unreadChatOrdersCount}
-                  badge={unreadChatOrdersCount > 0 ? 'New Chat' : 'All Read'}
-                  tone={unreadChatOrdersCount > 0 ? 'coral' : 'slate'}
-                />
-                <StoreStatCard
-                  label="Total Spent"
-                  value={formatPrice(totalSpent)}
-                  badge={`${orders.length} Orders`}
-                  tone="slate"
-                />
-              </div>
-
-              {/* Recent Orders */}
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-bold text-slate-900 m-0">
-                    Recent Orders
-                  </h2>
-                  <StoreButton
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setActiveTab('orders');
-                      setSelectedAccessOrderId(null);
-                    }}
-                  >
-                    <span>View all ({orders.length})</span>
-                    <ArrowUpRight size={13} />
-                  </StoreButton>
-                </div>
-
-                <StoreSurfaceCard
-                  padded={false}
-                  className="divide-y divide-slate-200 overflow-hidden"
-                >
-                  {orders.slice(0, 5).map((order) => (
-                    <OrderRowCard
-                      key={order.id}
-                      order={order}
-                      onOpenAccess={openOrderAccess}
-                    />
-                  ))}
-                </StoreSurfaceCard>
-              </div>
-            </div>
+            <AccountOverviewPanel
+              orders={orders}
+              activeOrdersCount={activeOrdersCount}
+              pendingOrdersCount={pendingOrdersCount}
+              unreadChatOrdersCount={unreadChatOrdersCount}
+              totalSpent={totalSpent}
+              onNewTicket={() => {
+                setActiveTab('tickets');
+                setCreatingTicket(true);
+              }}
+              onOpenOrders={() => {
+                setActiveTab('orders');
+                setSelectedAccessOrderId(null);
+              }}
+              onOpenAccess={openOrderAccess}
+            />
           )}
 
           {/* 2. ORDERS (10 per page + Search + Unread Chat Filter + Dedicated Access View) */}
           {activeTab === 'orders' && (
             <div className="space-y-4">
               {selectedAccessOrder ? (
+                <div className="space-y-3">
+                <RenewOrderCard orderId={selectedAccessOrder.id} email={session.email} />
                 <OrderAccessDetailView
                   order={selectedAccessOrder}
                   copiedId={copiedId}
@@ -1944,6 +1618,7 @@ export function AccountPageView() {
                   messages={selectedAccessOrder.chatMessages || []}
                   onSendMessage={handleSendOrderChatMessage}
                 />
+                </div>
               ) : (
                 <>
                   <div className="flex items-center justify-between gap-2">
@@ -2037,1025 +1712,104 @@ export function AccountPageView() {
             </div>
           )}
 
-          {/* 3. WARRANTY (Mobile Responsive Cards + Desktop Table + Claim Modal) */}
           {activeTab === 'warranty' && (
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2.5">
-                <h1 className="text-lg font-bold text-slate-900 m-0">
-                  Warranty
-                </h1>
-
-                <div className="flex items-center gap-2">
-                  <a
-                    href="https://wa.me/8801700123456"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="h-8 px-3 rounded bg-[#25D366] hover:bg-[#1ebe5d] text-white font-semibold text-xs inline-flex items-center gap-1.5 no-underline transition-colors shadow-2xs"
-                  >
-                    <WhatsAppIcon size={13} />
-                    <span>WhatsApp</span>
-                  </a>
-
-                  <StoreButton
-                    variant="dark"
-                    size="sm"
-                    onClick={() => openWarrantyClaimModal()}
-                  >
-                    <Plus size={13} />
-                    <span>Claim Warranty</span>
-                  </StoreButton>
-                </div>
-              </div>
-
-              {claimSuccess && (
-                <div className="px-3.5 py-2.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold flex items-center justify-between">
-                  <span>{claimSuccess}</span>
-                  <button
-                    type="button"
-                    onClick={() => setClaimSuccess(null)}
-                    className="text-xs font-bold underline bg-transparent border-0 text-emerald-900 cursor-pointer"
-                  >
-                    Dismiss
-                  </button>
-                </div>
-              )}
-
-              <StoreSearchBar
-                value={claimSearch}
-                onChange={(val) => {
-                  setClaimSearch(val);
-                  setClaimPage(1);
-                }}
-                placeholder="Search claims by ID, Order ID, product, or issue..."
-                filters={[
-                  { id: 'ALL', label: 'All', count: claims.length },
-                  {
-                    id: 'In Review',
-                    label: 'In Review',
-                    count: claims.filter((c) => c.status === 'In Review')
-                      .length,
-                  },
-                  {
-                    id: 'Resolved',
-                    label: 'Resolved',
-                    count: claims.filter((c) => c.status === 'Resolved').length,
-                  },
-                ]}
-                activeFilter={claimFilter}
-                onFilterChange={(f) => {
-                  setClaimFilter(f);
-                  setClaimPage(1);
-                }}
-              />
-
-              <StoreSurfaceCard padded={false} className="overflow-hidden">
-                {paginatedClaims.length === 0 ? (
-                  <div className="py-8 px-4 text-center text-xs font-semibold text-slate-500">
-                    No warranty claims found.
-                  </div>
-                ) : (
-                  <>
-                    {/* Mobile Responsive Stacked Cards (< md) */}
-                    <div className="md:hidden divide-y divide-slate-200">
-                      {paginatedClaims.map((claim) => {
-                        const issueTone =
-                          claim.issueType === 'Deactivated Early'
-                            ? 'bg-rose-50 text-rose-700 border-rose-200'
-                            : claim.issueType === 'Login / Password'
-                              ? 'bg-sky-50 text-sky-700 border-sky-200'
-                              : claim.issueType === 'Profile PIN'
-                                ? 'bg-violet-50 text-violet-700 border-violet-200'
-                                : 'bg-amber-50 text-amber-800 border-amber-200';
-                        return (
-                          <div key={claim.id} className="p-4 space-y-2">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span className="text-sm font-bold text-slate-900">
-                                    {claim.productName}
-                                  </span>
-                                  <StatusBadge
-                                    tone={
-                                      claim.status === 'Resolved'
-                                        ? 'emerald'
-                                        : 'amber'
-                                    }
-                                  >
-                                    {claim.status}
-                                  </StatusBadge>
-                                </div>
-                                <div className="flex flex-wrap items-center gap-1.5 mt-1 text-xs font-medium text-slate-600 tabular-nums">
-                                  <span className="font-bold text-slate-800">
-                                    {claim.id}
-                                  </span>
-                                  <span className="text-slate-300">·</span>
-                                  <span>{claim.planName}</span>
-                                  <span className="text-slate-300">·</span>
-                                  <span>{claim.date}</span>
-                                </div>
-                              </div>
-
-                              <button
-                                type="button"
-                                onClick={() => openOrderAccess(claim.orderId)}
-                                className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 border border-slate-200 text-xs font-bold text-slate-800 inline-flex items-center gap-1 cursor-pointer tabular-nums shrink-0"
-                              >
-                                <span>{claim.orderId}</span>
-                                <ArrowUpRight size={11} />
-                              </button>
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                              <span
-                                className={`px-2 py-0.5 rounded border text-[11px] font-semibold ${issueTone}`}
-                              >
-                                {claim.issueType}
-                              </span>
-                              <span className="text-xs font-medium text-slate-600">
-                                {claim.description}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Desktop Table (>= md) */}
-                    <div className="hidden md:block overflow-x-auto">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-                            <th className="py-2.5 px-4">Claim ID</th>
-                            <th className="py-2.5 px-4">Order</th>
-                            <th className="py-2.5 px-4">Product & Plan</th>
-                            <th className="py-2.5 px-4">Issue</th>
-                            <th className="py-2.5 px-4">Description</th>
-                            <th className="py-2.5 px-4">Date</th>
-                            <th className="py-2.5 px-4 text-right">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-200 text-xs">
-                          {paginatedClaims.map((claim) => {
-                            const issueTone =
-                              claim.issueType === 'Deactivated Early'
-                                ? 'bg-rose-50 text-rose-700 border-rose-200'
-                                : claim.issueType === 'Login / Password'
-                                  ? 'bg-sky-50 text-sky-700 border-sky-200'
-                                  : claim.issueType === 'Profile PIN'
-                                    ? 'bg-violet-50 text-violet-700 border-violet-200'
-                                    : 'bg-amber-50 text-amber-800 border-amber-200';
-                            return (
-                              <tr
-                                key={claim.id}
-                                className="hover:bg-slate-50/70 transition-colors"
-                              >
-                                <td className="py-3 px-4 font-bold text-slate-900 tabular-nums whitespace-nowrap">
-                                  {claim.id}
-                                </td>
-                                <td className="py-3 px-4 whitespace-nowrap">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      openOrderAccess(claim.orderId)
-                                    }
-                                    className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 border border-slate-200 font-bold text-slate-800 inline-flex items-center gap-1 cursor-pointer tabular-nums"
-                                  >
-                                    <span>{claim.orderId}</span>
-                                    <ArrowUpRight size={11} />
-                                  </button>
-                                </td>
-                                <td className="py-3 px-4">
-                                  <div className="font-bold text-slate-900">
-                                    {claim.productName}
-                                  </div>
-                                  <div className="text-[11px] font-semibold text-slate-600">
-                                    {claim.planName}
-                                  </div>
-                                </td>
-                                <td className="py-3 px-4 whitespace-nowrap">
-                                  <span
-                                    className={`px-2 py-0.5 rounded border font-semibold ${issueTone}`}
-                                  >
-                                    {claim.issueType}
-                                  </span>
-                                </td>
-                                <td className="py-3 px-4 font-medium text-slate-700 max-w-[260px]">
-                                  {claim.description}
-                                </td>
-                                <td className="py-3 px-4 font-semibold text-slate-600 tabular-nums whitespace-nowrap">
-                                  {claim.date}
-                                </td>
-                                <td className="py-3 px-4 text-right whitespace-nowrap">
-                                  <StatusBadge
-                                    tone={
-                                      claim.status === 'Resolved'
-                                        ? 'emerald'
-                                        : 'amber'
-                                    }
-                                  >
-                                    {claim.status}
-                                  </StatusBadge>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </>
-                )}
-              </StoreSurfaceCard>
-
-              <StorePagination
-                currentPage={currentClaimPage}
-                totalPages={totalClaimPages}
-                totalItems={filteredClaims.length}
-                pageSize={CLAIMS_PER_PAGE}
-                onPageChange={setClaimPage}
-              />
-            </div>
+            <AccountWarrantyPanel
+              claimSuccess={claimSuccess}
+              setClaimSuccess={setClaimSuccess}
+              claimSearch={claimSearch}
+              setClaimSearch={setClaimSearch}
+              claims={claims}
+              paginatedClaims={paginatedClaims}
+              filteredClaims={filteredClaims}
+              currentClaimPage={currentClaimPage}
+              totalClaimPages={totalClaimPages}
+              claimFilter={claimFilter}
+              setClaimFilter={setClaimFilter}
+              setClaimPage={setClaimPage}
+              onOpenWarrantyClaimModal={() => openWarrantyClaimModal()}
+              onOpenOrderAccess={openOrderAccess}
+            />
           )}
 
           {/* 4. TICKETS */}
           {activeTab === 'tickets' && (
-            <div className="space-y-4">
-              {creatingTicket ? (
-                <div className="max-w-xl mx-auto w-full space-y-4">
-                  <div className="flex items-center gap-2.5">
-                    <button
-                      type="button"
-                      onClick={() => setCreatingTicket(false)}
-                      className="h-8 px-2.5 rounded border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-900 inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                    >
-                      <ArrowLeft size={13} />
-                      <span>Tickets</span>
-                    </button>
-                    <h1 className="text-base font-bold text-slate-900 m-0">
-                      New Ticket
-                    </h1>
-                  </div>
-
-                  <StoreSurfaceCard className="p-5 sm:p-6 space-y-4">
-                    <form onSubmit={handleCreateTicket} className="space-y-4">
-                      <StoreInputField
-                        label="Subject"
-                        required
-                        value={newTicketSubject}
-                        onChange={(e) => setNewTicketSubject(e.target.value)}
-                        placeholder="Short summary of your request"
-                      />
-
-                      <StoreSearchableSelect
-                        label="Order"
-                        required
-                        options={allOrderSelectOptions}
-                        value={newTicketOrderId}
-                        onChange={setNewTicketOrderId}
-                      />
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                            Category
-                          </label>
-                          <select
-                            value={newTicketCategory}
-                            onChange={(e) =>
-                              setNewTicketCategory(e.target.value)
-                            }
-                            className="w-full h-9.5 px-3 rounded border border-slate-300 bg-white text-[13px] font-medium text-slate-900 focus:outline-none focus:border-slate-900"
-                          >
-                            <option value="Access & Delivery">
-                              Access & Delivery
-                            </option>
-                            <option value="Login / Credentials">
-                              Login / Credentials
-                            </option>
-                            <option value="Billing / TrxID">
-                              Billing / TrxID
-                            </option>
-                            <option value="General">General</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                            Priority
-                          </label>
-                          <div className="grid grid-cols-3 gap-1.5">
-                            {(['Normal', 'High', 'Urgent'] as const).map(
-                              (p) => {
-                                const active = newTicketPriority === p;
-                                const activeClass =
-                                  p === 'Urgent'
-                                    ? 'bg-[#FF5E5B] text-white border-[#FF5E5B]'
-                                    : p === 'High'
-                                      ? 'bg-amber-500 text-white border-amber-500'
-                                      : 'bg-slate-900 text-white border-slate-900';
-                                return (
-                                  <button
-                                    key={p}
-                                    type="button"
-                                    onClick={() => setNewTicketPriority(p)}
-                                    className={`h-9.5 rounded text-xs font-semibold border cursor-pointer transition-colors ${
-                                      active
-                                        ? activeClass
-                                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
-                                    }`}
-                                  >
-                                    {p}
-                                  </button>
-                                );
-                              },
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <StoreTextareaField
-                        label="Message"
-                        required
-                        rows={4}
-                        value={newTicketMessage}
-                        onChange={(e) => setNewTicketMessage(e.target.value)}
-                        placeholder="Describe your question or issue..."
-                      />
-
-                      {/* 5MB Attachment Control */}
-                      <div className="space-y-1.5">
-                        <input
-                          ref={newTicketFileRef}
-                          type="file"
-                          accept="image/*,application/pdf"
-                          onChange={(e) => {
-                            parseFileUpload(
-                              e.target.files?.[0],
-                              setNewTicketAttachment,
-                              setNewTicketFileError,
-                            );
-                            e.target.value = '';
-                          }}
-                          className="hidden"
-                        />
-                        <div className="flex items-center justify-between">
-                          <button
-                            type="button"
-                            onClick={() => newTicketFileRef.current?.click()}
-                            className="h-8 px-2.5 rounded border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                          >
-                            <Paperclip size={13} />
-                            <span>Attach file</span>
-                          </button>
-                          {newTicketFileError && (
-                            <span className="text-[11px] font-semibold text-rose-600">
-                              {newTicketFileError}
-                            </span>
-                          )}
-                        </div>
-
-                        {newTicketAttachment && (
-                          <div className="flex items-center justify-between px-2.5 py-1.5 rounded border border-slate-200 bg-slate-50 text-xs">
-                            <span className="truncate font-semibold text-slate-900">
-                              {newTicketAttachment.name} (
-                              {formatBytes(newTicketAttachment.size)})
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => setNewTicketAttachment(null)}
-                              className="text-slate-500 hover:text-slate-900 bg-transparent border-0 cursor-pointer"
-                            >
-                              <X size={13} />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
-                        <StoreButton
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setCreatingTicket(false)}
-                        >
-                          <X size={13} />
-                          <span>Cancel</span>
-                        </StoreButton>
-                        <StoreButton type="submit" variant="dark" size="sm">
-                          <Send size={13} />
-                          <span>Submit Ticket</span>
-                        </StoreButton>
-                      </div>
-                    </form>
-                  </StoreSurfaceCard>
-                </div>
-              ) : selectedTicket ? (
-                <div className="space-y-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2.5">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedTicketId(null)}
-                        className="h-8 px-2.5 rounded border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-900 inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                      >
-                        <ArrowLeft size={13} />
-                        <span>Tickets</span>
-                      </button>
-                      <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-800 text-xs font-bold tabular-nums">
-                        {selectedTicket.id}
-                      </span>
-                      <StatusBadge
-                        tone={
-                          selectedTicket.status === 'Answered'
-                            ? 'emerald'
-                            : selectedTicket.status === 'Open'
-                              ? 'coral'
-                              : 'slate'
-                        }
-                      >
-                        {selectedTicket.status}
-                      </StatusBadge>
-                    </div>
-
-                    <StoreButton
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openOrderAccess(selectedTicket.orderId)}
-                    >
-                      <Package size={13} />
-                      <span>Order {selectedTicket.orderId}</span>
-                      <ArrowUpRight size={12} />
-                    </StoreButton>
-                  </div>
-
-                  <StoreSurfaceCard
-                    padded={false}
-                    className="divide-y divide-slate-200 overflow-hidden"
-                  >
-                    <div className="p-4 flex flex-wrap items-baseline justify-between gap-2">
-                      <div>
-                        <h2 className="text-sm font-bold text-slate-900 m-0">
-                          {selectedTicket.subject}
-                        </h2>
-                        <div className="text-xs font-semibold text-slate-600 mt-0.5">
-                          {selectedTicket.category} · {selectedTicket.priority}{' '}
-                          Priority
-                        </div>
-                      </div>
-                      <span className="text-xs font-semibold text-slate-600 tabular-nums">
-                        {selectedTicket.updatedAt}
-                      </span>
-                    </div>
-
-                    <div className="p-4 space-y-3 max-h-[360px] overflow-y-auto bg-slate-50/40">
-                      {selectedTicket.messages.map((m) => {
-                        const isCustomer = m.sender === 'customer';
-                        return (
-                          <div
-                            key={m.id}
-                            className={`group flex flex-col ${
-                              isCustomer ? 'items-end' : 'items-start'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-[11px] font-semibold text-slate-700">
-                                {m.senderName}
-                              </span>
-                              <span className="text-[11px] font-medium text-slate-500 tabular-nums">
-                                {m.time}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => setTicketReplyingTo(m)}
-                                className="opacity-0 group-hover:opacity-100 text-[11px] font-semibold text-slate-600 hover:text-slate-900 inline-flex items-center gap-1 bg-transparent border-0 cursor-pointer p-0"
-                              >
-                                <Reply size={11} />
-                                <span>Reply</span>
-                              </button>
-                            </div>
-
-                            <div
-                              className={`max-w-[85%] rounded-md px-3.5 py-2.5 text-[13px] font-medium leading-relaxed space-y-1.5 ${
-                                isCustomer
-                                  ? 'bg-slate-900 text-white'
-                                  : 'bg-white text-slate-900 border border-slate-200'
-                              }`}
-                            >
-                              {m.replyTo && (
-                                <div
-                                  className={`px-2.5 py-1 rounded text-[11px] truncate ${
-                                    isCustomer
-                                      ? 'bg-slate-800 text-slate-200'
-                                      : 'bg-slate-100 text-slate-700'
-                                  }`}
-                                >
-                                  <span className="font-semibold">
-                                    {m.replyTo.senderName}:
-                                  </span>{' '}
-                                  {m.replyTo.text}
-                                </div>
-                              )}
-
-                              {m.attachment && (
-                                <div>
-                                  {m.attachment.type === 'image' ? (
-                                    <img
-                                      src={m.attachment.url}
-                                      alt={m.attachment.name}
-                                      referrerPolicy="no-referrer"
-                                      className="max-h-36 rounded object-cover"
-                                    />
-                                  ) : (
-                                    <a
-                                      href={m.attachment.url}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-semibold no-underline ${
-                                        isCustomer
-                                          ? 'bg-slate-800 text-white'
-                                          : 'bg-slate-100 text-slate-900'
-                                      }`}
-                                    >
-                                      <FileText size={13} />
-                                      <span className="truncate max-w-[160px]">
-                                        {m.attachment.name}
-                                      </span>
-                                      <span className="text-[10px] opacity-80 tabular-nums">
-                                        ({formatBytes(m.attachment.size)})
-                                      </span>
-                                    </a>
-                                  )}
-                                </div>
-                              )}
-
-                              {m.text && (
-                                <div className="whitespace-pre-wrap break-words">
-                                  {m.text}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Reply & Attachment Preview */}
-                    {(ticketReplyingTo ||
-                      ticketReplyAttachment ||
-                      ticketReplyFileError) && (
-                      <div className="px-4 py-2 bg-slate-50 space-y-1.5 text-xs">
-                        {ticketReplyFileError && (
-                          <div className="flex items-center justify-between font-semibold text-rose-600">
-                            <span>{ticketReplyFileError}</span>
-                            <button
-                              type="button"
-                              onClick={() => setTicketReplyFileError('')}
-                              className="bg-transparent border-0 cursor-pointer text-slate-500"
-                            >
-                              <X size={12} />
-                            </button>
-                          </div>
-                        )}
-                        {ticketReplyingTo && (
-                          <div className="flex items-center justify-between font-medium text-slate-700">
-                            <span className="truncate">
-                              Replying to{' '}
-                              <strong className="font-semibold">
-                                {ticketReplyingTo.senderName}
-                              </strong>
-                              : {ticketReplyingTo.text}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => setTicketReplyingTo(null)}
-                              className="bg-transparent border-0 cursor-pointer text-slate-500"
-                            >
-                              <X size={12} />
-                            </button>
-                          </div>
-                        )}
-                        {ticketReplyAttachment && (
-                          <div className="flex items-center justify-between bg-white px-2.5 py-1 rounded border border-slate-200 font-medium text-slate-800">
-                            <span className="truncate">
-                              {ticketReplyAttachment.name} (
-                              {formatBytes(ticketReplyAttachment.size)})
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => setTicketReplyAttachment(null)}
-                              className="bg-transparent border-0 cursor-pointer text-slate-500"
-                            >
-                              <X size={12} />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    <form
-                      onSubmit={handleSendTicketReply}
-                      className="p-3 bg-white flex items-end gap-2"
-                    >
-                      <input
-                        ref={ticketReplyFileRef}
-                        type="file"
-                        accept="image/*,application/pdf"
-                        onChange={(e) => {
-                          parseFileUpload(
-                            e.target.files?.[0],
-                            setTicketReplyAttachment,
-                            setTicketReplyFileError,
-                          );
-                          e.target.value = '';
-                        }}
-                        className="hidden"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => ticketReplyFileRef.current?.click()}
-                        title="Attach image or PDF (max 5MB)"
-                        className="w-9 h-9 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 flex items-center justify-center shrink-0 cursor-pointer"
-                      >
-                        <Paperclip size={14} />
-                      </button>
-
-                      <textarea
-                        ref={ticketReplyTextareaRef}
-                        rows={1}
-                        value={ticketReplyDraft}
-                        onChange={(e) => {
-                          setTicketReplyDraft(e.target.value);
-                          const el = e.target;
-                          el.style.height = '36px';
-                          el.style.height = `${Math.min(el.scrollHeight, 110)}px`;
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            submitTicketReply();
-                          }
-                        }}
-                        placeholder="Write a reply..."
-                        className="flex-1 h-9 max-h-28 py-2 px-3 rounded border border-slate-300 bg-white text-[13px] font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-900 resize-none overflow-hidden leading-tight"
-                      />
-
-                      <StoreButton
-                        type="submit"
-                        variant="dark"
-                        size="sm"
-                        className="h-9"
-                      >
-                        <Send size={13} />
-                        <span>Send</span>
-                      </StoreButton>
-                    </form>
-                  </StoreSurfaceCard>
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between gap-3">
-                    <h1 className="text-lg font-bold text-slate-900 m-0">
-                      Tickets
-                    </h1>
-
-                    <StoreButton
-                      variant="dark"
-                      size="sm"
-                      onClick={() => setCreatingTicket(true)}
-                    >
-                      <Plus size={13} />
-                      <span>New Ticket</span>
-                    </StoreButton>
-                  </div>
-
-                  <StoreSearchBar
-                    value={ticketSearch}
-                    onChange={(val) => {
-                      setTicketSearch(val);
-                      setTicketPage(1);
-                    }}
-                    placeholder="Search tickets..."
-                    filters={[
-                      { id: 'ALL', label: 'All', count: tickets.length },
-                      {
-                        id: 'Open',
-                        label: 'Open',
-                        count: tickets.filter((t) => t.status === 'Open')
-                          .length,
-                      },
-                      {
-                        id: 'Answered',
-                        label: 'Answered',
-                        count: tickets.filter((t) => t.status === 'Answered')
-                          .length,
-                      },
-                      {
-                        id: 'Closed',
-                        label: 'Closed',
-                        count: tickets.filter((t) => t.status === 'Closed')
-                          .length,
-                      },
-                    ]}
-                    activeFilter={ticketFilter}
-                    onFilterChange={(f) => {
-                      setTicketFilter(f);
-                      setTicketPage(1);
-                    }}
-                  />
-
-                  <StoreSurfaceCard
-                    padded={false}
-                    className="divide-y divide-slate-200 overflow-hidden"
-                  >
-                    {paginatedTickets.map((t) => (
-                      <div
-                        key={t.id}
-                        className="px-4 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 transition-colors"
-                      >
-                        <div className="space-y-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-sm font-bold text-slate-900 m-0 truncate">
-                              {t.subject}
-                            </h3>
-                            <StatusBadge
-                              tone={
-                                t.status === 'Answered'
-                                  ? 'emerald'
-                                  : t.status === 'Open'
-                                    ? 'blue'
-                                    : 'slate'
-                              }
-                            >
-                              {t.status}
-                            </StatusBadge>
-                            <StatusBadge
-                              dot={false}
-                              tone={
-                                t.priority === 'Urgent'
-                                  ? 'rose'
-                                  : t.priority === 'High'
-                                    ? 'amber'
-                                    : 'slate'
-                              }
-                            >
-                              {t.priority}
-                            </StatusBadge>
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-1.5 text-xs font-medium text-slate-600">
-                            <span className="font-bold text-slate-800 tabular-nums">
-                              {t.id}
-                            </span>
-                            <span className="text-slate-300" aria-hidden="true">
-                              ·
-                            </span>
-                            <span className="font-semibold text-slate-700 tabular-nums">
-                              {t.orderId}
-                            </span>
-                            <span className="text-slate-300" aria-hidden="true">
-                              ·
-                            </span>
-                            <span>{t.category}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t border-slate-100 sm:border-t-0 shrink-0">
-                          <span className="text-xs font-semibold text-slate-600 tabular-nums">
-                            {t.updatedAt}
-                          </span>
-                          <StoreButton
-                            variant={
-                              t.status === 'Closed' ? 'secondary' : 'dark'
-                            }
-                            size="sm"
-                            onClick={() => setSelectedTicketId(t.id)}
-                          >
-                            <span>Open</span>
-                            <ArrowUpRight size={13} />
-                          </StoreButton>
-                        </div>
-                      </div>
-                    ))}
-                  </StoreSurfaceCard>
-
-                  <StorePagination
-                    currentPage={currentTicketPage}
-                    totalPages={totalTicketPages}
-                    totalItems={filteredTickets.length}
-                    pageSize={TICKETS_PER_PAGE}
-                    onPageChange={setTicketPage}
-                  />
-                </>
-              )}
-            </div>
+            <AccountTicketsPanel
+              creatingTicket={creatingTicket}
+              setCreatingTicket={setCreatingTicket}
+              selectedTicket={selectedTicket}
+              setSelectedTicketId={setSelectedTicketId}
+              tickets={tickets}
+              paginatedTickets={paginatedTickets}
+              filteredTickets={filteredTickets}
+              currentTicketPage={currentTicketPage}
+              totalTicketPages={totalTicketPages}
+              ticketSearch={ticketSearch}
+              setTicketSearch={setTicketSearch}
+              ticketFilter={ticketFilter}
+              setTicketFilter={setTicketFilter}
+              setTicketPage={setTicketPage}
+              newTicketSubject={newTicketSubject}
+              setNewTicketSubject={setNewTicketSubject}
+              newTicketOrderId={newTicketOrderId}
+              setNewTicketOrderId={setNewTicketOrderId}
+              newTicketCategory={newTicketCategory}
+              setNewTicketCategory={setNewTicketCategory}
+              newTicketPriority={newTicketPriority}
+              setNewTicketPriority={setNewTicketPriority}
+              newTicketMessage={newTicketMessage}
+              setNewTicketMessage={setNewTicketMessage}
+              newTicketAttachment={newTicketAttachment}
+              setNewTicketAttachment={setNewTicketAttachment}
+              newTicketFileError={newTicketFileError}
+              setNewTicketFileError={setNewTicketFileError}
+              newTicketFileRef={newTicketFileRef}
+              ticketReplyDraft={ticketReplyDraft}
+              setTicketReplyDraft={setTicketReplyDraft}
+              ticketReplyingTo={ticketReplyingTo}
+              setTicketReplyingTo={setTicketReplyingTo}
+              ticketReplyAttachment={ticketReplyAttachment}
+              setTicketReplyAttachment={setTicketReplyAttachment}
+              ticketReplyFileError={ticketReplyFileError}
+              setTicketReplyFileError={setTicketReplyFileError}
+              ticketReplyFileRef={ticketReplyFileRef}
+              ticketReplyTextareaRef={ticketReplyTextareaRef}
+              allOrderSelectOptions={allOrderSelectOptions}
+              onCreateTicket={handleCreateTicket}
+              onSendTicketReply={handleSendTicketReply}
+              submitTicketReply={submitTicketReply}
+              onOpenOrderAccess={openOrderAccess}
+              parseFileUpload={parseFileUpload}
+            />
           )}
 
-          {/* 5. PROFILE */}
           {activeTab === 'profile' && (
-            <div className="space-y-5">
-              <h1 className="text-lg font-bold text-slate-900 m-0">
-                Profile
-              </h1>
-
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-                {/* Left Column: Account Info + Notifications */}
-                <div className="lg:col-span-7 space-y-4">
-                  <StoreSurfaceCard className="p-5 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-sm font-bold text-slate-900 m-0">
-                        Account Details
-                      </h2>
-                      {profileSaved && (
-                        <span className="text-xs font-bold text-emerald-700 flex items-center gap-1">
-                          <CheckCircle2 size={13} />
-                          <span>Saved</span>
-                        </span>
-                      )}
-                    </div>
-
-                    <form onSubmit={handleSaveProfile} className="space-y-3.5">
-                      <StoreInputField
-                        label="Full Name"
-                        required
-                        icon={User}
-                        value={profileName}
-                        onChange={(e) => setProfileName(e.target.value)}
-                        error={nameError}
-                      />
-
-                      <StoreInputField
-                        label="Email"
-                        icon={Mail}
-                        value={session.email}
-                        disabled
-                        rightElement={
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500">
-                            <Lock size={10} />
-                            <span>Locked</span>
-                          </span>
-                        }
-                      />
-
-                      <StoreInputField
-                        label="Phone / WhatsApp (BD)"
-                        required
-                        icon={Phone}
-                        value={profilePhone}
-                        onChange={(e) => setProfilePhone(e.target.value)}
-                        error={phoneError}
-                        placeholder="017XXXXXXXX"
-                      />
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <StoreInputField
-                          label="Recovery Email"
-                          icon={Mail}
-                          value={recoveryEmail}
-                          onChange={(e) => setRecoveryEmail(e.target.value)}
-                          error={recoveryEmailError}
-                        />
-
-                        <StoreInputField
-                          label="Telegram"
-                          value={telegramHandle}
-                          onChange={(e) => setTelegramHandle(e.target.value)}
-                          placeholder="@username"
-                        />
-                      </div>
-
-                      <div className="pt-1">
-                        <StoreButton
-                          type="submit"
-                          variant="dark"
-                          size="sm"
-                          disabled={
-                            !isNameValid ||
-                            !isPhoneValid ||
-                            !isRecoveryEmailValid
-                          }
-                        >
-                          <Check size={13} />
-                          <span>Save Changes</span>
-                        </StoreButton>
-                      </div>
-                    </form>
-                  </StoreSurfaceCard>
-
-                  <StoreSurfaceCard className="p-5 space-y-3">
-                    <h2 className="text-sm font-bold text-slate-900 m-0">
-                      Notifications
-                    </h2>
-
-                    <div className="divide-y divide-slate-200">
-                      {[
-                        {
-                          id: 'wa',
-                          title: 'WhatsApp delivery updates',
-                          checked: notifyWhatsapp,
-                          toggle: () => setNotifyWhatsapp((v) => !v),
-                        },
-                        {
-                          id: 'em',
-                          title: 'Email order receipts',
-                          checked: notifyEmail,
-                          toggle: () => setNotifyEmail((v) => !v),
-                        },
-                        {
-                          id: 'ex',
-                          title: 'Expiry reminders (3 days prior)',
-                          checked: notifyExpiry,
-                          toggle: () => setNotifyExpiry((v) => !v),
-                        },
-                      ].map((item) => (
-                        <div
-                          key={item.id}
-                          className="py-2.5 first:pt-1 last:pb-0 flex items-center justify-between gap-3"
-                        >
-                          <span className="text-xs font-semibold text-slate-800">
-                            {item.title}
-                          </span>
-
-                          <button
-                            type="button"
-                            role="switch"
-                            aria-checked={item.checked}
-                            onClick={item.toggle}
-                            className={`w-9 h-5 rounded-full transition-colors p-0.5 cursor-pointer border-0 shrink-0 ${
-                              item.checked ? 'bg-[#FF5E5B]' : 'bg-slate-200'
-                            }`}
-                          >
-                            <span
-                              className={`block w-4 h-4 rounded-full bg-white shadow-xs transition-transform ${
-                                item.checked ? 'translate-x-4' : 'translate-x-0'
-                              }`}
-                            />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </StoreSurfaceCard>
-                </div>
-
-                {/* Right Column: Password */}
-                <div className="lg:col-span-5">
-                  <StoreSurfaceCard className="p-5 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-sm font-bold text-slate-900 m-0">
-                        Password
-                      </h2>
-                      {passwordSaved && (
-                        <span className="text-xs font-bold text-emerald-700 flex items-center gap-1">
-                          <CheckCircle2 size={13} />
-                          <span>Updated</span>
-                        </span>
-                      )}
-                    </div>
-
-                    <form onSubmit={handleUpdatePassword} className="space-y-3">
-                      <StoreInputField
-                        type="password"
-                        label="Current Password"
-                        required
-                        value={currentPassword}
-                        onChange={(e) => setCurrentPassword(e.target.value)}
-                        placeholder="••••••••"
-                      />
-
-                      <StoreInputField
-                        type="password"
-                        label="New Password"
-                        required
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="Minimum 8 characters"
-                      />
-
-                      <StoreInputField
-                        type="password"
-                        label="Confirm Password"
-                        required
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        error={passwordError}
-                        placeholder="Re-enter password"
-                      />
-
-                      <div className="pt-1">
-                        <StoreButton
-                          type="submit"
-                          variant="dark"
-                          size="sm"
-                        >
-                          <KeyRound size={13} />
-                          <span>Update Password</span>
-                        </StoreButton>
-                      </div>
-                    </form>
-                  </StoreSurfaceCard>
-                </div>
-              </div>
-            </div>
+            <AccountProfilePanel
+              email={session.email}
+              profileName={profileName}
+              onProfileName={setProfileName}
+              nameError={nameError}
+              profilePhone={profilePhone}
+              onProfilePhone={setProfilePhone}
+              phoneError={phoneError}
+              profileError={profileError}
+              profileBusy={profileBusy}
+              profileSaved={profileSaved}
+              isNameValid={isNameValid}
+              isPhoneValid={isPhoneValid}
+              onSaveProfile={handleSaveProfile}
+              currentPassword={currentPassword}
+              onCurrentPassword={setCurrentPassword}
+              newPassword={newPassword}
+              onNewPassword={setNewPassword}
+              confirmPassword={confirmPassword}
+              onConfirmPassword={setConfirmPassword}
+              passwordError={passwordError}
+              passwordBusy={passwordBusy}
+              passwordSaved={passwordSaved}
+              onUpdatePassword={handleUpdatePassword}
+            />
           )}
-        </main>
+        </div>
       </div>
     </div>
   );

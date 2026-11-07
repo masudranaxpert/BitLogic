@@ -1,7 +1,10 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { ArrowLeft, Calendar, CalendarPlus, Plus, Search, Minus } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft, Calendar, CalendarPlus, Plus, Search } from 'lucide-react';
+import { CustomerPasswordPanel } from './CustomerPasswordPanel';
+import { EmailVerifiedBadge } from './EmailVerifiedBadge';
 import {
   SubscriberUser,
   DigitalProduct,
@@ -18,8 +21,6 @@ import {
   credentialTypeBadgeTone,
   SegmentedTabs,
   ModalShell,
-  SearchableSelect,
-  PlanRadioGroup,
 } from '@/components/admin/ui/primitives';
 
 type DetailTab = 'profile' | 'plans' | 'deliveries' | 'payments';
@@ -67,7 +68,7 @@ function deliveryStatusLabel(status: DigitalDelivery['status']): {
     case 'delivered':
       return { tone: 'emerald', label: 'Delivered' };
     case 'pending_dispatch':
-      return { tone: 'amber', label: 'Pending' };
+      return { tone: 'amber', label: 'Pending assign' };
     case 'warranty_claim':
       return { tone: 'red', label: 'Claim' };
     case 'replaced':
@@ -90,23 +91,36 @@ export function CustomerDetail({
   onToggleUserStatus,
   onUpdateCustomer,
 }: CustomerDetailProps) {
+  const router = useRouter();
   const [detailTab, setDetailTab] = useState<DetailTab>('profile');
   const [tabSearch, setTabSearch] = useState('');
-  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [renewSubId, setRenewSubId] = useState<string | null>(null);
   const [renewAmountBDT, setRenewAmountBDT] = useState(0);
   const [renewGateway, setRenewGateway] =
     useState<PaymentTransaction['gateway']>('bKash');
   const [renewTrxId, setRenewTrxId] = useState('');
   const [renewSender, setRenewSender] = useState('');
-  const [detailProdId, setDetailProdId] = useState<string>(products[0]?.id || '');
-  const [detailVarId, setDetailVarId] = useState<string>(
-    products[0]?.variants[0]?.id || '',
-  );
-  const [orderAmountBDT, setOrderAmountBDT] = useState<number>(
-    products[0]?.variants[0]?.priceBDT ?? 0,
-  );
-  const [orderQty, setOrderQty] = useState(1);
+
+  /** What this customer actually paid per unit last time (renewal beats first purchase). */
+  const lastPaidUnit = (sub: SubscriberUser['activeSubscriptions'][number]) => {
+    const own = payments
+      .filter((p) => p.deliveryId === sub.deliveryId && p.kind === 'renewal' && p.status !== 'rejected')
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+    if (own && own.amountBDT > 0) return own.amountBDT;
+    const units = deliveries.filter((d) => d.orderId === sub.orderId);
+    const lines = new Set(units.map((d) => d.productId + '|' + d.variantId));
+    const purchase = payments.find(
+      (p) => p.orderId === sub.orderId && p.kind !== 'renewal' && p.status !== 'rejected' && p.amountBDT > 0,
+    );
+    if (purchase && units.length > 0 && lines.size === 1) {
+      return Math.round(purchase.amountBDT / units.length);
+    }
+    return null;
+  };
+  const listPriceFor = (sub: SubscriberUser['activeSubscriptions'][number]) =>
+    products
+      .find((p) => p.name === sub.productName)
+      ?.variants.find((v) => v.name === sub.variantName)?.priceBDT ?? null;
 
   const renewSub = renewSubId
     ? activeUser.activeSubscriptions.find((s) => s.id === renewSubId)
@@ -140,11 +154,6 @@ export function CustomerDetail({
 
   const fieldClass =
     'w-full h-9 px-3 text-xs bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md';
-
-  const productSelectOptions = useMemo(
-    () => products.map((p) => ({ value: p.id, label: p.name })),
-    [products],
-  );
 
   const userDeliveries = useMemo(
     () =>
@@ -212,19 +221,6 @@ export function CustomerDetail({
     );
   }, [userPayments, tabQuery]);
 
-  const selectedDetailProd =
-    products.find((p) => p.id === detailProdId) || products[0];
-
-  const planSelectOptions = useMemo(
-    () =>
-      (selectedDetailProd?.variants || []).map((v) => ({
-        value: v.id,
-        label: v.name,
-        hint: formatBDT(v.priceBDT),
-      })),
-    [selectedDetailProd],
-  );
-
   const tabSearchPlaceholder =
     detailTab === 'plans'
       ? 'Search plans…'
@@ -258,9 +254,17 @@ export function CustomerDetail({
                 .slice(0, 2)
                 .toUpperCase()}
             </div>
-            <h1 className="font-display text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-slate-50 m-0">
-              {activeUser.name}
-            </h1>
+            <div className="min-w-0">
+              <h1 className="font-display text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-slate-50 m-0">
+                {activeUser.name}
+              </h1>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <span className="font-mono text-xs text-slate-500">
+                  {activeUser.email}
+                </span>
+                <EmailVerifiedBadge verified={activeUser.emailVerified} />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -313,7 +317,7 @@ export function CustomerDetail({
               {
                 value: 'deliveries',
                 label: 'Deliveries',
-                count: userDeliveries.length,
+                count: new Set(userDeliveries.map((d) => d.orderId)).size,
               },
               {
                 value: 'payments',
@@ -348,14 +352,9 @@ export function CustomerDetail({
             {detailTab === 'plans' ? (
               <button
                 type="button"
-                onClick={() => {
-                  const v =
-                    products.find((p) => p.id === detailProdId)?.variants.find(
-                      (x) => x.id === detailVarId,
-                    ) || products[0]?.variants[0];
-                  if (v) setOrderAmountBDT(v.priceBDT);
-                  setIsAssignModalOpen(true);
-                }}
+                onClick={() =>
+                  router.push(`/admin/orders/add?customerId=${encodeURIComponent(activeUser.id)}`)
+                }
                 className="h-8 px-3 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-md inline-flex items-center gap-1.5 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" aria-hidden />
@@ -371,7 +370,7 @@ export function CustomerDetail({
             onSubmit={(e) => {
               e.preventDefault();
               const name = profileName.trim();
-              const email = profileEmail.trim();
+              const email = profileEmail.trim().toLowerCase();
               if (!name || !email) return;
               onUpdateCustomer(activeUser.id, {
                 name,
@@ -505,6 +504,7 @@ export function CustomerDetail({
             </div>
           </form>
         ) : null}
+        {detailTab === 'profile' ? <CustomerPasswordPanel email={activeUser.email} /> : null}
 
         {detailTab === 'plans' ? (
           <div className="overflow-x-auto">
@@ -591,11 +591,24 @@ export function CustomerDetail({
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right">
+                        {(() => {
+                          const prod = products.find((p) => p.name === sub.productName);
+                          const blocked =
+                            prod?.renewable === false
+                              ? 'One-time product — no renewals'
+                              : prod?.status === 'draft'
+                                ? 'Product not available — renewals blocked'
+                                : '';
+                          return blocked ? (
+                            <span className="text-[11px] text-slate-400" title={blocked}>
+                              {prod?.renewable === false ? 'One-time' : 'Unavailable'}
+                            </span>
+                          ) : (
                         <button
                           type="button"
                           onClick={() => {
                             setRenewSubId(sub.id);
-                            setRenewAmountBDT(0);
+                            setRenewAmountBDT(lastPaidUnit(sub) ?? listPriceFor(sub) ?? 0);
                             setRenewGateway('bKash');
                             setRenewTrxId('');
                             setRenewSender(activeUser.phone || '');
@@ -605,6 +618,8 @@ export function CustomerDetail({
                           <CalendarPlus className="h-3.5 w-3.5" aria-hidden />
                           <span>Renew</span>
                         </button>
+                          );
+                        })()}
                       </td>
                     </tr>
                   ))
@@ -653,6 +668,11 @@ export function CustomerDetail({
                       <tr key={del.id} className="whitespace-nowrap">
                         <td className="py-3 px-4 font-mono text-xs text-slate-700 dark:text-slate-300">
                           {del.orderId}
+                          {(del.orderQuantity ?? 1) > 1 ? (
+                            <span className="ml-1 text-[11px] text-slate-400 font-sans">
+                              (Unit {del.unitIndex}/{del.orderQuantity})
+                            </span>
+                          ) : null}
                         </td>
                         <td className="py-3 px-3 font-mono text-xs text-slate-600 dark:text-slate-400">
                           {pay ? (
@@ -779,6 +799,23 @@ export function CustomerDetail({
                 {renewSub.orderId}
               </div>
             </div>
+            {(() => {
+              const paid = lastPaidUnit(renewSub);
+              const list = listPriceFor(renewSub);
+              if (paid === null || list === null || paid === list) return null;
+              return (
+                <div className="flex items-center justify-between rounded-md bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-sm">
+                  <span>Paid {formatBDT(paid)} · List {formatBDT(list)}</span>
+                  <button
+                    type="button"
+                    onClick={() => setRenewAmountBDT(list)}
+                    className="font-medium text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
+                  >
+                    Use list
+                  </button>
+                </div>
+              );
+            })()}
 
             <div className="space-y-1.5">
               <label
@@ -793,13 +830,12 @@ export function CustomerDetail({
                 </span>
                 <input
                   id="renew-amount"
-                  type="number"
-                  min={0}
-                  step={1}
+                  type="text"
+                  inputMode="numeric"
                   required
-                  value={renewAmountBDT}
+                  value={renewAmountBDT === 0 ? '' : String(renewAmountBDT)}
                   onChange={(e) =>
-                    setRenewAmountBDT(Math.max(0, Number(e.target.value) || 0))
+                    setRenewAmountBDT(Number(e.target.value.replace(/[^0-9]/g, '')) || 0)
                   }
                   className="h-9 w-full rounded-md border border-slate-200 bg-white pl-6 pr-2 font-mono text-xs tabular-nums dark:border-slate-800 dark:bg-slate-950"
                 />
@@ -881,211 +917,6 @@ export function CustomerDetail({
             </div>
           </form>
         ) : null}
-      </ModalShell>
-
-      <ModalShell
-        open={isAssignModalOpen}
-        onClose={() => setIsAssignModalOpen(false)}
-        title="Add Order"
-        maxWidth="max-w-sm"
-      >
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!detailProdId || !detailVarId) return;
-            onAssignSubscription(
-              activeUser.id,
-              detailProdId,
-              detailVarId,
-              orderAmountBDT,
-              orderQty,
-            );
-            setIsAssignModalOpen(false);
-            setOrderQty(1);
-            setDetailTab('plans');
-          }}
-          className="space-y-4"
-        >
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
-              Product
-            </label>
-            <SearchableSelect
-              value={detailProdId}
-              options={productSelectOptions}
-              placeholder="Select product"
-              searchPlaceholder="Search product…"
-              onChange={(pid) => {
-                setDetailProdId(pid);
-                const p = products.find((x) => x.id === pid);
-                const nextVar = p?.variants[0];
-                if (nextVar) {
-                  setDetailVarId(nextVar.id);
-                  setOrderAmountBDT(nextVar.priceBDT);
-                }
-              }}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
-              Plan
-            </label>
-            <PlanRadioGroup
-              value={detailVarId}
-              options={planSelectOptions}
-              onChange={(vid) => {
-                setDetailVarId(vid);
-                const v = selectedDetailProd?.variants.find((x) => x.id === vid);
-                if (v) setOrderAmountBDT(v.priceBDT);
-              }}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label
-              htmlFor="order-qty"
-              className="text-xs font-medium text-slate-700 dark:text-slate-300"
-            >
-              Quantity
-            </label>
-            <div className="flex h-9 items-center overflow-hidden rounded-md border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
-              <button
-                type="button"
-                aria-label="Decrease quantity"
-                onClick={() => setOrderQty((n) => Math.max(1, n - 1))}
-                className="inline-flex h-full w-9 shrink-0 cursor-pointer items-center justify-center border-r border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-900"
-              >
-                <Minus className="h-3.5 w-3.5" aria-hidden />
-              </button>
-              <input
-                id="order-qty"
-                type="number"
-                min={1}
-                max={100}
-                value={orderQty}
-                onChange={(e) => {
-                  const next = Number(e.target.value);
-                  setOrderQty(
-                    Number.isFinite(next)
-                      ? Math.max(1, Math.min(100, Math.round(next)))
-                      : 1,
-                  );
-                }}
-                className="h-9 w-full bg-transparent px-2 text-center font-mono text-xs tabular-nums text-slate-900 focus:outline-none dark:text-slate-100"
-              />
-              <button
-                type="button"
-                aria-label="Increase quantity"
-                onClick={() => setOrderQty((n) => Math.min(100, n + 1))}
-                className="inline-flex h-full w-9 shrink-0 cursor-pointer items-center justify-center border-l border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-900"
-              >
-                <Plus className="h-3.5 w-3.5" aria-hidden />
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between gap-2">
-              <label
-                htmlFor="order-amount"
-                className="text-xs font-medium text-slate-700 dark:text-slate-300"
-              >
-                Unit amount
-              </label>
-              {selectedDetailProd?.variants.find((v) => v.id === detailVarId) &&
-              orderAmountBDT !==
-                selectedDetailProd.variants.find((v) => v.id === detailVarId)
-                  ?.priceBDT ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const list =
-                      selectedDetailProd.variants.find((v) => v.id === detailVarId)
-                        ?.priceBDT ?? 0;
-                    setOrderAmountBDT(list);
-                  }}
-                  className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
-                >
-                  Reset to list price
-                </button>
-              ) : null}
-            </div>
-            <div className="flex h-9 items-center rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 overflow-hidden">
-              <button
-                type="button"
-                aria-label="Decrease amount"
-                onClick={() =>
-                  setOrderAmountBDT((n) => Math.max(0, Math.round(n) - 10))
-                }
-                className="h-full w-9 inline-flex items-center justify-center border-r border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer shrink-0"
-              >
-                <Minus className="w-3.5 h-3.5" aria-hidden />
-              </button>
-              <div className="relative flex-1 min-w-0">
-                <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">
-                  ৳
-                </span>
-                <input
-                  id="order-amount"
-                  type="number"
-                  min={0}
-                  step={1}
-                  value={Number.isFinite(orderAmountBDT) ? orderAmountBDT : 0}
-                  onChange={(e) => {
-                    const next = Number(e.target.value);
-                    setOrderAmountBDT(
-                      Number.isFinite(next) ? Math.max(0, next) : 0,
-                    );
-                  }}
-                  className="w-full h-9 pl-6 pr-2 text-xs font-mono tabular-nums bg-transparent text-slate-900 dark:text-slate-100 focus:outline-none"
-                />
-              </div>
-              <button
-                type="button"
-                aria-label="Increase amount"
-                onClick={() =>
-                  setOrderAmountBDT((n) => Math.max(0, Math.round(n) + 10))
-                }
-                className="h-full w-9 inline-flex items-center justify-center border-l border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer shrink-0"
-              >
-                <Plus className="w-3.5 h-3.5" aria-hidden />
-              </button>
-            </div>
-            <p className="text-[11px] text-slate-500">
-              List{' '}
-              {formatBDT(
-                selectedDetailProd?.variants.find((v) => v.id === detailVarId)
-                  ?.priceBDT ?? 0,
-              )}
-              {orderQty > 1 ? (
-                <span className="ml-2 font-medium text-slate-700 dark:text-slate-200">
-                  Total {formatBDT(orderAmountBDT * orderQty)}
-                </span>
-              ) : null}
-            </p>
-          </div>
-
-          <div className="flex items-center justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={() => setIsAssignModalOpen(false)}
-              className="h-9 px-3 text-xs font-medium rounded-md border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={!detailProdId || !detailVarId}
-              className="h-9 px-3.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-md inline-flex items-center gap-1.5 cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" aria-hidden />
-              <span>
-                {orderQty > 1 ? `Add ×${orderQty}` : 'Add Order'}
-              </span>
-            </button>
-          </div>
-        </form>
       </ModalShell>
     </div>
   );

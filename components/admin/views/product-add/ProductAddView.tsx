@@ -29,6 +29,7 @@ import {
   type DraftVariant,
 } from './draft-helpers';
 import ProductGeneralInfoCard from './ProductGeneralInfoCard';
+import ProductSchedulePicker, { scheduleProblem } from './ProductSchedulePicker';
 import ProductOptionsEditor from './ProductOptionsEditor';
 import ProductMediaPicker from './ProductMediaPicker';
 import ProductLivePreview from './ProductLivePreview';
@@ -90,9 +91,15 @@ export default function ProductAddView({
     resolveCategoryId(editingProduct, productCategories),
   );
   const [status, setStatus] = useState<DigitalProduct['status']>(
-    editingProduct?.status ?? 'active',
+    editingProduct?.status === 'draft' ? 'draft' : 'active',
+  );
+  const [renewable, setRenewable] = useState(editingProduct?.renewable ?? true);
+  const [allowOrderWhenOutOfStock, setAllowOrderWhenOutOfStock] = useState(
+    editingProduct?.allowOrderWhenOutOfStock ?? false,
   );
   const [description, setDescription] = useState(editingProduct?.description ?? '');
+  const [availableFrom, setAvailableFrom] = useState(editingProduct?.availableFrom ?? '');
+  const [availableUntil, setAvailableUntil] = useState(editingProduct?.availableUntil ?? '');
 
   const [selectedMediaUrls, setSelectedMediaUrls] = useState<string[]>(() =>
     initialMediaUrls(editingProduct),
@@ -132,8 +139,14 @@ export default function ProductAddView({
     setName(editingProduct.name);
     setPlatform(editingProduct.shortDescription || '');
     setCategoryId(resolveCategoryId(editingProduct, productCategories));
-    setStatus(editingProduct.status);
+    setStatus(editingProduct.status === 'draft' ? 'draft' : 'active');
+    setRenewable(editingProduct.renewable ?? true);
+    setAllowOrderWhenOutOfStock(
+      editingProduct.allowOrderWhenOutOfStock ?? false,
+    );
     setDescription(editingProduct.description ?? '');
+    setAvailableFrom(editingProduct.availableFrom ?? '');
+    setAvailableUntil(editingProduct.availableUntil ?? '');
     setSelectedMediaUrls(initialMediaUrls(editingProduct));
     const drafts = editingProduct.variants.map((v) =>
       variantToDraft(v, warranties, credentialSchemes),
@@ -203,6 +216,7 @@ export default function ProductAddView({
   const saveProduct = () => {
     if (!name.trim()) return;
     if (draftVariants.length === 0) return;
+    if (scheduleProblem(availableFrom, availableUntil)) return;
 
     const prodId = editingProduct?.id ?? `prod-${Date.now()}`;
     const finalGallery = customImageUrl.trim()
@@ -272,12 +286,14 @@ export default function ProductAddView({
       sku: editingProduct?.sku || `BL-PRD-${Math.floor(100 + Math.random() * 900)}`,
       imageUrl: primaryImageUrl,
       galleryUrls: finalGallery,
-      status,
+      status: status === 'draft' ? 'draft' : 'active',
+      renewable,
+      allowOrderWhenOutOfStock,
+      availableFrom: availableFrom || undefined,
+      availableUntil: availableUntil || undefined,
       shortDescription: platform.trim() || name.trim(),
       description,
       descriptionMode: 'global',
-      totalSales: editingProduct?.totalSales ?? 0,
-      monthlyRevenueBDT: editingProduct?.monthlyRevenueBDT ?? 0,
       variants: builtVariants,
     };
 
@@ -351,6 +367,10 @@ export default function ProductAddView({
               categoryId={categoryId}
               categories={productCategories}
               status={status}
+              renewable={renewable}
+              onRenewableChange={setRenewable}
+              allowOrderWhenOutOfStock={allowOrderWhenOutOfStock}
+              onAllowOrderWhenOutOfStockChange={setAllowOrderWhenOutOfStock}
               description={description}
               onNameChange={setName}
               onPlatformChange={setPlatform}
@@ -358,6 +378,15 @@ export default function ProductAddView({
               onStatusChange={setStatus}
               onDescriptionChange={setDescription}
               onOpenCategories={onOpenCategories}
+            />
+
+            <ProductSchedulePicker
+              from={availableFrom}
+              until={availableUntil}
+              onChange={(next) => {
+                setAvailableFrom(next.from);
+                setAvailableUntil(next.until);
+              }}
             />
 
             <ProductOptionsEditor

@@ -1,9 +1,12 @@
 'use client';
 
+import { useStoreSettings } from '@/context/StoreSettingsContext';
 import React, { useState, type FormEvent } from 'react';
-import { ArrowLeft, CheckCircle2, Mail, Phone, User } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Mail, Phone, User, AlertCircle } from 'lucide-react';
 import type { Plan, Product } from '@/lib/products';
 import { formatPrice } from '@/lib/products';
+import { useCustomerSession } from '@/hooks/use-customer-session';
+import { rememberOrderId, writeCustomer } from '@/lib/customerSession';
 import {
   CouponInputBox,
   DurationBadge,
@@ -31,15 +34,19 @@ export function QoCheckoutStep({
   onBack,
   onPlaced,
 }: QoCheckoutStepProps) {
+  const session = useCustomerSession();
   const [selectedMethod, setSelectedMethod] = useState<StorePaymentMethodId>('bkash');
   const [trxId, setTrxId] = useState('');
   const [coupon, setCoupon] = useState('');
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponNote, setCouponNote] = useState('');
-  const [done, setDone] = useState(false);
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { ordersPaused, ordersPausedMessage } = useStoreSettings();
+  const [errorMessage, setErrorMessage] = useState('');
+  const [placedOrderId, setPlacedOrderId] = useState<string | null>(null);
+  const [phone, setPhone] = useState(session?.phone || '');
+  const [email, setEmail] = useState(session?.email || '');
+  const [name, setName] = useState(session?.name || '');
 
   const subtotal = plan.price * qty;
   const finalTotal = Math.max(0, subtotal - couponDiscount);
@@ -59,10 +66,54 @@ export function QoCheckoutStep({
     }
   };
 
-  const onSubmit = (e: FormEvent) => {
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setDone(true);
-    window.setTimeout(() => onPlaced(), 1200);
+    if (!trxId.trim()) {
+      setErrorMessage('Please enter the transaction ID');
+      return;
+    }
+    setErrorMessage('');
+    setIsSubmitting(true);
+
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerName: name.trim(),
+          customerEmail: email.trim(),
+          customerPhone: phone.trim(),
+          gateway: selectedMethod === 'nagad' ? 'Nagad' : 'bKash',
+          trxId: trxId.trim(),
+          couponCode: couponDiscount > 0 ? coupon.trim() : undefined,
+          items: [
+            {
+              productId: product.id,
+              planId: plan.id,
+              qty,
+            },
+          ],
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to place order');
+      }
+
+      writeCustomer({
+        name: name.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+      });
+
+      rememberOrderId(data.orderId, data.accessToken);
+      setPlacedOrderId(data.orderId);
+      window.setTimeout(() => onPlaced(), 1600);
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Checkout failed');
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -176,22 +227,48 @@ export function QoCheckoutStep({
         </div>
       </div>
 
-      {done && (
+      {errorMessage && (
+        <div
+          className="p-2.5 rounded-md bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold flex items-center gap-2"
+          role="alert"
+        >
+          <AlertCircle size={15} className="shrink-0 text-rose-600" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
+
+      {placedOrderId && (
         <div
           className="p-2.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2"
           role="status"
         >
-          <CheckCircle2 size={15} className="shrink-0" />
-          <span>Order placed successfully.</span>
+          <CheckCircle2 size={15} className="shrink-0 text-emerald-600" />
+          <span>Order placed! ID: <strong className="font-mono">{placedOrderId}</strong></span>
         </div>
       )}
 
+      {ordersPaused ? (
+
+        <p role="status" className="rounded-md border border-amber-200 bg-amber-50 p-2.5 text-xs font-bold text-amber-900">
+
+          {ordersPausedMessage}
+
+        </p>
+
+      ) : null}
+
       <button
         type="submit"
-        disabled={done}
+        disabled={isSubmitting || Boolean(placedOrderId) || ordersPaused}
         className="w-full h-11 px-4 rounded-md bg-[#FF5E5B] hover:bg-[#e04845] text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer border-0 disabled:opacity-50"
       >
-        {done ? 'Processing...' : `Place order — ${formatPrice(finalTotal)}`}
+        {isSubmitting
+          ? 'Placing order...'
+          : placedOrderId
+            ? 'Order confirmed'
+            : ordersPaused
+              ? 'Ordering is paused'
+              : `Place order — ${formatPrice(finalTotal)}`}
       </button>
     </form>
   );

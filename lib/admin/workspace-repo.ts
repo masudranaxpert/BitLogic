@@ -1,3 +1,4 @@
+import { warrantyState } from '@/lib/warranty';
 import { db } from '@/lib/db';
 import type {
   AdminNotificationItem,
@@ -8,10 +9,10 @@ import type {
   MediaAsset,
   PaymentTransaction,
   SubscriberUser,
-  SystemFeatureFlag,
   VaultCredential,
 } from '@/lib/admin/types';
 import { loadAdminCatalog } from '@/lib/admin/catalog-repo';
+import { decryptSecret, encryptSecret } from '@/lib/crypto/secrets';
 
 function parseJson<T>(raw: string, fallback: T): T {
   try {
@@ -70,6 +71,68 @@ function hydrateCredentialPayload(
   };
 }
 
+/** Join AdminSubscriber rows with User.emailVerifiedAt (authoritative). */
+async function mapSubscribersWithEmailStatus(
+  rows: Array<{
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    joinedAt: string;
+    status: string;
+    role: string;
+    subscriptionsJson: string;
+    totalSpentBdt: number;
+    ordersCount: number;
+    warrantyClaimsCount: number;
+  }>,
+): Promise<SubscriberUser[]> {
+  const emails = [
+    ...new Set(rows.map((s) => s.email.trim().toLowerCase()).filter(Boolean)),
+  ];
+  const users =
+    emails.length === 0
+      ? []
+      : await db.user.findMany({
+          where: { email: { in: emails } },
+          select: { email: true, emailVerifiedAt: true },
+        });
+  const byEmail = new Map(
+    users.map((u) => [u.email.trim().toLowerCase(), u.emailVerifiedAt]),
+  );
+  return rows.map((s) => {
+    const key = s.email.trim().toLowerCase();
+    const verifiedAt = byEmail.get(key);
+    return {
+      id: s.id,
+      name: s.name,
+      email: s.email,
+      phone: s.phone,
+      joinedAt: s.joinedAt,
+      status: s.status as SubscriberUser['status'],
+      role: s.role as SubscriberUser['role'],
+      emailVerified: byEmail.has(key) ? Boolean(verifiedAt) : null,
+      activeSubscriptions: parseJson(s.subscriptionsJson, []),
+      totalSpentBDT: s.totalSpentBdt,
+      ordersCount: s.ordersCount,
+      warrantyClaimsCount: s.warrantyClaimsCount,
+    };
+  });
+}
+
+/** Soft caps so one console load cannot unbounded-scan SQLite as rows grow. */
+const CAP = {
+  vault: 5000,
+  deliveries: 5000,
+  audits: 2000,
+  tickets: 2000,
+  notifications: 500,
+  subscribers: 5000,
+  payments: 5000,
+  coupons: 2000,
+  media: 2000,
+} as const;
+
 export async function loadAdminWorkspace() {
   const [
     catalog,
@@ -81,20 +144,42 @@ export async function loadAdminWorkspace() {
     subscribers,
     payments,
     coupons,
-    features,
     media,
   ] = await Promise.all([
     loadAdminCatalog(),
-    db.vaultCredential.findMany({ orderBy: { addedAt: 'desc' } }),
-    db.digitalDelivery.findMany({ orderBy: { createdAt: 'desc' } }),
-    db.credentialAudit.findMany({ orderBy: { createdAt: 'desc' } }),
-    db.supportTicket.findMany({ orderBy: { updatedAt: 'desc' } }),
-    db.adminNotification.findMany({ orderBy: { createdAt: 'desc' } }),
-    db.adminSubscriber.findMany({ orderBy: { joinedAt: 'desc' } }),
-    db.paymentTransaction.findMany({ orderBy: { createdAt: 'desc' } }),
-    db.couponCode.findMany({ orderBy: { code: 'asc' } }),
-    db.systemFeatureFlag.findMany({ orderBy: { category: 'asc' } }),
-    db.mediaAsset.findMany({ orderBy: { uploadedAt: 'desc' } }),
+    db.vaultCredential.findMany({
+      orderBy: { addedAt: 'desc' },
+      take: CAP.vault,
+    }),
+    db.digitalDelivery.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: CAP.deliveries,
+    }),
+    db.credentialAudit.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: CAP.audits,
+    }),
+    db.supportTicket.findMany({
+      orderBy: { updatedAt: 'desc' },
+      take: CAP.tickets,
+    }),
+    db.adminNotification.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: CAP.notifications,
+    }),
+    db.adminSubscriber.findMany({
+      orderBy: { joinedAt: 'desc' },
+      take: CAP.subscribers,
+    }),
+    db.paymentTransaction.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: CAP.payments,
+    }),
+    db.couponCode.findMany({ orderBy: { code: 'asc' }, take: CAP.coupons }),
+    db.mediaAsset.findMany({
+      orderBy: { uploadedAt: 'desc' },
+      take: CAP.media,
+    }),
   ]);
 
   const mappedVault: VaultCredential[] = vault.map((v) => ({
@@ -104,9 +189,9 @@ export async function loadAdminWorkspace() {
     variantId: v.variantId,
     variantName: v.variantName,
     credentialType: v.credentialType as VaultCredential['credentialType'],
-    secretValue: v.secretValue,
+    secretValue: decryptSecret(v.secretValue),
     email: v.email || undefined,
-    password: v.password || undefined,
+    password: v.password ? decryptSecret(v.password) : undefined,
     profilePin: v.profilePin || undefined,
     noteBBCode: v.noteBBCode || undefined,
     status: v.status as VaultCredential['status'],
@@ -127,8 +212,10 @@ export async function loadAdminWorkspace() {
       at: row.atLabel,
       action: row.action as CredentialAuditEntry['action'],
       source: row.source as CredentialAuditEntry['source'],
-      secretValue: row.secretValue,
-      previousSecretValue: row.previousSecretValue || undefined,
+      secretValue: decryptSecret(row.secretValue),
+      previousSecretValue: row.previousSecretValue
+        ? decryptSecret(row.previousSecretValue)
+        : undefined,
       vaultCredentialId: row.vaultCredentialId || undefined,
       note: row.note || undefined,
       credentialExpiresAt:
@@ -142,7 +229,7 @@ export async function loadAdminWorkspace() {
     ...catalog,
     vault: mappedVault,
     deliveries: deliveries.map((d): DigitalDelivery => {
-      const legacy = legacyPayloadFallback(d.payloadJson);
+      const legacy = legacyPayloadFallback('{}');
       const vaultCredentialId =
         (d as { vaultCredentialId?: string | null }).vaultCredentialId ||
         legacy.vaultCredentialId ||
@@ -175,7 +262,14 @@ export async function loadAdminWorkspace() {
         vpnRegionNote: d.vpnRegionNote,
         hasWarranty: d.hasWarranty,
         warrantyDays: d.warrantyDays,
-        warrantyRemainingDays: d.warrantyRemainingDays,
+        warrantyRemainingDays: (() => {
+          const w = warrantyState(d);
+          return w.state === 'pending' ? d.warrantyDays : w.daysLeft;
+        })(),
+        warrantyStartsAt: d.warrantyStartsAt || undefined,
+        warrantyEndsAt: d.warrantyEndsAt || undefined,
+        nextWarrantyStartsAt: d.nextWarrantyStartsAt || undefined,
+        nextWarrantyEndsAt: d.nextWarrantyEndsAt || undefined,
         warrantyTerms: d.warrantyTerms,
         warrantyClaimReason: d.warrantyClaimReason || undefined,
         replacementHistoryCount: d.replacementHistoryCount,
@@ -234,21 +328,7 @@ export async function loadAdminWorkspace() {
         read: n.read,
       }),
     ),
-    subscribers: subscribers.map(
-      (s): SubscriberUser => ({
-        id: s.id,
-        name: s.name,
-        email: s.email,
-        phone: s.phone,
-        joinedAt: s.joinedAt,
-        status: s.status as SubscriberUser['status'],
-        role: s.role as SubscriberUser['role'],
-        activeSubscriptions: parseJson(s.subscriptionsJson, []),
-        totalSpentBDT: s.totalSpentBdt,
-        ordersCount: s.ordersCount,
-        warrantyClaimsCount: s.warrantyClaimsCount,
-      }),
-    ),
+    subscribers: await mapSubscribersWithEmailStatus(subscribers),
     payments: payments.map(
       (p): PaymentTransaction => ({
         id: p.id,
@@ -265,6 +345,10 @@ export async function loadAdminWorkspace() {
         kind: ((p as { kind?: string }).kind ||
           'purchase') as PaymentTransaction['kind'],
         deliveryId: (p as { deliveryId?: string | null }).deliveryId || undefined,
+        renewDeliveryIds: p.renewDeliveryIds ? p.renewDeliveryIds.split(',').filter(Boolean) : undefined,
+        periodFrom: p.periodFrom || undefined,
+        periodTo: p.periodTo || undefined,
+        verifiedAt: p.verifiedAtLabel || undefined,
       }),
     ),
     coupons: coupons.map(
@@ -278,17 +362,6 @@ export async function loadAdminWorkspace() {
         maxUses: c.maxUses,
         expiresAt: c.expiresAt,
         status: c.status as CouponCode['status'],
-      }),
-    ),
-    features: features.map(
-      (f): SystemFeatureFlag => ({
-        id: f.id,
-        category: f.category as SystemFeatureFlag['category'],
-        name: f.name,
-        key: f.key,
-        description: f.description,
-        enabled: f.enabled,
-        impactNote: f.impactNote,
       }),
     ),
     mediaAssets: media.map(
@@ -310,254 +383,418 @@ export async function loadAdminWorkspace() {
 
 export async function replaceVault(items: VaultCredential[]) {
   await db.$transaction(async (tx) => {
-    await tx.vaultCredential.deleteMany();
-    if (items.length === 0) return;
-    await tx.vaultCredential.createMany({
-      data: items.map((v) => ({
-        id: v.id,
-        productId: v.productId,
-        productName: v.productName,
-        variantId: v.variantId,
-        variantName: v.variantName,
-        credentialType: v.credentialType,
-        secretValue: v.secretValue,
-        email: v.email || null,
-        password: v.password || null,
-        profilePin: v.profilePin || null,
-        noteBBCode: v.noteBBCode || null,
-        status: v.status,
-        validDays: v.validDays ?? 30,
-        expiresAt: v.expiresAt || null,
-        batchNote: v.batchNote,
-        addedAt: v.addedAt,
-        assignedOrderId: v.assignedOrderId || null,
-        assignedBuyerEmail: v.assignedBuyerEmail || null,
-      })),
+    const keepIds = items.map((v) => v.id);
+    await tx.vaultCredential.deleteMany({
+      where: {
+        id: { notIn: keepIds },
+        status: 'available',
+      },
     });
+    for (const v of items) {
+      await tx.vaultCredential.upsert({
+        where: { id: v.id },
+        create: {
+          id: v.id,
+          productId: v.productId,
+          productName: v.productName,
+          variantId: v.variantId,
+          variantName: v.variantName,
+          credentialType: v.credentialType,
+          secretValue: encryptSecret(v.secretValue),
+          email: v.email || null,
+          password: v.password ? encryptSecret(v.password) : null,
+          profilePin: v.profilePin || null,
+          noteBBCode: v.noteBBCode || null,
+          status: v.status,
+          validDays: v.validDays ?? 30,
+          expiresAt: v.expiresAt || null,
+          batchNote: v.batchNote,
+          addedAt: v.addedAt,
+          assignedOrderId: v.assignedOrderId || null,
+          assignedBuyerEmail: v.assignedBuyerEmail || null,
+        },
+        update: {
+          productId: v.productId,
+          productName: v.productName,
+          variantId: v.variantId,
+          variantName: v.variantName,
+          credentialType: v.credentialType,
+          secretValue: encryptSecret(v.secretValue),
+          email: v.email || null,
+          password: v.password ? encryptSecret(v.password) : null,
+          profilePin: v.profilePin || null,
+          noteBBCode: v.noteBBCode || null,
+          status: v.status,
+          validDays: v.validDays ?? 30,
+          expiresAt: v.expiresAt || null,
+          batchNote: v.batchNote,
+          assignedOrderId: v.assignedOrderId || null,
+          assignedBuyerEmail: v.assignedBuyerEmail || null,
+        },
+      });
+    }
   });
 }
 
 export async function replaceDeliveries(items: DigitalDelivery[]) {
   await db.$transaction(async (tx) => {
-    await tx.credentialAudit.deleteMany();
-    await tx.digitalDelivery.deleteMany();
     if (items.length === 0) return;
+    for (const d of items) {
+      const rawCreatedAt = (d as any).createdAt;
+      const createdAtStr =
+        (d as any).createdAtLabel ||
+        (typeof rawCreatedAt === 'string'
+          ? rawCreatedAt
+          : rawCreatedAt instanceof Date
+            ? rawCreatedAt.toISOString().slice(0, 19).replace('T', ' ')
+            : 'Just now');
 
-    await tx.digitalDelivery.createMany({
-      data: items.map((d) => ({
-        id: d.id,
-        orderId: d.orderId,
-        createdAtLabel: d.createdAt,
-        deliveredAt: d.deliveredAt || null,
-        buyerName: d.buyerName,
-        buyerEmail: d.buyerEmail,
-        buyerPhone: d.buyerPhone,
-        productId: d.productId,
-        productName: d.productName,
-        variantId: d.variantId,
-        variantName: d.variantName,
-        credentialType: d.credentialType,
-        deliveryMode: d.deliveryMode,
-        status: d.status,
-        // Secrets live in Vault; keep blob empty for Postgres-ready shape
-        payloadJson: '{}',
-        vaultCredentialId:
-          d.vaultCredentialId ||
-          d.credentialPayload?.vaultCredentialId ||
-          null,
-        vpnRequired: d.vpnRequired,
-        vpnRegionNote: d.vpnRegionNote,
-        hasWarranty: d.hasWarranty,
-        warrantyDays: d.warrantyDays,
-        warrantyRemainingDays: d.warrantyRemainingDays,
-        warrantyTerms: d.warrantyTerms,
-        warrantyClaimReason: d.warrantyClaimReason || null,
-        replacementHistoryCount: d.replacementHistoryCount,
-        loginInstructionsJson: JSON.stringify(d.loginInstructions || []),
-        customAdminNote: d.customAdminNote,
-        unreadChatCount: d.unreadChatCount || 0,
-        chatMessagesJson: JSON.stringify(d.chatMessages || []),
-        pinned: Boolean(d.pinned),
-        orderExpiresAt: d.orderExpiresAt || null,
-        credentialValidDays: d.credentialValidDays ?? 30,
-        credentialAssignedAt: d.credentialAssignedAt || null,
-        credentialExpiresAt: d.credentialExpiresAt || null,
-        renewalPending: Boolean(d.renewalPending),
-        credentialClearedAt: d.credentialClearedAt || null,
-        orderQuantity: d.orderQuantity ?? 1,
-        unitIndex: d.unitIndex ?? 1,
-      })),
-    });
+      const loginInstr = Array.isArray(d.loginInstructions)
+        ? JSON.stringify(d.loginInstructions)
+        : typeof (d as any).loginInstructionsJson === 'string'
+          ? (d as any).loginInstructionsJson
+          : '[]';
 
-    const auditRows = items.flatMap((d) =>
-      (d.credentialAudit || []).map((a, index) => ({
-        id: a.id || `aud-${d.id}-${index}`,
-        deliveryId: d.id,
-        atLabel: a.at,
-        action: a.action,
-        source: a.source,
-        secretValue: a.secretValue,
-        previousSecretValue: a.previousSecretValue || null,
-        vaultCredentialId: a.vaultCredentialId || null,
-        note: a.note || null,
-        credentialExpiresAt: a.credentialExpiresAt || null,
-        // Preserve newest-first order via staggered timestamps
-        createdAt: new Date(Date.now() - index),
-      })),
-    );
-    if (auditRows.length > 0) {
-      await tx.credentialAudit.createMany({ data: auditRows });
+      const chatMsgs = Array.isArray(d.chatMessages)
+        ? JSON.stringify(d.chatMessages)
+        : typeof (d as any).chatMessagesJson === 'string'
+          ? (d as any).chatMessagesJson
+          : '[]';
+
+      await tx.digitalDelivery.upsert({
+        where: { id: d.id },
+        create: {
+          id: d.id,
+          orderId: d.orderId,
+          createdAtLabel: createdAtStr,
+          deliveredAt: d.deliveredAt || null,
+          buyerName: d.buyerName,
+          buyerEmail: d.buyerEmail,
+          buyerPhone: d.buyerPhone,
+          productId: d.productId,
+          productName: d.productName,
+          variantId: d.variantId,
+          variantName: d.variantName,
+          credentialType: d.credentialType,
+          deliveryMode: d.deliveryMode,
+          status: d.status,
+          vaultCredentialId:
+            d.vaultCredentialId ||
+            d.credentialPayload?.vaultCredentialId ||
+            null,
+          vpnRequired: d.vpnRequired,
+          vpnRegionNote: d.vpnRegionNote,
+          hasWarranty: d.hasWarranty,
+          warrantyDays: d.warrantyDays,
+          warrantyRemainingDays: d.warrantyRemainingDays,
+          warrantyStartsAt: d.warrantyStartsAt || null,
+          warrantyEndsAt: d.warrantyEndsAt || null,
+          nextWarrantyStartsAt: d.nextWarrantyStartsAt || null,
+          nextWarrantyEndsAt: d.nextWarrantyEndsAt || null,
+          warrantyTerms: d.warrantyTerms,
+          warrantyClaimReason: d.warrantyClaimReason || null,
+          replacementHistoryCount: d.replacementHistoryCount,
+          loginInstructionsJson: loginInstr,
+          customAdminNote: d.customAdminNote,
+          unreadChatCount: d.unreadChatCount || 0,
+          chatMessagesJson: chatMsgs,
+          pinned: Boolean(d.pinned),
+          orderExpiresAt: d.orderExpiresAt || null,
+          credentialValidDays: d.credentialValidDays ?? 30,
+          credentialAssignedAt: d.credentialAssignedAt || null,
+          credentialExpiresAt: d.credentialExpiresAt || null,
+          renewalPending: Boolean(d.renewalPending),
+          credentialClearedAt: d.credentialClearedAt || null,
+          orderQuantity: d.orderQuantity ?? 1,
+          unitIndex: d.unitIndex ?? 1,
+        },
+        update: {
+          deliveredAt: d.deliveredAt || null,
+          buyerName: d.buyerName,
+          buyerEmail: d.buyerEmail,
+          buyerPhone: d.buyerPhone,
+          status: d.status,
+          vaultCredentialId:
+            d.vaultCredentialId ||
+            d.credentialPayload?.vaultCredentialId ||
+            null,
+          vpnRequired: d.vpnRequired,
+          vpnRegionNote: d.vpnRegionNote,
+          hasWarranty: d.hasWarranty,
+          warrantyDays: d.warrantyDays,
+          warrantyRemainingDays: d.warrantyRemainingDays,
+          warrantyStartsAt: d.warrantyStartsAt || null,
+          warrantyEndsAt: d.warrantyEndsAt || null,
+          nextWarrantyStartsAt: d.nextWarrantyStartsAt || null,
+          nextWarrantyEndsAt: d.nextWarrantyEndsAt || null,
+          warrantyTerms: d.warrantyTerms,
+          warrantyClaimReason: d.warrantyClaimReason || null,
+          replacementHistoryCount: d.replacementHistoryCount,
+          ...(Array.isArray(d.loginInstructions)
+            ? { loginInstructionsJson: JSON.stringify(d.loginInstructions) }
+            : {}),
+          customAdminNote: d.customAdminNote,
+          unreadChatCount: d.unreadChatCount || 0,
+          ...(Array.isArray(d.chatMessages)
+            ? { chatMessagesJson: JSON.stringify(d.chatMessages) }
+            : {}),
+          pinned: Boolean(d.pinned),
+          orderExpiresAt: d.orderExpiresAt || null,
+          credentialValidDays: d.credentialValidDays ?? 30,
+          credentialAssignedAt: d.credentialAssignedAt || null,
+          credentialExpiresAt: d.credentialExpiresAt || null,
+          renewalPending: Boolean(d.renewalPending),
+          credentialClearedAt: d.credentialClearedAt || null,
+          orderQuantity: d.orderQuantity ?? 1,
+          unitIndex: d.unitIndex ?? 1,
+        },
+      });
+    }
+
+    // Upsert audits only — never wipe history from a stale client list.
+    const usedAuditIds = new Set<string>();
+    const uniqueAuditId = (raw: string, deliveryId: string, index: number) => {
+      let id =
+        raw && raw.includes(deliveryId) ? raw : `${raw || 'aud'}-${deliveryId}`;
+      if (usedAuditIds.has(id)) id = `${id}-${index}`;
+      usedAuditIds.add(id);
+      return id;
+    };
+    for (const d of items) {
+      for (const [index, a] of (d.credentialAudit || []).entries()) {
+        const id = uniqueAuditId(a.id, d.id, index);
+        await tx.credentialAudit.upsert({
+          where: { id },
+          create: {
+            id,
+            deliveryId: d.id,
+            atLabel: a.at,
+            action: a.action,
+            source: a.source,
+            secretValue: encryptSecret(a.secretValue),
+            previousSecretValue: a.previousSecretValue
+              ? encryptSecret(a.previousSecretValue)
+              : null,
+            vaultCredentialId: a.vaultCredentialId || null,
+            note: a.note || null,
+            credentialExpiresAt: a.credentialExpiresAt || null,
+          },
+          update: {
+            action: a.action,
+            note: a.note || null,
+            credentialExpiresAt: a.credentialExpiresAt || null,
+          },
+        });
+      }
     }
   });
 }
 
 export async function replaceTickets(items: AdminSupportTicket[]) {
   await db.$transaction(async (tx) => {
-    await tx.supportTicket.deleteMany();
     if (items.length === 0) return;
-    await tx.supportTicket.createMany({
-      data: items.map((t) => ({
-        id: t.id,
-        subject: t.subject,
-        orderId: t.orderId,
-        deliveryId: t.deliveryId || null,
-        buyerName: t.buyerName,
-        buyerEmail: t.buyerEmail,
-        buyerPhone: t.buyerPhone,
-        productName: t.productName,
-        category: t.category,
-        priority: t.priority,
-        status: t.status,
-        updatedAtLabel: t.updatedAt,
-        unreadCount: t.unreadCount || 0,
-        messagesJson: JSON.stringify(t.messages || []),
-      })),
-    });
+    for (const t of items) {
+      await tx.supportTicket.upsert({
+        where: { id: t.id },
+        create: {
+          id: t.id,
+          subject: t.subject,
+          orderId: t.orderId,
+          deliveryId: t.deliveryId || null,
+          buyerName: t.buyerName,
+          buyerEmail: t.buyerEmail,
+          buyerPhone: t.buyerPhone,
+          productName: t.productName,
+          category: t.category,
+          priority: t.priority,
+          status: t.status,
+          updatedAtLabel: t.updatedAt,
+          unreadCount: t.unreadCount || 0,
+          messagesJson: JSON.stringify(t.messages || []),
+        },
+        update: {
+          subject: t.subject,
+          category: t.category,
+          priority: t.priority,
+          status: t.status,
+          updatedAtLabel: t.updatedAt,
+          unreadCount: t.unreadCount || 0,
+          messagesJson: JSON.stringify(t.messages || []),
+        },
+      });
+    }
   });
 }
 
 export async function replaceNotifications(items: AdminNotificationItem[]) {
   await db.$transaction(async (tx) => {
-    await tx.adminNotification.deleteMany();
     if (items.length === 0) return;
-    await tx.adminNotification.createMany({
-      data: items.map((n) => ({
-        id: n.id,
-        type: n.type,
-        orderId: n.orderId || null,
-        deliveryId: n.deliveryId || null,
-        ticketId: n.ticketId || null,
-        title: n.title,
-        message: n.message,
-        timeLabel: n.time,
-        read: n.read,
-      })),
-    });
+    for (const n of items) {
+      await tx.adminNotification.upsert({
+        where: { id: n.id },
+        create: {
+          id: n.id,
+          type: n.type,
+          orderId: n.orderId || null,
+          deliveryId: n.deliveryId || null,
+          ticketId: n.ticketId || null,
+          title: n.title,
+          message: n.message,
+          timeLabel: n.time,
+          read: n.read,
+        },
+        update: {
+          read: n.read,
+        },
+      });
+    }
   });
 }
 
 export async function replaceSubscribers(items: SubscriberUser[]) {
   await db.$transaction(async (tx) => {
-    await tx.adminSubscriber.deleteMany();
     if (items.length === 0) return;
-    await tx.adminSubscriber.createMany({
-      data: items.map((s) => ({
-        id: s.id,
-        name: s.name,
-        email: s.email,
-        phone: s.phone,
-        joinedAt: s.joinedAt,
-        status: s.status,
-        role: s.role,
-        subscriptionsJson: JSON.stringify(s.activeSubscriptions || []),
-        totalSpentBdt: s.totalSpentBDT,
-        ordersCount: s.ordersCount,
-        warrantyClaimsCount: s.warrantyClaimsCount,
-      })),
-    });
+    for (const s of items) {
+      const email = s.email.trim().toLowerCase();
+      const before = await tx.adminSubscriber.findUnique({ where: { id: s.id }, select: { status: true } });
+      if (s.status === 'suspended' && before?.status !== 'suspended') {
+        // Suspending a customer signs them out of every device.
+        await tx.user.updateMany({
+          where: { email, role: 'CUSTOMER' },
+          data: { sessionVersion: { increment: 1 } },
+        });
+      }
+      await tx.adminSubscriber.upsert({
+        where: { id: s.id },
+        create: {
+          id: s.id,
+          name: s.name,
+          email,
+          phone: s.phone,
+          joinedAt: s.joinedAt,
+          status: s.status,
+          role: s.role,
+          subscriptionsJson: JSON.stringify(s.activeSubscriptions || []),
+          totalSpentBdt: s.totalSpentBDT,
+          ordersCount: s.ordersCount,
+          warrantyClaimsCount: s.warrantyClaimsCount,
+        },
+        update: {
+          name: s.name,
+          email,
+          phone: s.phone,
+          status: s.status,
+          role: s.role,
+          subscriptionsJson: JSON.stringify(s.activeSubscriptions || []),
+          totalSpentBdt: s.totalSpentBDT,
+          ordersCount: s.ordersCount,
+          warrantyClaimsCount: s.warrantyClaimsCount,
+        },
+      });
+    }
   });
 }
 
 export async function replacePayments(items: PaymentTransaction[]) {
   await db.$transaction(async (tx) => {
-    await tx.paymentTransaction.deleteMany();
     if (items.length === 0) return;
-    await tx.paymentTransaction.createMany({
-      data: items.map((p) => ({
-        id: p.id,
-        orderId: p.orderId,
-        buyerName: p.buyerName,
-        buyerEmail: p.buyerEmail,
-        productSummary: p.productSummary,
-        amountBdt: p.amountBDT,
-        gateway: p.gateway,
-        senderNumberOrRef: p.senderNumberOrRef,
-        trxId: p.trxId,
-        status: p.status,
-        kind: p.kind || 'purchase',
-        deliveryId: p.deliveryId || null,
-        createdAtLabel: p.createdAt,
-      })),
-    });
+    for (const p of items) {
+      await tx.paymentTransaction.upsert({
+        where: { id: p.id },
+        create: {
+          id: p.id,
+          orderId: p.orderId,
+          buyerName: p.buyerName,
+          buyerEmail: p.buyerEmail,
+          productSummary: p.productSummary,
+          amountBdt: p.amountBDT,
+          gateway: p.gateway,
+          senderNumberOrRef: p.senderNumberOrRef,
+          trxId: p.trxId,
+          status: p.status,
+          kind: p.kind || 'purchase',
+          deliveryId: p.deliveryId || null,
+          renewDeliveryIds: (p.renewDeliveryIds || []).join(','),
+          createdAtLabel: p.createdAt,
+          periodFrom: p.periodFrom || null,
+          periodTo: p.periodTo || null,
+          verifiedAtLabel: p.verifiedAt || null,
+        },
+        update: {
+          status: p.status,
+          kind: p.kind || 'purchase',
+          deliveryId: p.deliveryId || null,
+          ...(p.periodFrom ? { periodFrom: p.periodFrom, periodTo: p.periodTo || null } : {}),
+          ...(p.verifiedAt ? { verifiedAtLabel: p.verifiedAt } : {}),
+        },
+      });
+    }
   });
 }
 
 export async function replaceCoupons(items: CouponCode[]) {
+  // Upsert instead of wipe-and-recreate: checkout increments usedCount on the
+  // server, and a stale admin list must never roll that number back.
   await db.$transaction(async (tx) => {
-    await tx.couponCode.deleteMany();
-    if (items.length === 0) return;
-    await tx.couponCode.createMany({
-      data: items.map((c) => ({
-        id: c.id,
+    const keep = items.map((c) => c.id);
+    await tx.couponCode.deleteMany({ where: { id: { notIn: keep } } });
+    for (const c of items) {
+      const existing = await tx.couponCode.findUnique({ where: { id: c.id } });
+      const data = {
         code: c.code,
         discountType: c.discountType,
         discountValue: c.discountValue,
         minSpendBdt: c.minSpendBDT,
-        usedCount: c.usedCount,
         maxUses: c.maxUses,
         expiresAt: c.expiresAt,
         status: c.status,
-      })),
-    });
-  });
-}
-
-export async function replaceFeatures(items: SystemFeatureFlag[]) {
-  await db.$transaction(async (tx) => {
-    await tx.systemFeatureFlag.deleteMany();
-    if (items.length === 0) return;
-    await tx.systemFeatureFlag.createMany({
-      data: items.map((f) => ({
-        id: f.id,
-        category: f.category,
-        name: f.name,
-        key: f.key,
-        description: f.description,
-        enabled: f.enabled,
-        impactNote: f.impactNote,
-      })),
-    });
+      };
+      if (existing) {
+        await tx.couponCode.update({
+          where: { id: c.id },
+          data: { ...data, usedCount: Math.max(existing.usedCount, c.usedCount) },
+        });
+      } else {
+        await tx.couponCode.create({ data: { id: c.id, usedCount: c.usedCount, ...data } });
+      }
+    }
   });
 }
 
 export async function replaceMediaAssets(items: MediaAsset[]) {
+  // Empty array must not wipe the library (stale client / coalesce bug).
+  if (items.length === 0) return;
   await db.$transaction(async (tx) => {
-    await tx.mediaAsset.deleteMany();
-    if (items.length === 0) return;
-    await tx.mediaAsset.createMany({
-      data: items.map((m) => ({
-        id: m.id,
-        name: m.name,
-        fileName: m.fileName,
-        folder: m.folder,
-        url: m.url,
-        dimensions: m.dimensions,
-        sizeKb: m.sizeKB,
-        mimeType: m.mimeType,
-        uploadedAt: m.uploadedAt,
-        usedByProduct: m.usedByProduct || null,
-      })),
-    });
+    const keep = items.map((m) => m.id);
+    await tx.mediaAsset.deleteMany({ where: { id: { notIn: keep } } });
+    for (const m of items) {
+      await tx.mediaAsset.upsert({
+        where: { id: m.id },
+        create: {
+          id: m.id,
+          name: m.name,
+          fileName: m.fileName,
+          folder: m.folder,
+          url: m.url,
+          dimensions: m.dimensions,
+          sizeKb: m.sizeKB,
+          mimeType: m.mimeType,
+          uploadedAt: m.uploadedAt,
+          usedByProduct: m.usedByProduct || null,
+        },
+        update: {
+          name: m.name,
+          fileName: m.fileName,
+          folder: m.folder,
+          url: m.url,
+          dimensions: m.dimensions,
+          sizeKb: m.sizeKB,
+          mimeType: m.mimeType,
+          uploadedAt: m.uploadedAt,
+          usedByProduct: m.usedByProduct || null,
+        },
+      });
+    }
   });
 }
 
@@ -569,7 +806,6 @@ export type WorkspacePatch = {
   subscribers?: SubscriberUser[];
   payments?: PaymentTransaction[];
   coupons?: CouponCode[];
-  features?: SystemFeatureFlag[];
   mediaAssets?: MediaAsset[];
 };
 
@@ -583,6 +819,5 @@ export async function applyWorkspacePatch(patch: WorkspacePatch) {
   if (patch.subscribers) await replaceSubscribers(patch.subscribers);
   if (patch.payments) await replacePayments(patch.payments);
   if (patch.coupons) await replaceCoupons(patch.coupons);
-  if (patch.features) await replaceFeatures(patch.features);
   if (patch.mediaAssets) await replaceMediaAssets(patch.mediaAssets);
 }

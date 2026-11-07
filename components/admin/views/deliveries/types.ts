@@ -33,9 +33,13 @@ export interface DeliveriesViewProps {
       attachment?: AdminChatAttachment;
     }
   ) => void;
-  onSimulateBuyerMessage?: (deliveryId: string) => void;
   subscribers?: import('@/lib/admin-data').SubscriberUser[];
   onCreateOrderDelivery?: (userId: string, productId: string, variantId: string) => void;
+  onVerifyPayment?: (paymentId: string) => void;
+  onMarkOrderChatRead?: (orderId: string) => void;
+  onSetWarrantyStart?: (deliveryIds: string[], startsAt: string) => void;
+  onRejectPayment?: (paymentId: string) => void;
+  onRefundOrder?: (req: import('./OrderDetailView').RefundRequest) => void;
   onFulfillDelivery: (
     deliveryId: string,
     payload: {
@@ -45,11 +49,13 @@ export interface DeliveriesViewProps {
       profilePin?: string;
       vaultCredentialId?: string;
       customAdminNote: string;
-      vpnRequired: boolean;
-      vpnRegionNote: string;
-      warrantyDays: number;
     },
     isWarrantyReplacement: boolean
+  ) => void;
+  /** VPN / region is plan-defaulted; edit per product line on the order page. */
+  onUpdateDeliveryVpn?: (
+    deliveryIds: string[],
+    patch: { vpnRequired: boolean; vpnRegionNote: string },
   ) => void;
 }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import {
   Plus,
@@ -23,6 +23,7 @@ import {
   SwitchToggle,
   EmptyTableState,
   ModalShell,
+  PaginationFooter,
   formatFileSizeFromKB,
 } from '@/components/admin/ui/primitives';
 
@@ -96,6 +97,8 @@ export default function MediaManagerView({
   const [showStatistics, setShowStatistics] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadSource, setUploadSource] = useState<UploadSource>('file');
@@ -120,6 +123,9 @@ export default function MediaManagerView({
       (a.usedByProduct || '').toLowerCase().includes(searchQuery.toLowerCase());
     return matchesFolder && matchesSearch;
   });
+
+  useEffect(() => setPage(1), [folderFilter, searchQuery, filteredAssets.length]);
+  const pagedAssets = filteredAssets.slice((page - 1) * pageSize, page * pageSize);
 
   const resetUploadForm = () => {
     if (filePreviewUrl.startsWith('blob:')) {
@@ -530,60 +536,71 @@ export default function MediaManagerView({
           />
         </Card>
       ) : viewMode === 'grid' ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2 sm:gap-2.5">
-          {filteredAssets.map((asset) => (
-            <Card key={asset.id} className="overflow-hidden flex flex-col justify-between min-w-0">
-              <div className="min-w-0">
-                <div className="relative aspect-[4/3] w-full bg-slate-100 dark:bg-slate-950 border-b border-slate-200/70 dark:border-slate-800">
-                  <MediaThumb
-                    url={asset.url}
-                    alt={asset.name}
-                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, (max-width: 1536px) 16vw, 12vw"
-                  />
-                  <div className="absolute top-1.5 left-1.5 max-w-[calc(100%-0.75rem)] scale-90 origin-top-left">
-                    <StatusIndicator tone="emerald" label={asset.folder} />
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2 sm:gap-2.5">
+            {pagedAssets.map((asset) => (
+              <Card key={asset.id} className="overflow-hidden flex flex-col justify-between min-w-0">
+                <div className="min-w-0">
+                  <div className="relative aspect-[4/3] w-full bg-slate-100 dark:bg-slate-950 border-b border-slate-200/70 dark:border-slate-800">
+                    <MediaThumb
+                      url={asset.url}
+                      alt={asset.name}
+                      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, (max-width: 1536px) 16vw, 12vw"
+                    />
+                    <div className="absolute top-1.5 left-1.5 max-w-[calc(100%-0.75rem)] scale-90 origin-top-left">
+                      <StatusIndicator tone="emerald" label={asset.folder} />
+                    </div>
+                  </div>
+                  <div className="px-2 sm:px-2.5 pt-2 pb-1.5 min-w-0">
+                    <div className="font-display font-semibold text-[11px] sm:text-xs leading-snug text-slate-900 dark:text-slate-100 truncate">
+                      {asset.name}
+                    </div>
+                    <div className="font-mono text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                      {asset.dimensions} · {formatFileSizeFromKB(asset.sizeKB)}
+                    </div>
                   </div>
                 </div>
-                <div className="px-2 sm:px-2.5 pt-2 pb-1.5 min-w-0">
-                  <div className="font-display font-semibold text-[11px] sm:text-xs leading-snug text-slate-900 dark:text-slate-100 truncate">
-                    {asset.name}
-                  </div>
-                  <div className="font-mono text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-                    {asset.dimensions} · {formatFileSizeFromKB(asset.sizeKB)}
-                  </div>
-                </div>
-              </div>
 
-              <div className="px-1.5 sm:px-2 py-1.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-1 text-[11px]">
-                <button
-                  type="button"
-                  onClick={() => handleCopyUrl(asset.id, asset.url)}
-                  className="min-h-8 px-2 py-1 rounded border border-slate-200 dark:border-slate-700 hover:border-emerald-600 text-slate-700 dark:text-slate-300 inline-flex items-center gap-1 cursor-pointer"
-                >
-                  {copiedId === asset.id ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-600" aria-hidden />
-                      <span className="hidden sm:inline">Copied</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" aria-hidden />
-                      <span className="hidden sm:inline">Copy</span>
-                    </>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onDeleteMedia(asset.id)}
-                  className="min-h-8 min-w-8 p-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-md cursor-pointer inline-flex items-center justify-center"
-                  title="Delete"
-                  aria-label="Delete"
-                >
-                  <Trash2 className="w-4 h-4" aria-hidden />
-                </button>
-              </div>
-            </Card>
-          ))}
+                <div className="px-1.5 sm:px-2 py-1.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-1 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => handleCopyUrl(asset.id, asset.url)}
+                    className="min-h-8 px-2 py-1 rounded border border-slate-200 dark:border-slate-700 hover:border-emerald-600 text-slate-700 dark:text-slate-300 inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    {copiedId === asset.id ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-600" aria-hidden />
+                        <span className="hidden sm:inline">Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" aria-hidden />
+                        <span className="hidden sm:inline">Copy</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDeleteMedia(asset.id)}
+                    className="min-h-8 min-w-8 p-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-md cursor-pointer inline-flex items-center justify-center"
+                    title="Delete"
+                    aria-label="Delete"
+                  >
+                    <Trash2 className="w-4 h-4" aria-hidden />
+                  </button>
+                </div>
+              </Card>
+            ))}
+          </div>
+          <Card className="overflow-hidden">
+            <PaginationFooter
+              totalItems={filteredAssets.length}
+              pageSize={pageSize}
+              currentPage={page}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          </Card>
         </div>
       ) : (
         <Card className="overflow-hidden">
@@ -600,7 +617,7 @@ export default function MediaManagerView({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800">
-                {filteredAssets.map((asset) => (
+                {pagedAssets.map((asset) => (
                   <tr
                     key={asset.id}
                     className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 whitespace-nowrap"
@@ -652,6 +669,13 @@ export default function MediaManagerView({
               </tbody>
             </table>
           </div>
+          <PaginationFooter
+            totalItems={filteredAssets.length}
+            pageSize={pageSize}
+            currentPage={page}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </Card>
       )}
     </div>

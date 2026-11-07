@@ -10,6 +10,10 @@ export interface ProductGeneralInfoCardProps {
   categoryId: string;
   categories: ProductCategory[];
   status: DigitalProduct['status'];
+  renewable: boolean;
+  onRenewableChange: (value: boolean) => void;
+  allowOrderWhenOutOfStock: boolean;
+  onAllowOrderWhenOutOfStockChange: (value: boolean) => void;
   description: string;
   onNameChange: (value: string) => void;
   onPlatformChange: (value: string) => void;
@@ -25,6 +29,10 @@ export default function ProductGeneralInfoCard({
   categoryId,
   categories,
   status,
+  renewable,
+  onRenewableChange,
+  allowOrderWhenOutOfStock,
+  onAllowOrderWhenOutOfStockChange,
   description,
   onNameChange,
   onPlatformChange,
@@ -93,16 +101,52 @@ export default function ProductGeneralInfoCard({
         </div>
 
         <div>
-          <label className="admin-label block mb-1.5">Status</label>
+          <label className="admin-label block mb-1.5">Availability</label>
           <select
-            value={status}
-            onChange={(e) => onStatusChange(e.target.value as DigitalProduct['status'])}
+            value={status === 'draft' ? 'draft' : 'active'}
+            onChange={(e) =>
+              onStatusChange(e.target.value === 'draft' ? 'draft' : 'active')
+            }
             className="w-full h-9 px-3 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg"
           >
-            <option value="active">Active</option>
-            <option value="draft">Draft</option>
-            <option value="out_of_stock">Out of stock</option>
+            <option value="active">Available</option>
+            <option value="draft">Not available</option>
           </select>
+        </div>
+
+        <div className="sm:col-span-2 space-y-2">
+          <label className="flex items-start gap-2.5 rounded-lg border border-slate-200 dark:border-slate-800 px-3 py-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={renewable}
+              onChange={(e) => onRenewableChange(e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-emerald-600"
+            />
+            <span>
+              <span className="block text-xs font-medium text-slate-800 dark:text-slate-200">
+                Renewable (turn off for one-time products)
+              </span>
+            </span>
+          </label>
+
+          <label className="flex items-start gap-2.5 rounded-lg border border-slate-200 dark:border-slate-800 px-3 py-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={allowOrderWhenOutOfStock}
+              onChange={(e) =>
+                onAllowOrderWhenOutOfStockChange(e.target.checked)
+              }
+              className="mt-0.5 h-4 w-4 accent-emerald-600"
+            />
+            <span>
+              <span className="block text-xs font-medium text-slate-800 dark:text-slate-200">
+                Still accept orders when credentials are empty
+              </span>
+              <span className="block text-[11px] text-slate-500 mt-0.5">
+                Orders queue as pending assign until you add a credential
+              </span>
+            </span>
+          </label>
         </div>
       </div>
 

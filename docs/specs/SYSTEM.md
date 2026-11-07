@@ -25,7 +25,8 @@ Buyer account is part of storefront: `/account` (not a third portal).
 | `/product/[id]` | Product detail |
 | `/cart` | Cart |
 | `/how`, `/faq`, `/contact` | Content |
-| `/login` | Auth UI (`?mode=register`) |
+| `/login` | Sign in / register (`?mode=register`), forgot password |
+| `/reset-password` | New password from an emailed link (`?token=`) |
 | `/account` | Buyer portal (`?tab=`) |
 
 ## Routes (admin)
@@ -53,10 +54,14 @@ docs/               # this documentation
 
 - Store nav: URL-driven (`context/StoreNavContext` + `lib/store-routes.ts`).
 - Cart / quick order: React context.
-- Customer session: still `localStorage` (migrate to DB auth later).
-- Admin domain data: still largely in-memory seed (`lib/admin-data`) — **persist slice-by-slice via Prisma**.
+- Auth: httpOnly cookie session checked against the DB on every request (see [AUTH.md](AUTH.md)).
+  The storefront also keeps name/email/phone in `localStorage` for display and guest order links; it is refreshed from `/api/account/profile`.
+- Admin domain data: Prisma-backed workspace (`lib/admin/workspace-repo` + `/api/admin/workspace`).
 - Database: Prisma + SQLite (`DATABASE_URL=file:./dev.db`). Client: `lib/db.ts`.
-- Catalog: `lib/catalog/*` queries + map; store layout loads products into `CatalogContext`. Seed: `bun run db:seed`.
+- Catalog: `lib/catalog/*` queries + map; store layout loads products into `CatalogContext`.
+- Store settings: `StoreSetting` via Admin → Settings (`/api/admin/settings`, `/api/admin/email`).
+- Orders: one shared `lib/orders/create-order.ts` for storefront and admin; warranty/renew math in `lib/warranty.ts`.
+- Email: `lib/email/*` (SMTP or Resend/Brevo/SendGrid/Postmark/Mailgun).
 
 ### Postgres cutover (later)
 
@@ -74,5 +79,5 @@ docs/               # this documentation
 
 ## Test / verify
 
-- `bunx tsc --noEmit`
+- `npx tsc --noEmit`
 - Manual: store routes + `/admin` navigation + storefront↔admin links

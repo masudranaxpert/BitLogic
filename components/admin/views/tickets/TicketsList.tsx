@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { PlusCircle, ArrowUpRight } from 'lucide-react';
 import { AdminSupportTicket } from '@/lib/admin-data';
 import {
@@ -54,6 +54,10 @@ export function TicketsList({
   onOpenOrderChat,
   onResetFilters,
 }: TicketsListProps) {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  useEffect(() => setPage(1), [filteredTickets.length]);
+  const paged = filteredTickets.slice((page - 1) * pageSize, page * pageSize);
   return (
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -164,7 +168,7 @@ export function TicketsList({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800">
-                {filteredTickets.map((tkt) => {
+                {paged.map((tkt) => {
                   const unread = tkt.unreadCount || 0;
                   return (
                     <tr
@@ -267,7 +271,7 @@ export function TicketsList({
           </div>
 
           <div className="md:hidden divide-y divide-slate-200/80 dark:divide-slate-800">
-            {filteredTickets.map((tkt) => (
+            {paged.map((tkt) => (
               <div key={tkt.id} className="p-4 space-y-2.5">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
@@ -320,13 +324,13 @@ export function TicketsList({
             ))}
           </div>
 
-          {filteredTickets.length > 10 && (
-            <PaginationFooter
-              totalItems={filteredTickets.length}
-              pageSize={10}
-              currentPage={1}
-            />
-          )}
+          <PaginationFooter
+          totalItems={filteredTickets.length}
+          pageSize={pageSize}
+          currentPage={page}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
         </Card>
       )}
     </div>

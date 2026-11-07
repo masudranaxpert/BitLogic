@@ -16,6 +16,7 @@ export type AdminTab =
   | 'vault-view'
   | 'vault-edit'
   | 'deliveries'
+  | 'order-add'
   | 'orders-pinned'
   | 'orders-renewals'
   | 'warranty-claims'
@@ -25,7 +26,13 @@ export type AdminTab =
   | 'user-add'
   | 'media'
   | 'payments'
-  | 'features';
+  | 'coupons'
+  | 'features'
+  | 'email'
+  | 'contact'
+  | 'storefront'
+  | 'staff'
+  | 'staff-add';
 
 export interface AdminChatAttachment {
   id: string;
@@ -104,12 +111,21 @@ export interface DigitalProduct {
   sku: string;
   imageUrl?: string;
   galleryUrls?: string[];
-  status: 'active' | 'draft' | 'out_of_stock';
+  /** active = show on storefront; draft = hidden (no new buy/renew). */
+  status: 'active' | 'draft';
+  /** false = one-time product; no renewals after first purchase. Default true. */
+  renewable?: boolean;
+  /**
+   * When vault has no available credential: still accept buy/renew → pending assign.
+   * Independent of availability (active/draft).
+   */
+  allowOrderWhenOutOfStock?: boolean;
+  /** Order window (ISO, UTC). Empty = always orderable. Renewals are never blocked. */
+  availableFrom?: string;
+  availableUntil?: string;
   shortDescription: string;
   description?: string;
   descriptionMode?: 'global' | 'per_option';
-  totalSales: number;
-  monthlyRevenueBDT: number;
   variants: ProductVariant[];
 }
 
@@ -249,7 +265,14 @@ export interface DigitalDelivery {
   vpnRegionNote: string;
   hasWarranty: boolean;
   warrantyDays: number;
+  /** Derived from the warranty dates on load (days left in the running warranty). */
   warrantyRemainingDays: number;
+  /** 'YYYY-MM-DD HH:mm' — starts at delivery or when an admin sets it. */
+  warrantyStartsAt?: string;
+  warrantyEndsAt?: string;
+  /** Next paid period's warranty, queued by an early renewal. */
+  nextWarrantyStartsAt?: string;
+  nextWarrantyEndsAt?: string;
   warrantyTerms: string;
   warrantyClaimReason?: string;
   replacementHistoryCount: number;
@@ -324,6 +347,11 @@ export interface SubscriberUser {
   joinedAt: string;
   status: 'active' | 'suspended';
   role: 'subscriber' | 'reseller' | 'vip';
+  /**
+   * From User.emailVerifiedAt (login account).
+   * null = no User row for this email (guest / admin-only customer card).
+   */
+  emailVerified: boolean | null;
   activeSubscriptions: {
     id: string;
     orderId?: string;
@@ -351,7 +379,8 @@ export interface PaymentTransaction {
   buyerEmail: string;
   productSummary: string;
   amountBDT: number;
-  gateway: 'bKash' | 'Nagad' | 'Stripe' | 'Binance Pay' | 'Rocket';
+  /** Known names live in lib/admin/gateways.ts; free text is allowed for others. */
+  gateway: 'bKash' | 'Nagad' | 'Stripe' | 'Binance Pay' | 'Rocket' | (string & {});
   senderNumberOrRef: string;
   trxId: string;
   status: 'verified' | 'pending_verification' | 'refunded' | 'rejected';
@@ -359,6 +388,13 @@ export interface PaymentTransaction {
   /** purchase = first order; renewal = same-order extend; manual = admin adjust */
   kind?: PaymentKind;
   deliveryId?: string;
+  /** Renewal only: the units this payment extends. Empty = every live unit of the order. */
+  renewDeliveryIds?: string[];
+  /** Renewal only: the access period it paid for (YYYY-MM-DD), set on verify. */
+  periodFrom?: string;
+  periodTo?: string;
+  /** When an admin verified it. */
+  verifiedAt?: string;
 }
 
 export interface CouponCode {
@@ -373,12 +409,3 @@ export interface CouponCode {
   status: 'active' | 'expired' | 'disabled';
 }
 
-export interface SystemFeatureFlag {
-  id: string;
-  category: 'Fulfillment Engine' | 'Storefront & Stock UX' | 'Warranty & Security' | 'Payment & Webhooks';
-  name: string;
-  key: string;
-  description: string;
-  enabled: boolean;
-  impactNote: string;
-}

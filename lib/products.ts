@@ -26,6 +26,16 @@ export type Product = {
   plans: Plan[];
   features: string[];
   featured?: boolean;
+  /**
+   * Derived from vault credentials (not product status).
+   * With acceptOrdersWhenOutOfStock, checkout still works → pending assign.
+   */
+  availability?: 'available' | 'out_of_stock';
+  /** Vault empty but still accept purchase / renew (pending assign). */
+  acceptOrdersWhenOutOfStock?: boolean;
+  /** Order window (ISO, UTC). See lib/catalog/schedule.ts. */
+  availableFrom?: string;
+  availableUntil?: string;
 };
 
 /** Storefront catalog comes from Prisma — no static mock products. */

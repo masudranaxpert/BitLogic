@@ -1,5 +1,6 @@
 'use client';
 
+import { OrderLinesCard, groupLines } from './OrderLinesCard';
 import React, { useRef, useState } from 'react';
 import {
   AlertTriangle,
@@ -22,7 +23,6 @@ import type {
   CustomerOrderItem,
   OrderChatMessage,
 } from './AccountCards';
-import { WhatsAppIcon } from './BrandIcons';
 import {
   DurationBadge,
   StatusBadge,
@@ -248,17 +248,6 @@ export function OrderAccessDetailView({
             </StoreButton>
           )}
 
-          <a
-            href={`https://wa.me/8801700123456?text=${encodeURIComponent(
-              `Order ${order.id} (${order.productName})`,
-            )}`}
-            target="_blank"
-            rel="noreferrer"
-            className="h-8 px-3 rounded bg-[#25D366] hover:bg-[#1ebe5d] text-white font-semibold text-xs inline-flex items-center gap-1.5 no-underline transition-colors shadow-2xs"
-          >
-            <WhatsAppIcon size={13} />
-            <span>WhatsApp</span>
-          </a>
         </div>
       </div>
 
@@ -266,7 +255,11 @@ export function OrderAccessDetailView({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
         {/* LEFT COLUMN (7 cols) */}
         <div className="lg:col-span-7 space-y-4">
-          {/* Card 1: Subscription & Remaining Days */}
+          {/* Mixed orders: each product line has its own end date and warranty. */}
+          {order.units && groupLines(order.units).length > 1 ? (
+            <OrderLinesCard units={order.units} orderedOn={order.date} />
+          ) : (
+          <>
           <StoreSurfaceCard className="p-5 space-y-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -292,7 +285,7 @@ export function OrderAccessDetailView({
               </div>
 
               <div className="flex items-center gap-1.5">
-                <DurationBadge>{order.duration}</DurationBadge>
+                {order.duration ? <DurationBadge>{order.duration}</DurationBadge> : null}
                 <WarrantyBadge
                   label={
                     typeof order.warrantyDaysLeft === 'number' &&
@@ -383,6 +376,8 @@ export function OrderAccessDetailView({
               </div>
             </div>
           </StoreSurfaceCard>
+          </>
+          )}
 
           {/* Card 2: Credentials / Activation Queue (Icon-Only Copy Buttons) */}
           <StoreSurfaceCard className="p-5 space-y-3">
@@ -409,7 +404,129 @@ export function OrderAccessDetailView({
               )}
             </div>
 
-            {isPending ? (
+            {order.units && order.units.length > 1 ? (
+              <div className="space-y-2.5">
+                {order.units.map((unit) => {
+                  const isUnitPending = unit.status === 'pending_dispatch';
+                  return (
+                    <div
+                      key={unit.deliveryId}
+                      className="border border-slate-200 rounded p-3 bg-white space-y-2 shadow-2xs"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-slate-800">
+                          {unit.productName} · {unit.variantName} — #{unit.unitIndex}
+                        </span>
+                        <StatusBadge tone={isUnitPending ? 'amber' : 'emerald'}>
+                          {isUnitPending ? 'Queued' : 'Ready'}
+                        </StatusBadge>
+                      </div>
+
+                      {/* Unit Credential Details */}
+                      {unit.email || unit.password || unit.profilePin || unit.secretValue ? (
+                        <div className="space-y-1.5 pt-1">
+                          {unit.email && (
+                            <div className="flex items-center justify-between gap-2 p-2 rounded bg-slate-50 border border-slate-200 text-xs">
+                              <div className="min-w-0">
+                                <span className="text-[11px] font-semibold text-slate-500 block">Email / Username</span>
+                                <span className="font-semibold text-slate-900 select-all truncate block">{unit.email}</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => onCopy(`${unit.deliveryId}-email`, unit.email!)}
+                                className="w-7 h-7 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 inline-flex items-center justify-center cursor-pointer shrink-0"
+                                title="Copy email"
+                                aria-label={`Copy email for unit ${unit.unitIndex}`}
+                              >
+                                {copiedId === `${unit.deliveryId}-email` ? (
+                                  <Check size={13} className="text-emerald-600" />
+                                ) : (
+                                  <Copy size={13} />
+                                )}
+                              </button>
+                            </div>
+                          )}
+
+                          {unit.password && (
+                            <div className="flex items-center justify-between gap-2 p-2 rounded bg-slate-50 border border-slate-200 text-xs">
+                              <div className="min-w-0">
+                                <span className="text-[11px] font-semibold text-slate-500 block">Password</span>
+                                <span className="font-mono text-slate-900 select-all block">{unit.password}</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => onCopy(`${unit.deliveryId}-pass`, unit.password!)}
+                                className="w-7 h-7 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 inline-flex items-center justify-center cursor-pointer shrink-0"
+                                title="Copy password"
+                                aria-label={`Copy password for unit ${unit.unitIndex}`}
+                              >
+                                {copiedId === `${unit.deliveryId}-pass` ? (
+                                  <Check size={13} className="text-emerald-600" />
+                                ) : (
+                                  <Copy size={13} />
+                                )}
+                              </button>
+                            </div>
+                          )}
+
+                          {unit.profilePin && (
+                            <div className="flex items-center justify-between gap-2 p-2 rounded bg-slate-50 border border-slate-200 text-xs">
+                              <div className="min-w-0">
+                                <span className="text-[11px] font-semibold text-slate-500 block">Profile PIN</span>
+                                <span className="font-mono text-slate-900 select-all block">{unit.profilePin}</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => onCopy(`${unit.deliveryId}-pin`, unit.profilePin!)}
+                                className="w-7 h-7 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 inline-flex items-center justify-center cursor-pointer shrink-0"
+                                title="Copy PIN"
+                                aria-label={`Copy PIN for unit ${unit.unitIndex}`}
+                              >
+                                {copiedId === `${unit.deliveryId}-pin` ? (
+                                  <Check size={13} className="text-emerald-600" />
+                                ) : (
+                                  <Copy size={13} />
+                                )}
+                              </button>
+                            </div>
+                          )}
+
+                          {unit.secretValue && (!unit.email || !unit.password || ![unit.email, `${unit.email}:${unit.password}`, `${unit.email}|${unit.password}`].includes(unit.secretValue.replace(/s+/g, ''))) && (
+                            <div className="flex items-center justify-between gap-2 p-2 rounded bg-slate-50 border border-slate-200 text-xs">
+                              <div className="min-w-0">
+                                <span className="text-[11px] font-semibold text-slate-500 block">Key / Secret</span>
+                                <span className="font-mono text-xs select-all truncate block text-slate-800">{unit.secretValue}</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => onCopy(`${unit.deliveryId}-sec`, unit.secretValue)}
+                                className="w-7 h-7 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 inline-flex items-center justify-center cursor-pointer shrink-0"
+                                title="Copy secret"
+                                aria-label={`Copy secret for unit ${unit.unitIndex}`}
+                              >
+                                {copiedId === `${unit.deliveryId}-sec` ? (
+                                  <Check size={13} className="text-emerald-600" />
+                                ) : (
+                                  <Copy size={13} />
+                                )}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ) : !isUnitPending && unit.deliveredAt ? (
+                        <p className="text-xs text-emerald-700 font-medium m-0">
+                          Set up for you — no login details needed.
+                        </p>
+                      ) : (
+                        <p className="text-xs text-amber-700 font-medium m-0">
+                          Activation in queue (10–24h)
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : isPending ? (
               <div className="divide-y divide-slate-200/70 border border-slate-200 rounded overflow-hidden text-[13px]">
                 <div className="px-3.5 py-2.5 flex items-center justify-between gap-2 bg-slate-50/60">
                   <span className="text-xs font-semibold text-slate-600">

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Mail, Phone, Send, CheckCircle2 } from 'lucide-react';
+import { Mail, Phone, Send, CheckCircle2, Clock } from 'lucide-react';
 import {
   StoreButton,
   StoreInputField,
@@ -9,8 +9,12 @@ import {
   StoreTextareaField,
   WhatsAppIcon,
 } from '@/components/storefront/ui';
+import { useStoreSettings } from '@/context/StoreSettingsContext';
+import { whatsappHref } from '@/lib/whatsapp';
 
 export function ContactPageView() {
+  const contact = useStoreSettings();
+  const wa = whatsappHref(contact.whatsappNumber);
   const [submitted, setSubmitted] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -37,49 +41,70 @@ export function ContactPageView() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-start">
         {/* Contact info cards */}
         <div className="lg:col-span-5 space-y-3">
-          <StoreSurfaceCard className="p-4 flex items-start gap-3.5">
-            <div className="w-10 h-10 rounded-md bg-emerald-50 text-[#25D366] border border-emerald-200/60 flex items-center justify-center shrink-0">
-              <WhatsAppIcon size={18} />
-            </div>
-            <div>
-              <h3 className="font-extrabold text-[#0F172A] text-sm m-0">WhatsApp</h3>
-              <p className="text-xs text-slate-500 m-0 mt-0.5">10:00 AM – 2:00 AM (BDT)</p>
-              <a
-                href="https://wa.me/8801700123456"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-block mt-1.5 font-mono font-extrabold text-xs text-emerald-700 hover:underline"
-              >
-                +880 1700-123456
-              </a>
-            </div>
-          </StoreSurfaceCard>
+          {wa ? (
+            <StoreSurfaceCard className="p-4 flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-md bg-emerald-50 text-[#25D366] border border-emerald-200/60 flex items-center justify-center shrink-0">
+                <WhatsAppIcon size={18} />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-[#0F172A] text-sm m-0">WhatsApp</h3>
+                {contact.supportHours ? (
+                  <p className="text-xs text-slate-500 m-0 mt-0.5">{contact.supportHours}</p>
+                ) : null}
+                <a
+                  href={wa}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-block mt-1.5 font-mono font-extrabold text-xs text-emerald-700 hover:underline"
+                >
+                  {contact.whatsappNumber}
+                </a>
+              </div>
+            </StoreSurfaceCard>
+          ) : null}
 
-          <StoreSurfaceCard className="p-4 flex items-start gap-3.5">
-            <div className="w-10 h-10 rounded-md bg-sky-50 text-sky-600 border border-sky-200/60 flex items-center justify-center shrink-0">
-              <Phone size={18} />
-            </div>
-            <div>
-              <h3 className="font-extrabold text-[#0F172A] text-sm m-0">Telegram</h3>
-              <p className="text-xs text-slate-500 m-0 mt-0.5">Support & updates</p>
-              <span className="inline-block mt-1.5 font-mono font-bold text-xs text-sky-700">
-                @bitlogic_support
-              </span>
-            </div>
-          </StoreSurfaceCard>
+          {contact.telegramHandle.trim() ? (
+            <StoreSurfaceCard className="p-4 flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-md bg-sky-50 text-sky-600 border border-sky-200/60 flex items-center justify-center shrink-0">
+                <Phone size={18} />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-[#0F172A] text-sm m-0">Telegram</h3>
+                <span className="inline-block mt-1.5 font-mono font-bold text-xs text-sky-700">
+                  {contact.telegramHandle}
+                </span>
+              </div>
+            </StoreSurfaceCard>
+          ) : null}
 
-          <StoreSurfaceCard className="p-4 flex items-start gap-3.5">
-            <div className="w-10 h-10 rounded-md bg-[#FFF1F0] text-[#FF5E5B] border border-[#FF5E5B]/20 flex items-center justify-center shrink-0">
-              <Mail size={18} />
-            </div>
-            <div>
-              <h3 className="font-extrabold text-[#0F172A] text-sm m-0">Email</h3>
-              <p className="text-xs text-slate-500 m-0 mt-0.5">General inquiries</p>
-              <span className="inline-block mt-1.5 font-mono font-bold text-xs text-[#0F172A]">
-                support@bitlogic.com.bd
-              </span>
-            </div>
-          </StoreSurfaceCard>
+          {contact.supportEmail.trim() ? (
+            <StoreSurfaceCard className="p-4 flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-md bg-[#FFF1F0] text-[#FF5E5B] border border-[#FF5E5B]/20 flex items-center justify-center shrink-0">
+                <Mail size={18} />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-[#0F172A] text-sm m-0">Email</h3>
+                <a
+                  href={`mailto:${contact.supportEmail.trim()}`}
+                  className="inline-block mt-1.5 font-mono font-bold text-xs text-[#0F172A] hover:underline"
+                >
+                  {contact.supportEmail.trim()}
+                </a>
+              </div>
+            </StoreSurfaceCard>
+          ) : null}
+
+          {!wa && !contact.telegramHandle.trim() && !contact.supportEmail.trim() && contact.supportHours.trim() ? (
+            <StoreSurfaceCard className="p-4 flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-md bg-slate-50 text-slate-600 border border-slate-200 flex items-center justify-center shrink-0">
+                <Clock size={18} />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-[#0F172A] text-sm m-0">Hours</h3>
+                <span className="inline-block mt-1.5 text-xs text-slate-600">{contact.supportHours}</span>
+              </div>
+            </StoreSurfaceCard>
+          ) : null}
         </div>
 
         {/* Message form */}

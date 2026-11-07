@@ -50,9 +50,6 @@ export function useDeliveriesViewState({
   const [customPassword, setCustomPassword] = useState('');
   const [customPin, setCustomPin] = useState('');
   const [customNote, setCustomNote] = useState('');
-  const [customVpnReq, setCustomVpnReq] = useState(false);
-  const [customVpnNote, setCustomVpnNote] = useState('');
-  const [customWarrantyDays, setCustomWarrantyDays] = useState(30);
 
   // Order Chat state
   const [chatText, setChatText] = useState('');
@@ -90,9 +87,6 @@ export function useDeliveriesViewState({
         ? 'Warranty replacement issued.'
         : delivery.customAdminNote || 'Sent by admin.'
     );
-    setCustomVpnReq(delivery.vpnRequired);
-    setCustomVpnNote(delivery.vpnRegionNote);
-    setCustomWarrantyDays(delivery.warrantyRemainingDays || delivery.warrantyDays || 30);
   };
 
   const handleConfirmFulfill = (e: React.FormEvent) => {
@@ -112,9 +106,6 @@ export function useDeliveriesViewState({
           profilePin: vaultItem.profilePin,
           vaultCredentialId: vaultItem.id,
           customAdminNote: customNote,
-          vpnRequired: customVpnReq,
-          vpnRegionNote: customVpnNote,
-          warrantyDays: customWarrantyDays,
         },
         isWarrantySwap
       );
@@ -133,9 +124,6 @@ export function useDeliveriesViewState({
           password: customPassword.trim() || undefined,
           profilePin: customPin.trim() || undefined,
           customAdminNote: customNote,
-          vpnRequired: customVpnReq,
-          vpnRegionNote: customVpnNote,
-          warrantyDays: customWarrantyDays,
         },
         isWarrantySwap
       );
@@ -186,13 +174,17 @@ export function useDeliveriesViewState({
     if (!selectedChatDelivery || !onSendOrderChatMessage) return;
     if (!chatText.trim() && !stagedAttachment) return;
 
-    onSendOrderChatMessage(selectedChatDelivery.id, {
+    const payload = {
       text:
         chatText.trim() ||
         (stagedAttachment ? `Attached file: ${stagedAttachment.name}` : ''),
       replyTo: replyingTo || undefined,
       attachment: stagedAttachment || undefined,
-    });
+    };
+    // One conversation per order: mirror to every unit so the buyer sees it on any item.
+    for (const d of deliveries) {
+      if (d.orderId === selectedChatDelivery.orderId) onSendOrderChatMessage(d.id, payload);
+    }
 
     setChatText('');
     setReplyingTo(null);
@@ -207,18 +199,35 @@ export function useDeliveriesViewState({
     }
   };
 
-  const unreadChatDeliveriesCount = deliveries.filter(
-    (d) => (d.unreadChatCount || 0) > 0
-  ).length;
-  const pendingCount = deliveries.filter((d) => d.status === 'pending_dispatch').length;
-  const claimCount = deliveries.filter((d) => d.status === 'warranty_claim').length;
-  const deliveredCount = deliveries.filter((d) => d.status === 'delivered').length;
-  const refundedCount = deliveries.filter((d) => d.status === 'refunded').length;
-  const renewalsCount = deliveries.filter((d) => d.renewalPending).length;
-  const pinnedCount = deliveries.filter((d) => d.pinned).length;
-  const activeWarrantyCount = deliveries.filter(
-    (d) => d.hasWarranty && d.warrantyRemainingDays > 0
-  ).length;
+  const unreadChatDeliveriesCount = new Set(
+    deliveries.filter((d) => (d.unreadChatCount || 0) > 0).map((d) => d.orderId),
+  ).size;
+  const pendingCount = new Set(
+    deliveries.filter((d) => d.status === 'pending_dispatch').map((d) => d.orderId),
+  ).size;
+  const claimCount = new Set(
+    deliveries.filter((d) => d.status === 'warranty_claim').map((d) => d.orderId),
+  ).size;
+  const deliveredCount = new Set(
+    deliveries.filter((d) => d.status === 'delivered').map((d) => d.orderId),
+  ).size;
+  const refundedCount = new Set(
+    deliveries.filter((d) => d.status === 'refunded').map((d) => d.orderId),
+  ).size;
+  const replacedCount = new Set(
+    deliveries.filter((d) => d.status === 'replaced').map((d) => d.orderId),
+  ).size;
+  const renewalsCount = new Set(
+    deliveries.filter((d) => d.renewalPending).map((d) => d.orderId),
+  ).size;
+  const pinnedCount = new Set(
+    deliveries.filter((d) => d.pinned).map((d) => d.orderId),
+  ).size;
+  const activeWarrantyCount = new Set(
+    deliveries
+      .filter((d) => d.hasWarranty && d.warrantyRemainingDays > 0)
+      .map((d) => d.orderId),
+  ).size;
 
   const filteredDeliveries = deliveries.filter((d) => {
     const matchesStatus =
@@ -250,6 +259,7 @@ export function useDeliveriesViewState({
     claimCount,
     deliveredCount,
     refundedCount,
+    replacedCount,
     renewalsCount,
     pinnedCount,
     activeWarrantyCount,
@@ -284,12 +294,6 @@ export function useDeliveriesViewState({
     setCustomPin,
     customNote,
     setCustomNote,
-    customVpnReq,
-    setCustomVpnReq,
-    customVpnNote,
-    setCustomVpnNote,
-    customWarrantyDays,
-    setCustomWarrantyDays,
     lightboxImage,
     setLightboxImage,
 

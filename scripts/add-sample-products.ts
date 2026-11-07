@@ -75,8 +75,6 @@ async function main() {
       shortDescription: 'Priority GPT access for everyday work.',
       description:
         'Official ChatGPT Plus with GPT-4o, Canvas, and advanced reasoning.',
-      totalSales: 0,
-      monthlyRevenueBDT: 0,
       variants: [
         {
           id: 'var-cg-shared',
@@ -143,8 +141,6 @@ async function main() {
       status: 'active',
       shortDescription: 'Google Gemini Advanced workspace.',
       description: 'Gemini Advanced with 1.5 Pro and Google app integrations.',
-      totalSales: 0,
-      monthlyRevenueBDT: 0,
       variants: [
         {
           id: 'var-gm-pro',
@@ -187,8 +183,6 @@ async function main() {
       status: 'active',
       shortDescription: 'Netflix 4K shared and private plans.',
       description: 'Watch in Ultra HD with profile slots and warranty support.',
-      totalSales: 0,
-      monthlyRevenueBDT: 0,
       variants: [
         {
           id: 'var-nf-shared',
@@ -255,8 +249,6 @@ async function main() {
       status: 'active',
       shortDescription: 'Canva Pro for teams and creators.',
       description: 'Premium templates, Brand Kit, and background remover.',
-      totalSales: 0,
-      monthlyRevenueBDT: 0,
       variants: [
         {
           id: 'var-cv-shared',
@@ -299,8 +291,6 @@ async function main() {
       status: 'active',
       shortDescription: 'Watermark-free CapCut Pro.',
       description: 'CapCut Pro for Reels, Shorts, and TikTok exports.',
-      totalSales: 0,
-      monthlyRevenueBDT: 0,
       variants: [
         {
           id: 'var-cc-shared',

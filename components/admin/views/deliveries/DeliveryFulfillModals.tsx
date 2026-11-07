@@ -10,13 +10,20 @@ import {
   BBCodeEditor,
 } from '@/components/admin/ui/primitives';
 import type { DeliveriesViewState } from './useDeliveriesViewState';
+import type { DigitalDelivery } from '@/lib/admin-data';
+import type { DeliveriesViewProps } from './types';
+import { SendOrderCredentialsModal } from './SendOrderCredentialsModal';
 
 type DeliveryFulfillModalsProps = {
+  deliveries: DigitalDelivery[];
+  onFulfillDelivery: DeliveriesViewProps['onFulfillDelivery'];
   vault: VaultCredential[];
   state: DeliveriesViewState;
 };
 
 export function DeliveryFulfillModals({
+  deliveries,
+  onFulfillDelivery,
   vault,
   state,
 }: DeliveryFulfillModalsProps) {
@@ -37,19 +44,24 @@ export function DeliveryFulfillModals({
     setCustomPin,
     customNote,
     setCustomNote,
-    customWarrantyDays,
-    setCustomWarrantyDays,
-    customVpnReq,
-    setCustomVpnReq,
     handleConfirmFulfill,
     lightboxImage,
     setLightboxImage,
   } = state;
 
+  const swap = Boolean(activeActionDelivery?.isWarrantySwap);
   return (
     <>
+      <SendOrderCredentialsModal
+        open={Boolean(activeActionDelivery) && !swap}
+        delivery={activeActionDelivery && !swap ? activeActionDelivery.delivery : null}
+        deliveries={deliveries}
+        vault={vault}
+        onFulfillDelivery={onFulfillDelivery}
+        onClose={() => setActiveActionDelivery(null)}
+      />
       <ModalShell
-        open={Boolean(activeActionDelivery)}
+        open={Boolean(activeActionDelivery) && swap}
         onClose={() => setActiveActionDelivery(null)}
         title={
           activeActionDelivery?.isWarrantySwap
@@ -163,33 +175,6 @@ export function DeliveryFulfillModals({
                     />
                   </div>
                 )}
-
-                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200 dark:border-slate-800">
-                  <div>
-                    <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      VPN Required?
-                    </label>
-                    <select
-                      value={customVpnReq ? 'yes' : 'no'}
-                      onChange={(e) => setCustomVpnReq(e.target.value === 'yes')}
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md"
-                    >
-                      <option value="no">No</option>
-                      <option value="yes">Yes</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Warranty Days
-                    </label>
-                    <input
-                      type="number"
-                      value={customWarrantyDays}
-                      onChange={(e) => setCustomWarrantyDays(Number(e.target.value))}
-                      className="w-full px-3 py-2 font-mono bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md"
-                    />
-                  </div>
-                </div>
 
                 <BBCodeEditor
                   label="Description"

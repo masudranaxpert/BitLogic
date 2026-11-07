@@ -16,6 +16,12 @@ Accepted
 - Edge `middleware` redirects non-admin visitors of `/admin/*` to `/login?next=…`.
 - Login/register/logout live under `/api/auth/*`. Register always creates `CUSTOMER`.
 
+## Update (2026-11)
+
+- Roles are CUSTOMER / STAFF / ADMIN; staff get per-menu permissions.
+- Tokens carry `sessionVersion`; `getSession()` checks it against the DB, so password resets, suspensions and role changes end old sessions.
+- Email verification and password reset use one-time hashed tokens (`AuthToken`). Details: [specs/AUTH.md](../specs/AUTH.md).
+
 ## Consequences
 
 - Admin and storefront share one session cookie; role decides access.

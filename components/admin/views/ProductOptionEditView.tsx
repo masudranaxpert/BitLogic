@@ -117,7 +117,7 @@ export default function ProductOptionEditView({
         <p className="mt-1 mb-0 text-xs text-slate-500 dark:text-slate-400">
           {mode === 'edit'
             ? `${editing?.product.name} · ${editing?.variant.name}`
-            : 'Same form for create and edit — pick a product, set price, delivery, warranty.'}
+            : ''}
         </p>
       </div>
 

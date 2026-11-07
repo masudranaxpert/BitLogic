@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/auth/require-admin';
+import { requirePermission } from '@/lib/auth/require-admin';
 import { saveImageBufferAsWebp } from '@/lib/media/save-webp';
 
 export const runtime = 'nodejs';
@@ -13,7 +13,7 @@ const ALLOWED = new Set([
 ]);
 
 export async function POST(request: Request) {
-  const { error } = await requireAdmin();
+  const { error } = await requirePermission('media');
   if (error) return error;
 
   try {

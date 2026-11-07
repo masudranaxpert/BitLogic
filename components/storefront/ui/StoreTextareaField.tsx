@@ -1,6 +1,6 @@
 'use client';
 
-import React, { type TextareaHTMLAttributes } from 'react';
+import React, { useId, type TextareaHTMLAttributes } from 'react';
 
 type StoreTextareaFieldProps = TextareaHTMLAttributes<HTMLTextAreaElement> & {
   label?: string;
@@ -18,18 +18,20 @@ export function StoreTextareaField({
   rows = 4,
   ...rest
 }: StoreTextareaFieldProps) {
+  const autoId = useId();
+  const fieldId = id ?? autoId;
   return (
     <div>
       {label && (
         <label
-          htmlFor={id}
+          htmlFor={fieldId}
           className="block text-xs font-semibold text-slate-700 mb-1.5"
         >
           {label} {required && <span className="text-[#FF5E5B]">*</span>}
         </label>
       )}
       <textarea
-        id={id}
+        id={fieldId}
         rows={rows}
         required={required}
         className={`w-full px-3 py-2.5 rounded border ${

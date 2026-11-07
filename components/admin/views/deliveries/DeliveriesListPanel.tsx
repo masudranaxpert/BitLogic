@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Copy, Check, MessageSquare, MoreHorizontal, Pin, PinOff } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Copy, Check, Pin, PinOff, ChevronDown, ChevronUp, Layers } from 'lucide-react';
 import type { DigitalDelivery, VaultCredential } from '@/lib/admin-data';
 import {
   Card,
@@ -14,6 +14,7 @@ import {
   EmptyTableState,
 } from '@/components/admin/ui/primitives';
 import type { DeliveriesViewState } from './useDeliveriesViewState';
+import { OrderRowActions } from './OrderRowActions';
 
 type DeliveriesListPanelProps = {
   deliveries: DigitalDelivery[];
@@ -25,166 +26,6 @@ type DeliveriesListPanelProps = {
   pageMode?: 'all' | 'pinned' | 'renewals' | 'warranty';
   state: DeliveriesViewState;
 };
-
-function primaryFulfillAction(del: DigitalDelivery): {
-  label: string;
-  urgent: boolean;
-  isReplace: boolean;
-} {
-  const renewPending = Boolean(del.renewalPending);
-  const emptySecret = !del.credentialPayload.secretValue?.trim();
-  if (
-    del.status === 'pending_dispatch' ||
-    (renewPending && emptySecret)
-  ) {
-    return {
-      label: renewPending ? 'Assign' : 'Send',
-      urgent: true,
-      isReplace: false,
-    };
-  }
-  if (del.status === 'warranty_claim') {
-    return { label: 'Swap', urgent: true, isReplace: true };
-  }
-  return { label: 'Replace', urgent: false, isReplace: true };
-}
-
-type OrderRowActionsProps = {
-  del: DigitalDelivery;
-  unread: number;
-  menuOpen: boolean;
-  onMenuToggle: () => void;
-  onMenuClose: () => void;
-  onOpenChat: () => void;
-  onFulfill: (isReplace: boolean) => void;
-  onTogglePin?: () => void;
-};
-
-/** Chat (old style) + ⋯ menu (Send / Replace / Pin). */
-function OrderRowActions({
-  del,
-  unread,
-  menuOpen,
-  onMenuToggle,
-  onMenuClose,
-  onOpenChat,
-  onFulfill,
-  onTogglePin,
-}: OrderRowActionsProps) {
-  const action = primaryFulfillAction(del);
-  const menuId = useId();
-  const menuRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        onMenuClose();
-        triggerRef.current?.focus();
-      }
-    };
-    const onPointer = (e: MouseEvent) => {
-      if (!menuRef.current?.contains(e.target as Node)) onMenuClose();
-    };
-    document.addEventListener('keydown', onKey);
-    document.addEventListener('mousedown', onPointer);
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.removeEventListener('mousedown', onPointer);
-    };
-  }, [menuOpen, onMenuClose]);
-
-  const menuItemClass =
-    'flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-xs font-medium text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 focus-visible:bg-slate-50 dark:focus-visible:bg-slate-800 focus-visible:outline-none';
-
-  return (
-    <div className="inline-flex items-center justify-end gap-1.5">
-      <button
-        type="button"
-        onClick={onOpenChat}
-        className={`relative h-8 w-8 rounded-md border inline-flex items-center justify-center cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${
-          unread > 0
-            ? 'bg-rose-50 dark:bg-rose-950/50 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300'
-            : 'border-slate-200 dark:border-slate-700 hover:border-emerald-500 text-slate-600 dark:text-slate-300'
-        }`}
-        aria-label={
-          unread > 0
-            ? `Open chat for ${del.orderId}, ${unread} unread`
-            : `Open chat for ${del.orderId}`
-        }
-        title="Chat"
-      >
-        <MessageSquare className="w-3.5 h-3.5" aria-hidden="true" />
-        {unread > 0 ? (
-          <span className="absolute -top-1 -right-1 min-w-[1rem] h-4 px-1 rounded-full bg-rose-600 text-white text-[10px] font-semibold leading-4 tabular-nums">
-            {unread > 9 ? '9+' : unread}
-          </span>
-        ) : null}
-      </button>
-
-      <div className="relative" ref={menuRef}>
-        <button
-          ref={triggerRef}
-          type="button"
-          onClick={onMenuToggle}
-          className="h-8 w-8 rounded-md border border-slate-200 dark:border-slate-700 inline-flex items-center justify-center text-slate-500 hover:border-emerald-500 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
-          aria-label={`More actions for ${del.orderId}`}
-          aria-haspopup="menu"
-          aria-expanded={menuOpen}
-          aria-controls={menuOpen ? menuId : undefined}
-          title="More"
-        >
-          <MoreHorizontal className="w-3.5 h-3.5" aria-hidden="true" />
-        </button>
-        {menuOpen ? (
-          <div
-            id={menuId}
-            role="menu"
-            aria-label={`Actions for ${del.orderId}`}
-            className="absolute right-0 top-full z-20 mt-1 w-44 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-1 shadow-md"
-          >
-            <button
-              type="button"
-              role="menuitem"
-              className={menuItemClass}
-              onClick={() => {
-                onFulfill(action.isReplace);
-                onMenuClose();
-              }}
-            >
-              {action.label}
-            </button>
-            {onTogglePin ? (
-              <button
-                type="button"
-                role="menuitem"
-                className={menuItemClass}
-                onClick={() => {
-                  onTogglePin();
-                  onMenuClose();
-                }}
-              >
-                {del.pinned ? (
-                  <>
-                    <PinOff className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                    Unpin
-                  </>
-                ) : (
-                  <>
-                    <Pin className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                    Pin
-                  </>
-                )}
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
 
 export function DeliveriesListPanel({
   deliveries,
@@ -208,6 +49,7 @@ export function DeliveriesListPanel({
     pendingCount,
     deliveredCount,
     refundedCount,
+    replacedCount,
     activeWarrantyCount,
     filteredDeliveries,
     selectedIds,
@@ -217,7 +59,17 @@ export function DeliveriesListPanel({
     openActionModal,
   } = state;
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [groupByOrder, setGroupByOrder] = useState(true);
+  const [expandedOrderIds, setExpandedOrderIds] = useState<string[]>([]);
   const isDedicated = pageMode !== 'all';
+
+  const toggleExpandOrder = (orderId: string) => {
+    setExpandedOrderIds((prev) =>
+      prev.includes(orderId)
+        ? prev.filter((id) => id !== orderId)
+        : [...prev, orderId],
+    );
+  };
 
   const scopeRows = useMemo(() => {
     if (pageMode === 'pinned') return deliveries.filter((d) => d.pinned);
@@ -243,11 +95,95 @@ export function DeliveriesListPanel({
     );
   }, [scopeRows, filteredDeliveries, searchQuery]);
 
+  const uniqueOrdersCount = useMemo(
+    () => new Set(deliveries.map((d) => d.orderId)).size,
+    [deliveries],
+  );
+
+  const uniquePendingCount = useMemo(
+    () =>
+      new Set(
+        deliveries
+          .filter((d) => d.status === 'pending_dispatch')
+          .map((d) => d.orderId),
+      ).size,
+    [deliveries],
+  );
+
+  const groupedOrders = useMemo(() => {
+    const map = new Map<string, DigitalDelivery[]>();
+    for (const del of pageRows) {
+      const list = map.get(del.orderId) || [];
+      list.push(del);
+      map.set(del.orderId, list);
+    }
+    return Array.from(map.entries()).map(([orderId, units]) => {
+      const primary = units[0];
+      const allDelivered = units.every((u) => u.status === 'delivered');
+      const anyClaim = units.some((u) => u.status === 'warranty_claim');
+      const anyPending = units.some((u) => u.status === 'pending_dispatch');
+      const deliveredCount = units.filter((u) => u.status === 'delivered').length;
+      const totalUnread = units.reduce(
+        (acc, u) => acc + (u.unreadChatCount || 0),
+        0,
+      );
+      const isPinned = units.some((u) => u.pinned);
+      const isRenewal = units.some((u) => u.renewalPending);
+      const isExpanded = expandedOrderIds.includes(orderId);
+      const allChecked = units.every((u) => selectedIds.includes(u.id));
+
+      return {
+        orderId,
+        primary,
+        units,
+        totalUnits: units.length,
+        deliveredCount,
+        allDelivered,
+        anyClaim,
+        anyPending,
+        totalUnread,
+        isPinned,
+        isRenewal,
+        isExpanded,
+        allChecked,
+      };
+    });
+  }, [pageRows, expandedOrderIds, selectedIds]);
+
+  // Real pagination: page over orders when grouped, over units otherwise.
+  const [listPage, setListPage] = useState(1);
+  const [listSize, setListSize] = useState(25);
+  const listTotal = groupByOrder ? groupedOrders.length : pageRows.length;
+  const listPages = Math.max(1, Math.ceil(listTotal / listSize));
+  const safePage = Math.min(listPage, listPages);
+  const pagedGroups = groupedOrders.slice((safePage - 1) * listSize, safePage * listSize);
+  const pagedRows = pageRows.slice((safePage - 1) * listSize, safePage * listSize);
+  useEffect(() => {
+    setListPage(1);
+  }, [searchQuery, statusFilter, pageMode, groupByOrder]);
+
+  const handleToggleSelectOrder = (units: DigitalDelivery[]) => {
+    const unitIds = units.map((u) => u.id);
+    const allSelected = unitIds.every((id) => selectedIds.includes(id));
+    if (allSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !unitIds.includes(id)));
+    } else {
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...unitIds])));
+    }
+  };
+
   const pageStats = useMemo(() => {
     const rows = scopeRows || deliveries;
-    const unread = rows.filter((d) => (d.unreadChatCount || 0) > 0).length;
-    const pending = rows.filter((d) => d.status === 'pending_dispatch').length;
-    const active = rows.filter((d) => d.status === 'delivered').length;
+    const uniqueOrders = new Set(rows.map((d) => d.orderId));
+    const unread = new Set(
+      rows.filter((d) => (d.unreadChatCount || 0) > 0).map((d) => d.orderId),
+    ).size;
+    const pending = new Set(
+      rows.filter((d) => d.status === 'pending_dispatch').map((d) => d.orderId),
+    ).size;
+    const active = new Set(
+      rows.filter((d) => d.status === 'delivered').map((d) => d.orderId),
+    ).size;
     const needsAssign = rows.filter(
       (d) => !d.credentialPayload.secretValue?.trim(),
     ).length;
@@ -256,7 +192,8 @@ export function DeliveriesListPanel({
         Boolean(d.credentialClearedAt) && !d.credentialPayload.secretValue,
     ).length;
     return {
-      total: rows.length,
+      total: uniqueOrders.size,
+      totalUnits: rows.length,
       unread,
       pending,
       active,
@@ -339,6 +276,14 @@ export function DeliveriesListPanel({
 
         <div className="hidden sm:block shrink-0">
           <SwitchToggle
+            checked={groupByOrder}
+            onChange={setGroupByOrder}
+            label="Grouped"
+          />
+        </div>
+
+        <div className="hidden sm:block shrink-0">
+          <SwitchToggle
             checked={showStatistics}
             onChange={setShowStatistics}
             label="Stats"
@@ -350,11 +295,11 @@ export function DeliveriesListPanel({
             <SegmentedTabs
               layout="wrap"
               options={[
-                { value: 'all', label: 'All', count: deliveries.length },
+                { value: 'all', label: 'All', count: uniqueOrdersCount },
                 {
                   value: 'pending_dispatch',
-                  label: 'Pending',
-                  count: pendingCount,
+                  label: 'Pending assign',
+                  count: uniquePendingCount,
                 },
                 {
                   value: 'delivered',
@@ -364,8 +309,7 @@ export function DeliveriesListPanel({
                 {
                   value: 'replaced',
                   label: 'Replace',
-                  count: deliveries.filter((d) => d.status === 'replaced')
-                    .length,
+                  count: replacedCount,
                 },
                 {
                   value: 'refunded',
@@ -464,7 +408,7 @@ export function DeliveriesListPanel({
             ) : (
               <>
                 <div className="bg-white dark:bg-slate-900">
-                  <StatMetric label="Total Orders" value={deliveries.length} />
+                  <StatMetric label="Total Orders" value={pageStats.total} />
                 </div>
                 <div className="bg-white dark:bg-slate-900">
                   <StatMetric
@@ -544,274 +488,780 @@ export function DeliveriesListPanel({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800">
-                {pageRows.map((del) => {
-                  const checked = selectedIds.includes(del.id);
-                  const unread = del.unreadChatCount || 0;
-                  const credGone =
-                    Boolean(del.credentialClearedAt) &&
-                    !del.credentialPayload.secretValue;
-                  const renewRow = Boolean(del.renewalPending);
+                {groupByOrder
+                  ? pagedGroups.map((grp) => {
+                      const { orderId, primary, units, totalUnits, deliveredCount, allDelivered, anyClaim, anyPending, totalUnread, isPinned, isRenewal, isExpanded, allChecked } = grp;
+                      const credGone = Boolean(primary.credentialClearedAt) && !primary.credentialPayload.secretValue;
 
-                  return (
-                    <tr
-                      key={del.id}
-                      className={`transition-colors whitespace-nowrap ${
-                        renewRow && credGone
-                          ? 'bg-violet-50/80 dark:bg-violet-950/35'
-                          : renewRow
-                            ? 'bg-sky-50/70 dark:bg-sky-950/30'
-                            : credGone
-                              ? 'bg-amber-50/70 dark:bg-amber-950/25'
-                              : checked
-                                ? 'bg-emerald-50/50 dark:bg-emerald-950/30'
-                                : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/40'
-                      }`}
-                    >
-                      <td className="py-3 px-4">
-                        <ShadcnCheckbox
-                          checked={checked}
-                          onChange={() =>
-                            setSelectedIds((prev) =>
-                              prev.includes(del.id)
-                                ? prev.filter((i) => i !== del.id)
-                                : [...prev, del.id]
-                            )
-                          }
-                        />
-                      </td>
-
-                      <td className="px-3 py-3">
-                        <div className="inline-flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => onSelectChatDelivery?.(del.id)}
-                            className="cursor-pointer font-mono text-sm font-semibold tabular-nums text-emerald-700 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 dark:text-emerald-400"
-                            aria-label={`Open order ${del.orderId}`}
+                      return (
+                        <React.Fragment key={orderId}>
+                          <tr
+                            className={`transition-colors whitespace-nowrap ${
+                              isRenewal && credGone
+                                ? 'bg-violet-50/80 dark:bg-violet-950/35'
+                                : isRenewal
+                                  ? 'bg-sky-50/70 dark:bg-sky-950/30'
+                                  : credGone
+                                    ? 'bg-amber-50/70 dark:bg-amber-950/25'
+                                    : allChecked
+                                      ? 'bg-emerald-50/50 dark:bg-emerald-950/30'
+                                      : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/40'
+                            }`}
                           >
-                            {del.orderId}
-                            {(del.orderQuantity ?? 1) > 1 ? (
-                              <span className="ml-1 font-sans text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                                {del.unitIndex ?? 1}/{del.orderQuantity}
-                              </span>
+                            <td className="py-3 px-4">
+                              <ShadcnCheckbox
+                                checked={allChecked}
+                                onChange={() => handleToggleSelectOrder(units)}
+                              />
+                            </td>
+
+                            <td className="px-3 py-3">
+                              <div className="inline-flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => onSelectChatDelivery?.(primary.id)}
+                                  className="cursor-pointer font-mono text-sm font-semibold tabular-nums text-emerald-700 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 dark:text-emerald-400"
+                                  aria-label={`Open order ${orderId}`}
+                                >
+                                  {orderId}
+                                </button>
+                                {totalUnread > 0 ? (
+                                  <span
+                                    className="h-2 w-2 rounded-full bg-rose-500"
+                                    title={`${totalUnread} unread message`}
+                                  />
+                                ) : null}
+                              </div>
+                            </td>
+
+                            <td className="px-3 py-3 font-semibold text-slate-900 dark:text-slate-100">
+                              {primary.buyerName}
+                            </td>
+
+                            <td className="px-3 py-3 font-medium text-slate-900 dark:text-slate-100">
+                              {(() => {
+                                const lines = new Map<string, { label: string; n: number }>();
+                                for (const u of units) {
+                                  const k = u.productId + '|' + u.variantId;
+                                  const cur = lines.get(k);
+                                  if (cur) cur.n += 1;
+                                  else lines.set(k, { label: u.productName + ' — ' + u.variantName, n: 1 });
+                                }
+                                const list = Array.from(lines.values());
+                                return (
+                                  <div className="space-y-0.5">
+                                    {list.map((l) => (
+                                      <div key={l.label}>
+                                        {l.label}
+                                        {l.n > 1 ? (
+                                          <span className="ml-1.5 font-mono text-slate-500">× {l.n}</span>
+                                        ) : null}
+                                      </div>
+                                    ))}
+                                  </div>
+                                );
+                              })()}
+                            </td>
+
+                            {showCredentialCol ? (
+                              <td className="px-3 py-3">
+                                {totalUnits === 1 ? (
+                                  primary.credentialPayload.secretValue ? (
+                                    <div className="inline-flex items-center gap-1.5">
+                                      <span className="max-w-[160px] truncate rounded bg-slate-100 px-2 py-0.5 font-mono text-[13px] text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                                        {primary.credentialPayload.secretValue}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleCopy(
+                                            primary.id,
+                                            primary.credentialPayload.secretValue,
+                                          )
+                                        }
+                                        className="cursor-pointer p-1 text-slate-400 hover:text-emerald-600"
+                                        title="Copy"
+                                      >
+                                        {copiedId === primary.id ? (
+                                          <Check className="h-3.5 w-3.5 text-emerald-600" />
+                                        ) : (
+                                          <Copy className="h-3.5 w-3.5" />
+                                        )}
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span className="text-[13px] font-medium text-amber-600 dark:text-amber-400">
+                                      Not sent
+                                    </span>
+                                  )
+                                ) : (
+                                  <div className="inline-flex items-center gap-1.5">
+                                    <span
+                                      className={`text-[13px] font-semibold ${
+                                        allDelivered
+                                          ? 'text-emerald-700 dark:text-emerald-400'
+                                          : 'text-slate-600 dark:text-slate-300'
+                                      }`}
+                                    >
+                                      {deliveredCount}/{totalUnits} ready
+                                    </span>
+                                  </div>
+                                )}
+                              </td>
                             ) : null}
-                          </button>
-                          {unread > 0 ? (
-                            <span
-                              className="h-2 w-2 rounded-full bg-rose-500"
-                              title={`${unread} unread message`}
-                            />
-                          ) : null}
-                        </div>
-                      </td>
 
-                      <td className="px-3 py-3 font-semibold text-slate-900 dark:text-slate-100">
-                        {del.buyerName}
-                      </td>
+                            {showWarrantyCol ? (
+                              <td className="px-3 py-3 font-mono text-[13px] tabular-nums text-slate-600 dark:text-slate-400">
+                                {primary.hasWarranty
+                                  ? `${primary.warrantyRemainingDays}d`
+                                  : '—'}
+                              </td>
+                            ) : null}
 
-                      <td className="px-3 py-3 font-medium text-slate-900 dark:text-slate-100">
-                        {del.productName}{' '}
-                        <span className="font-normal text-slate-500">
-                          — {del.variantName}
-                        </span>
-                      </td>
+                            <td className="py-3 px-3">
+                              <div className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                                {anyClaim ? (
+                                  <StatusIndicator tone="red" label="Claim" />
+                                ) : allDelivered ? (
+                                  <StatusIndicator
+                                    tone="emerald"
+                                    label={
+                                      totalUnits > 1
+                                        ? `Delivered (${totalUnits}/${totalUnits})`
+                                        : 'Delivered'
+                                    }
+                                  />
+                                ) : deliveredCount > 0 ? (
+                                  <StatusIndicator
+                                    tone="blue"
+                                    label={`Partially (${deliveredCount}/${totalUnits})`}
+                                  />
+                                ) : (
+                                  <StatusIndicator
+                                    tone="amber"
+                                    label={
+                                      totalUnits > 1
+                                        ? `Pending (0/${totalUnits})`
+                                        : 'Pending'
+                                    }
+                                  />
+                                )}
+                                {isRenewal ? (
+                                  <span
+                                    className="rounded px-1.5 py-0.5 text-[11px] font-semibold bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300"
+                                    title="Renewal paid"
+                                  >
+                                    Renew
+                                  </span>
+                                ) : null}
+                                {credGone ? (
+                                  <span
+                                    className="rounded px-1.5 py-0.5 text-[11px] font-semibold bg-amber-50 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
+                                    title="Credential cleared"
+                                  >
+                                    Cleared
+                                  </span>
+                                ) : null}
+                                {isPinned && pageMode !== 'pinned' ? (
+                                  <Pin
+                                    className="w-3 h-3 shrink-0 text-slate-400"
+                                    aria-label="Pinned"
+                                  />
+                                ) : null}
+                              </div>
+                            </td>
 
-                      {showCredentialCol ? (
-                        <td className="px-3 py-3">
-                          {del.credentialPayload.secretValue ? (
-                            <div className="inline-flex items-center gap-1.5">
-                              <span className="max-w-[160px] truncate rounded bg-slate-100 px-2 py-0.5 font-mono text-[13px] text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                                {del.credentialPayload.secretValue}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleCopy(
-                                    del.id,
-                                    del.credentialPayload.secretValue,
+                            <td className="py-3 px-4 text-right">
+                              <OrderRowActions
+                                del={primary}
+                                unread={totalUnread}
+                                menuOpen={menuOpenId === primary.id}
+                                onMenuToggle={() =>
+                                  setMenuOpenId((id) =>
+                                    id === primary.id ? null : primary.id,
                                   )
                                 }
-                                className="cursor-pointer p-1 text-slate-400 hover:text-emerald-600"
-                                title="Copy"
+                                onMenuClose={() => setMenuOpenId(null)}
+                                onOpenChat={() => onSelectChatDelivery?.(primary.id)}
+                                onFulfill={(isReplace) =>
+                                  openActionModal(primary, isReplace)
+                                }
+                                onTogglePin={
+                                  onTogglePinOrder
+                                    ? () => onTogglePinOrder(primary.id)
+                                    : undefined
+                                }
+                              />
+                            </td>
+                          </tr>
+
+                          {/* Expanded sub-row showing each individual unit in this order */}
+                          {isExpanded && totalUnits > 1 ? (
+                            <tr className="bg-slate-50/80 dark:bg-slate-900/40">
+                              <td
+                                colSpan={6 + (showCredentialCol ? 1 : 0) + (showWarrantyCol ? 1 : 0)}
+                                className="px-6 py-3 border-t border-b border-slate-200/60 dark:border-slate-800"
                               >
-                                {copiedId === del.id ? (
-                                  <Check className="h-3.5 w-3.5 text-emerald-600" />
-                                ) : (
-                                  <Copy className="h-3.5 w-3.5" />
-                                )}
-                              </button>
-                            </div>
-                          ) : (
-                            <span className="text-[13px] font-medium text-amber-600 dark:text-amber-400">
-                              Not sent
-                            </span>
-                          )}
-                        </td>
-                      ) : null}
-
-                      {showWarrantyCol ? (
-                        <td className="px-3 py-3 font-mono text-[13px] tabular-nums text-slate-600 dark:text-slate-400">
-                          {del.hasWarranty
-                            ? `${del.warrantyRemainingDays}d`
-                            : '—'}
-                        </td>
-                      ) : null}
-
-                      <td className="py-3 px-3">
-                        <div className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                          {del.status === 'delivered' && (
-                            <StatusIndicator tone="emerald" label="Delivered" />
-                          )}
-                          {del.status === 'pending_dispatch' && (
-                            <StatusIndicator tone="amber" label="Pending" />
-                          )}
-                          {del.status === 'warranty_claim' && (
-                            <StatusIndicator tone="red" label="Claim" />
-                          )}
-                          {del.status === 'replaced' && (
-                            <StatusIndicator tone="blue" label="Replaced" />
-                          )}
-                          {del.status === 'refunded' && (
-                            <StatusIndicator tone="red" label="Refunded" />
-                          )}
-                          {renewRow ? (
-                            <span
-                              className="rounded px-1.5 py-0.5 text-[11px] font-semibold bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300"
-                              title="Renewal paid"
-                            >
-                              Renew
-                            </span>
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                    <span>Fulfillment Units for {orderId}</span>
+                                    <span>{totalUnits} units total</span>
+                                  </div>
+                                  <div className="divide-y divide-slate-200/60 dark:divide-slate-800 border border-slate-200/80 dark:border-slate-800 rounded bg-white dark:bg-slate-950 overflow-hidden">
+                                    {units.map((unit) => (
+                                      <div
+                                        key={unit.id}
+                                        className="p-2.5 flex items-center justify-between gap-3 text-xs"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-mono text-[11px] font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                                            Unit {unit.unitIndex}/{unit.orderQuantity || totalUnits}
+                                          </span>
+                                          <span className="font-mono text-slate-400 text-[11px]">
+                                            {unit.id}
+                                          </span>
+                                          <StatusIndicator
+                                            tone={
+                                              unit.status === 'delivered'
+                                                ? 'emerald'
+                                                : unit.status === 'warranty_claim'
+                                                  ? 'red'
+                                                  : 'amber'
+                                            }
+                                            label={
+                                              unit.status === 'delivered'
+                                                ? 'Delivered'
+                                                : unit.status === 'warranty_claim'
+                                                  ? 'Claim'
+                                                  : 'Pending'
+                                            }
+                                          />
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                          {unit.credentialPayload.secretValue ? (
+                                            <div className="inline-flex items-center gap-1.5">
+                                              <span className="max-w-[220px] truncate rounded bg-slate-100 dark:bg-slate-800 px-2 py-0.5 font-mono text-[12px] text-slate-700 dark:text-slate-300">
+                                                {unit.credentialPayload.secretValue}
+                                              </span>
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  handleCopy(
+                                                    unit.id,
+                                                    unit.credentialPayload.secretValue,
+                                                  )
+                                                }
+                                                className="cursor-pointer p-1 text-slate-400 hover:text-emerald-600"
+                                                title="Copy"
+                                              >
+                                                {copiedId === unit.id ? (
+                                                  <Check className="h-3.5 w-3.5 text-emerald-600" />
+                                                ) : (
+                                                  <Copy className="h-3.5 w-3.5" />
+                                                )}
+                                              </button>
+                                            </div>
+                                          ) : (
+                                            <span className="text-[11px] text-amber-600 font-medium">
+                                              Not dispatched
+                                            </span>
+                                          )}
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              openActionModal(
+                                                unit,
+                                                unit.status === 'warranty_claim',
+                                              )
+                                            }
+                                            className="px-2.5 py-1 rounded text-[11px] font-bold border border-slate-300 dark:border-slate-700 hover:border-emerald-600 bg-white dark:bg-slate-900 cursor-pointer transition-colors"
+                                          >
+                                            {unit.status === 'delivered'
+                                              ? 'Replace'
+                                              : 'Send Credential'}
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
                           ) : null}
-                          {credGone ? (
-                            <span
-                              className="rounded px-1.5 py-0.5 text-[11px] font-semibold bg-amber-50 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
-                              title="Credential cleared"
-                            >
-                              Cleared
-                            </span>
-                          ) : null}
-                          {del.pinned && pageMode !== 'pinned' ? (
-                            <Pin
-                              className="w-3 h-3 shrink-0 text-slate-400"
-                              aria-label="Pinned"
+                        </React.Fragment>
+                      );
+                    })
+                  : pagedRows.map((del) => {
+                      const checked = selectedIds.includes(del.id);
+                      const unread = del.unreadChatCount || 0;
+                      const credGone =
+                        Boolean(del.credentialClearedAt) &&
+                        !del.credentialPayload.secretValue;
+                      const renewRow = Boolean(del.renewalPending);
+
+                      return (
+                        <tr
+                          key={del.id}
+                          className={`transition-colors whitespace-nowrap ${
+                            renewRow && credGone
+                              ? 'bg-violet-50/80 dark:bg-violet-950/35'
+                              : renewRow
+                                ? 'bg-sky-50/70 dark:bg-sky-950/30'
+                                : credGone
+                                  ? 'bg-amber-50/70 dark:bg-amber-950/25'
+                                  : checked
+                                    ? 'bg-emerald-50/50 dark:bg-emerald-950/30'
+                                    : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/40'
+                          }`}
+                        >
+                          <td className="py-3 px-4">
+                            <ShadcnCheckbox
+                              checked={checked}
+                              onChange={() =>
+                                setSelectedIds((prev) =>
+                                  prev.includes(del.id)
+                                    ? prev.filter((i) => i !== del.id)
+                                    : [...prev, del.id]
+                                )
+                              }
                             />
-                          ) : null}
-                        </div>
-                      </td>
+                          </td>
 
-                      <td className="py-3 px-4 text-right">
-                        <OrderRowActions
-                          del={del}
-                          unread={unread}
-                          menuOpen={menuOpenId === del.id}
-                          onMenuToggle={() =>
-                            setMenuOpenId((id) =>
-                              id === del.id ? null : del.id,
-                            )
-                          }
-                          onMenuClose={() => setMenuOpenId(null)}
-                          onOpenChat={() => onSelectChatDelivery?.(del.id)}
-                          onFulfill={(isReplace) =>
-                            openActionModal(del, isReplace)
-                          }
-                          onTogglePin={
-                            onTogglePinOrder
-                              ? () => onTogglePinOrder(del.id)
-                              : undefined
-                          }
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
+                          <td className="px-3 py-3">
+                            <div className="inline-flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => onSelectChatDelivery?.(del.id)}
+                                className="cursor-pointer font-mono text-sm font-semibold tabular-nums text-emerald-700 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 dark:text-emerald-400"
+                                aria-label={`Open order ${del.orderId}`}
+                              >
+                                {del.orderId}
+                                {(del.orderQuantity ?? 1) > 1 ? (
+                                  <span className="ml-1 font-sans text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                                    {del.unitIndex ?? 1}/{del.orderQuantity}
+                                  </span>
+                                ) : null}
+                              </button>
+                              {unread > 0 ? (
+                                <span
+                                  className="h-2 w-2 rounded-full bg-rose-500"
+                                  title={`${unread} unread message`}
+                                />
+                              ) : null}
+                            </div>
+                          </td>
+
+                          <td className="px-3 py-3 font-semibold text-slate-900 dark:text-slate-100">
+                            {del.buyerName}
+                          </td>
+
+                          <td className="px-3 py-3 font-medium text-slate-900 dark:text-slate-100">
+                            {del.productName}{' '}
+                            <span className="font-normal text-slate-500">
+                              — {del.variantName}
+                            </span>
+                          </td>
+
+                          {showCredentialCol ? (
+                            <td className="px-3 py-3">
+                              {del.credentialPayload.secretValue ? (
+                                <div className="inline-flex items-center gap-1.5">
+                                  <span className="max-w-[160px] truncate rounded bg-slate-100 px-2 py-0.5 font-mono text-[13px] text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                                    {del.credentialPayload.secretValue}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleCopy(
+                                        del.id,
+                                        del.credentialPayload.secretValue,
+                                      )
+                                    }
+                                    className="cursor-pointer p-1 text-slate-400 hover:text-emerald-600"
+                                    title="Copy"
+                                  >
+                                    {copiedId === del.id ? (
+                                      <Check className="h-3.5 w-3.5 text-emerald-600" />
+                                    ) : (
+                                      <Copy className="h-3.5 w-3.5" />
+                                    )}
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-[13px] font-medium text-amber-600 dark:text-amber-400">
+                                  Not sent
+                                </span>
+                              )}
+                            </td>
+                          ) : null}
+
+                          {showWarrantyCol ? (
+                            <td className="px-3 py-3 font-mono text-[13px] tabular-nums text-slate-600 dark:text-slate-400">
+                              {del.hasWarranty
+                                ? `${del.warrantyRemainingDays}d`
+                                : '—'}
+                            </td>
+                          ) : null}
+
+                          <td className="py-3 px-3">
+                            <div className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                              {del.status === 'delivered' && (
+                                <StatusIndicator tone="emerald" label="Delivered" />
+                              )}
+                              {del.status === 'pending_dispatch' && (
+                                <StatusIndicator tone="amber" label="Pending assign" />
+                              )}
+                              {del.status === 'warranty_claim' && (
+                                <StatusIndicator tone="red" label="Claim" />
+                              )}
+                              {del.status === 'replaced' && (
+                                <StatusIndicator tone="blue" label="Replaced" />
+                              )}
+                              {del.status === 'refunded' && (
+                                <StatusIndicator tone="red" label="Refunded" />
+                              )}
+                              {renewRow ? (
+                                <span
+                                  className="rounded px-1.5 py-0.5 text-[11px] font-semibold bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300"
+                                  title="Renewal paid"
+                                >
+                                  Renew
+                                </span>
+                              ) : null}
+                              {credGone ? (
+                                <span
+                                  className="rounded px-1.5 py-0.5 text-[11px] font-semibold bg-amber-50 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
+                                  title="Credential cleared"
+                                >
+                                  Cleared
+                                </span>
+                              ) : null}
+                              {del.pinned && pageMode !== 'pinned' ? (
+                                <Pin
+                                  className="w-3 h-3 shrink-0 text-slate-400"
+                                  aria-label="Pinned"
+                                />
+                              ) : null}
+                            </div>
+                          </td>
+
+                          <td className="py-3 px-4 text-right">
+                            <OrderRowActions
+                              del={del}
+                              unread={unread}
+                              menuOpen={menuOpenId === del.id}
+                              onMenuToggle={() =>
+                                setMenuOpenId((id) =>
+                                  id === del.id ? null : del.id,
+                                )
+                              }
+                              onMenuClose={() => setMenuOpenId(null)}
+                              onOpenChat={() => onSelectChatDelivery?.(del.id)}
+                              onFulfill={(isReplace) =>
+                                openActionModal(del, isReplace)
+                              }
+                              onTogglePin={
+                                onTogglePinOrder
+                                  ? () => onTogglePinOrder(del.id)
+                                  : undefined
+                              }
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
               </tbody>
             </table>
           </div>
-          {pageRows.length > 10 && (
+          {listTotal > 10 && (
             <PaginationFooter
-              totalItems={pageRows.length}
-              pageSize={10}
-              currentPage={1}
+              totalItems={listTotal}
+              pageSize={listSize}
+              currentPage={safePage}
+              onPageChange={setListPage}
+              onPageSizeChange={setListSize}
             />
           )}
         </Card>
       ) : (
         <div className="space-y-4">
-          {pageRows.map((del) => {
-            const unread = del.unreadChatCount || 0;
+          {groupByOrder ? (
+            pagedGroups.map((grp) => {
+              const {
+                orderId,
+                primary,
+                units,
+                totalUnits,
+                deliveredCount,
+                allDelivered,
+                anyClaim,
+                totalUnread,
+                isExpanded,
+              } = grp;
 
-            return (
-              <Card key={del.id} className="p-5 space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200/80 dark:border-slate-800">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => onSelectChatDelivery?.(del.id)}
-                        className="cursor-pointer font-mono text-sm font-semibold text-emerald-700 hover:underline dark:text-emerald-400"
-                        aria-label={`Open order ${del.orderId}`}
-                      >
-                        {del.orderId}
-                        {(del.orderQuantity ?? 1) > 1 ? (
-                          <span className="ml-1 font-sans text-[11px] font-semibold text-slate-500">
-                            {del.unitIndex ?? 1}/{del.orderQuantity}
+              return (
+                <Card key={orderId} className="p-5 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200/80 dark:border-slate-800">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onSelectChatDelivery?.(primary.id)}
+                          className="cursor-pointer font-mono text-sm font-semibold text-emerald-700 hover:underline dark:text-emerald-400"
+                          aria-label={`Open order ${orderId}`}
+                        >
+                          {orderId}
+                        </button>
+                        {totalUnits > 1 ? (
+                          <button
+                            type="button"
+                            onClick={() => toggleExpandOrder(orderId)}
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-sans text-[11px] font-bold border border-slate-200 dark:border-slate-700 cursor-pointer"
+                            title={isExpanded ? 'Collapse units' : 'Expand units'}
+                          >
+                            <span>Qty: {totalUnits} ({deliveredCount}/{totalUnits} ready)</span>
+                            {isExpanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                          </button>
+                        ) : null}
+                        {totalUnread > 0 ? (
+                          <span className="h-2 w-2 rounded-full bg-rose-500" />
+                        ) : null}
+                      </div>
+                      <div className="font-display text-base font-bold text-slate-900 dark:text-slate-100">
+                        {primary.productName} · {primary.variantName}
+                        {totalUnits > 1 ? (
+                          <span className="ml-1.5 font-sans text-xs font-bold text-slate-500 dark:text-slate-400">
+                            × {totalUnits}
                           </span>
                         ) : null}
-                      </button>
-                      {unread > 0 ? (
-                        <span className="h-2 w-2 rounded-full bg-rose-500" />
-                      ) : null}
+                      </div>
                     </div>
-                    <div className="font-display text-base font-bold text-slate-900 dark:text-slate-100">
-                      {del.productName} · {del.variantName}
+
+                    <OrderRowActions
+                      del={primary}
+                      unread={totalUnread}
+                      menuOpen={menuOpenId === primary.id}
+                      onMenuToggle={() =>
+                        setMenuOpenId((id) => (id === primary.id ? null : primary.id))
+                      }
+                      onMenuClose={() => setMenuOpenId(null)}
+                      onOpenChat={() => onSelectChatDelivery?.(primary.id)}
+                      onFulfill={(isReplace) =>
+                        openActionModal(primary, isReplace)
+                      }
+                      onTogglePin={
+                        onTogglePinOrder
+                          ? () => onTogglePinOrder(primary.id)
+                          : undefined
+                      }
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+                    <div className="rounded-lg border border-slate-200/80 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950">
+                      <span className="block text-[13px] text-slate-500">Status</span>
+                      <div className="mt-1 flex items-center gap-1.5">
+                        {anyClaim ? (
+                          <StatusIndicator tone="red" label="Claim" />
+                        ) : allDelivered ? (
+                          <StatusIndicator
+                            tone="emerald"
+                            label={
+                              totalUnits > 1
+                                ? `Delivered (${totalUnits}/${totalUnits})`
+                                : 'Delivered'
+                            }
+                          />
+                        ) : deliveredCount > 0 ? (
+                          <StatusIndicator
+                            tone="blue"
+                            label={`Partially (${deliveredCount}/${totalUnits})`}
+                          />
+                        ) : (
+                          <StatusIndicator
+                            tone="amber"
+                            label={
+                              totalUnits > 1
+                                ? `Pending (0/${totalUnits})`
+                                : 'Pending'
+                            }
+                          />
+                        )}
+                      </div>
+                    </div>
+                    <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 rounded-lg">
+                      <span className="block text-[13px] text-slate-500">Buyer</span>
+                      <div className="mt-0.5 font-semibold text-slate-900 dark:text-slate-100">
+                        {primary.buyerName}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-slate-200/80 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950">
+                      <span className="block text-[13px] text-slate-500">
+                        Fulfillment / Units
+                      </span>
+                      <div className="mt-0.5 flex items-center justify-between font-semibold text-slate-900 dark:text-slate-100">
+                        <span>
+                          {deliveredCount}/{totalUnits} fulfilled
+                        </span>
+                        {totalUnits > 1 ? (
+                          <button
+                            type="button"
+                            onClick={() => toggleExpandOrder(orderId)}
+                            className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-semibold cursor-pointer border-0 bg-transparent p-0"
+                          >
+                            {isExpanded ? 'Hide' : 'View'}
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
 
-                  <OrderRowActions
-                    del={del}
-                    unread={unread}
-                    menuOpen={menuOpenId === del.id}
-                    onMenuToggle={() =>
-                      setMenuOpenId((id) => (id === del.id ? null : del.id))
-                    }
-                    onMenuClose={() => setMenuOpenId(null)}
-                    onOpenChat={() => onSelectChatDelivery?.(del.id)}
-                    onFulfill={(isReplace) =>
-                      openActionModal(del, isReplace)
-                    }
-                    onTogglePin={
-                      onTogglePinOrder
-                        ? () => onTogglePinOrder(del.id)
-                        : undefined
-                    }
-                  />
-                </div>
+                  {isExpanded && totalUnits > 1 ? (
+                    <div className="mt-3 pt-3 border-t border-slate-200/80 dark:border-slate-800 space-y-2">
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        Fulfillment Units for {orderId}
+                      </div>
+                      <div className="divide-y divide-slate-200/60 dark:divide-slate-800 border border-slate-200/80 dark:border-slate-800 rounded bg-slate-50/50 dark:bg-slate-900/50 overflow-hidden">
+                        {units.map((unit) => (
+                          <div
+                            key={unit.id}
+                            className="p-2.5 flex items-center justify-between gap-3 text-xs"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-[11px] font-bold text-slate-700 dark:text-slate-300 bg-slate-200/70 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                                Unit {unit.unitIndex}/{unit.orderQuantity || totalUnits}
+                              </span>
+                              <span className="font-mono text-slate-400 text-[11px]">
+                                {unit.id}
+                              </span>
+                              <StatusIndicator
+                                tone={
+                                  unit.status === 'delivered'
+                                    ? 'emerald'
+                                    : unit.status === 'warranty_claim'
+                                      ? 'red'
+                                      : 'amber'
+                                }
+                                label={
+                                  unit.status === 'delivered'
+                                    ? 'Delivered'
+                                    : unit.status === 'warranty_claim'
+                                      ? 'Claim'
+                                      : 'Pending'
+                                }
+                              />
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {unit.credentialPayload.secretValue ? (
+                                <span className="max-w-[180px] truncate font-mono text-[11px] text-slate-600 dark:text-slate-300">
+                                  {unit.credentialPayload.secretValue}
+                                </span>
+                              ) : (
+                                <span className="text-[11px] text-amber-600 font-medium">
+                                  Not sent
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  openActionModal(
+                                    unit,
+                                    unit.status === 'warranty_claim',
+                                  )
+                                }
+                                className="px-2 py-0.5 rounded text-[11px] font-bold border border-slate-300 dark:border-slate-700 hover:border-emerald-600 bg-white dark:bg-slate-900 cursor-pointer"
+                              >
+                                {unit.status === 'delivered'
+                                  ? 'Replace'
+                                  : 'Dispatch'}
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </Card>
+              );
+            })
+          ) : (
+            pagedRows.map((del) => {
+              const unread = del.unreadChatCount || 0;
 
-                <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
-                  <div className="rounded-lg border border-slate-200/80 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950">
-                    <span className="block text-[13px] text-slate-500">Credential</span>
-                    <div className="mt-0.5 truncate font-mono text-[13px] text-slate-900 dark:text-slate-100">
-                      {del.credentialPayload.secretValue || 'Pending'}
+              return (
+                <Card key={del.id} className="p-5 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200/80 dark:border-slate-800">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onSelectChatDelivery?.(del.id)}
+                          className="cursor-pointer font-mono text-sm font-semibold text-emerald-700 hover:underline dark:text-emerald-400"
+                          aria-label={`Open order ${del.orderId}`}
+                        >
+                          {del.orderId}
+                          {(del.orderQuantity ?? 1) > 1 ? (
+                            <span className="ml-1 font-sans text-[11px] font-semibold text-slate-500">
+                              {del.unitIndex ?? 1}/{del.orderQuantity}
+                            </span>
+                          ) : null}
+                        </button>
+                        {unread > 0 ? (
+                          <span className="h-2 w-2 rounded-full bg-rose-500" />
+                        ) : null}
+                      </div>
+                      <div className="font-display text-base font-bold text-slate-900 dark:text-slate-100">
+                        {del.productName} · {del.variantName}
+                      </div>
+                    </div>
+
+                    <OrderRowActions
+                      del={del}
+                      unread={unread}
+                      menuOpen={menuOpenId === del.id}
+                      onMenuToggle={() =>
+                        setMenuOpenId((id) => (id === del.id ? null : del.id))
+                      }
+                      onMenuClose={() => setMenuOpenId(null)}
+                      onOpenChat={() => onSelectChatDelivery?.(del.id)}
+                      onFulfill={(isReplace) =>
+                        openActionModal(del, isReplace)
+                      }
+                      onTogglePin={
+                        onTogglePinOrder
+                          ? () => onTogglePinOrder(del.id)
+                          : undefined
+                      }
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+                    <div className="rounded-lg border border-slate-200/80 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950">
+                      <span className="block text-[13px] text-slate-500">Credential</span>
+                      <div className="mt-0.5 truncate font-mono text-[13px] text-slate-900 dark:text-slate-100">
+                        {del.credentialPayload.secretValue || 'Pending'}
+                      </div>
+                    </div>
+                    <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 rounded-lg">
+                      <span className="block text-[13px] text-slate-500">Buyer</span>
+                      <div className="mt-0.5 font-semibold text-slate-900 dark:text-slate-100">
+                        {del.buyerName}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-slate-200/80 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950">
+                      <span className="block text-[13px] text-slate-500">
+                        Warranty &amp; VPN
+                      </span>
+                      <div className="mt-0.5 font-semibold text-slate-900 dark:text-slate-100">
+                        {del.warrantyRemainingDays}d ·{' '}
+                        {del.vpnRequired ? 'VPN On' : 'Direct'}
+                      </div>
                     </div>
                   </div>
-                  <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 rounded-lg">
-                    <span className="block text-[13px] text-slate-500">Buyer</span>
-                    <div className="mt-0.5 font-semibold text-slate-900 dark:text-slate-100">
-                      {del.buyerName}
-                    </div>
-                  </div>
-                  <div className="rounded-lg border border-slate-200/80 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950">
-                    <span className="block text-[13px] text-slate-500">
-                      Warranty &amp; VPN
-                    </span>
-                    <div className="mt-0.5 font-semibold text-slate-900 dark:text-slate-100">
-                      {del.warrantyRemainingDays}d ·{' '}
-                      {del.vpnRequired ? 'VPN On' : 'Direct'}
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
+                </Card>
+              );
+            })
+          )}
         </div>
       )}
     </div>

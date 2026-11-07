@@ -1,10 +1,13 @@
 'use client';
 
+import { useStoreSettings } from '@/context/StoreSettingsContext';
 import React, { useState } from 'react';
-import { ShoppingBag, ArrowRight, Trash2, CheckCircle2, ArrowLeft, Minus, Plus } from 'lucide-react';
+import { ShoppingBag, ArrowRight, Trash2, CheckCircle2, ArrowLeft, Minus, Plus, AlertCircle } from 'lucide-react';
 import { formatPrice, getProduct } from '@/lib/products';
 import { useCatalog } from '@/context/CatalogContext';
 import { useCart } from '@/context/CartContext';
+import { useCustomerSession } from '@/hooks/use-customer-session';
+import { rememberOrderId, writeCustomer } from '@/lib/customerSession';
 import {
   CouponInputBox,
   DurationBadge,
@@ -18,16 +21,20 @@ export function CartPageView() {
   const { items, total, count, remove, updateQty, clear } = useCart();
   const { products } = useCatalog();
   const { navigateTo } = useStoreNav();
+  const session = useCustomerSession();
 
   const [coupon, setCoupon] = useState('');
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponMsg, setCouponMsg] = useState('');
   const [selectedMethod, setSelectedMethod] = useState<StorePaymentMethodId>('bkash');
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [customerEmail, setCustomerEmail] = useState('');
+  const [customerName, setCustomerName] = useState(session?.name || '');
+  const [customerPhone, setCustomerPhone] = useState(session?.phone || '');
+  const [customerEmail, setCustomerEmail] = useState(session?.email || '');
   const [trxId, setTrxId] = useState('');
-  const [orderSuccess, setOrderSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { ordersPaused, ordersPausedMessage } = useStoreSettings();
+  const [errorMessage, setErrorMessage] = useState('');
+  const [placedOrderId, setPlacedOrderId] = useState<string | null>(null);
 
   const empty = items.length === 0;
 
@@ -44,13 +51,55 @@ export function CartPageView() {
 
   const finalTotal = Math.max(0, total - couponDiscount);
 
-  const handleCheckout = (e: React.FormEvent) => {
+  const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
-    setOrderSuccess(true);
-    setTimeout(() => {
+    if (!trxId.trim()) {
+      setErrorMessage('Please enter the transaction ID');
+      return;
+    }
+    setErrorMessage('');
+    setIsSubmitting(true);
+
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerName: customerName.trim(),
+          customerEmail: customerEmail.trim(),
+          customerPhone: customerPhone.trim(),
+          gateway: selectedMethod === 'nagad' ? 'Nagad' : 'bKash',
+          trxId: trxId.trim(),
+          couponCode: couponDiscount > 0 ? coupon.trim() : undefined,
+          items: items.map((i) => ({
+            productId: i.productId,
+            planId: i.plan.id,
+            qty: i.qty,
+          })),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to place order');
+      }
+
+      writeCustomer({
+        name: customerName.trim(),
+        email: customerEmail.trim(),
+        phone: customerPhone.trim(),
+      });
+
+      rememberOrderId(data.orderId, data.accessToken);
+      setPlacedOrderId(data.orderId);
       clear();
-      navigateTo('account', { accountTab: 'orders' });
-    }, 1800);
+      setTimeout(() => {
+        navigateTo('account', { accountTab: 'orders' });
+      }, 1600);
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Checkout failed');
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -79,7 +128,17 @@ export function CartPageView() {
         )}
       </header>
 
-      {empty ? (
+      {empty && placedOrderId ? (
+        <div className="text-center py-12 px-5 bg-white rounded-lg border border-emerald-200" role="status">
+          <div className="w-11 h-11 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3 border border-emerald-200">
+            <CheckCircle2 size={20} strokeWidth={2.2} />
+          </div>
+          <h2 className="font-display text-base font-extrabold text-[#0F172A] m-0">
+            Order placed — <span className="font-mono">{placedOrderId}</span>
+          </h2>
+          <p className="mt-1.5 text-xs font-semibold text-slate-600">Taking you to your orders…</p>
+        </div>
+      ) : empty ? (
         <div className="text-center py-12 px-5 bg-white rounded-lg border border-slate-200/90">
           <div className="w-11 h-11 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center mx-auto mb-3 border border-slate-200/80">
             <ShoppingBag size={20} strokeWidth={2.2} />
@@ -283,19 +342,48 @@ export function CartPageView() {
                 </div>
               </div>
 
-              {orderSuccess && (
-                <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-md text-emerald-800 text-xs font-bold flex items-center gap-2">
-                  <CheckCircle2 size={15} className="shrink-0" />
-                  <span>Order placed successfully.</span>
+              {errorMessage && (
+                <div
+                  className="p-2.5 bg-rose-50 border border-rose-200 rounded-md text-rose-800 text-xs font-bold flex items-center gap-2"
+                  role="alert"
+                >
+                  <AlertCircle size={15} className="shrink-0 text-rose-600" />
+                  <span>{errorMessage}</span>
                 </div>
               )}
 
+              {placedOrderId && (
+                <div
+                  className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-md text-emerald-800 text-xs font-bold flex items-center gap-2"
+                  role="status"
+                >
+                  <CheckCircle2 size={15} className="shrink-0 text-emerald-600" />
+                  <span>Order placed! ID: <strong className="font-mono">{placedOrderId}</strong></span>
+                </div>
+              )}
+
+              {ordersPaused ? (
+
+                <p role="status" className="rounded-md border border-amber-200 bg-amber-50 p-2.5 text-xs font-bold text-amber-900">
+
+                  {ordersPausedMessage}
+
+                </p>
+
+              ) : null}
+
               <button
                 type="submit"
-                disabled={orderSuccess}
+                disabled={isSubmitting || Boolean(placedOrderId) || ordersPaused}
                 className="w-full h-10.5 rounded-md bg-[#FF5E5B] hover:bg-[#e04845] text-white font-extrabold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer border-0 disabled:opacity-50"
               >
-                {orderSuccess ? 'Processing...' : `Place order — ${formatPrice(finalTotal)}`}
+                {isSubmitting
+                  ? 'Placing order...'
+                  : placedOrderId
+                    ? 'Order confirmed'
+                    : ordersPaused
+              ? 'Ordering is paused'
+              : `Place order — ${formatPrice(finalTotal)}`}
               </button>
             </form>
           </div>

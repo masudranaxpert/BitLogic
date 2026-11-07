@@ -405,6 +405,12 @@
     height: var(--offer-h);
   }
 
+  /* No side banners: the slider takes the whole row. */
+  .offer-stage.offer-stage--solo {
+    --offer-h: 360px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .offer-banner,
   .offer-side {
     height: 100%;
@@ -3661,4 +3667,59 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ---- Sold-out product card: clearly not a buyable state ---- */
+.pcard.is-soldout .pcard-art img {
+  filter: grayscale(0.9);
+  opacity: 0.62;
+}
+.pcard.is-soldout .pcard-price {
+  opacity: 0.55;
+}
+.soldout-flag {
+  position: absolute;
+  top: 0.45rem;
+  inset-inline-start: 0.45rem;
+  z-index: 2;
+  background: #0f172a;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 0.28rem 0.55rem;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.pcard-soldout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.35rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.pcard-details-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-height: 2.1rem;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: #cbd5e1;
+  cursor: pointer;
+}
+.pcard-details-link:hover {
+  text-decoration-color: currentColor;
 }

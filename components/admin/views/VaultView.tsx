@@ -279,6 +279,8 @@ export default function VaultView({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   const handleCopy = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
@@ -309,6 +311,9 @@ export default function VaultView({
       (item.batchNote || '').toLowerCase().includes(q);
     return matchesStatus && matchesProd && matchesSearch;
   });
+
+  useEffect(() => setPage(1), [statusFilter, productFilter, searchQuery, filteredVault.length]);
+  const pagedVault = filteredVault.slice((page - 1) * pageSize, page * pageSize);
 
   const availableCount = vault.filter((v) => v.status === 'available').length;
   const deliveredCount = vault.filter((v) => v.status === 'delivered').length;
@@ -451,7 +456,7 @@ export default function VaultView({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800">
-                {filteredVault.map((item) => {
+                {pagedVault.map((item) => {
                   const isRevealed = Boolean(revealedIds[item.id]);
                   const isSelected = selectedIds.includes(item.id);
                   const maskedSecret =
@@ -542,8 +547,10 @@ export default function VaultView({
 
         <PaginationFooter
           totalItems={filteredVault.length}
-          pageSize={10}
-          currentPage={1}
+          pageSize={pageSize}
+          currentPage={page}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
         />
       </Card>
 

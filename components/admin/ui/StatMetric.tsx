@@ -26,19 +26,13 @@ export function StatMetric({
       'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
   };
 
-  const isMoney = typeof value === 'string' && value.includes('৳');
-
   return (
     <div className="p-3 sm:p-5">
-      <div className="text-[11px] sm:text-sm font-medium text-slate-600 dark:text-slate-300">
+      <div className="text-sm font-medium text-slate-600 dark:text-slate-300">
         {label}
       </div>
       <div
-        className={`mt-1 sm:mt-1.5 tracking-tight text-slate-900 dark:text-slate-50 tabular-nums ${
-          isMoney
-            ? 'admin-price text-base sm:text-2xl font-semibold'
-            : 'font-display text-lg sm:text-2xl font-bold'
-        }`}
+        className="mt-1 sm:mt-1.5 font-display text-xl sm:text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-50 tabular-nums"
       >
         {value}
       </div>

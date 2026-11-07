@@ -2,13 +2,14 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --font-jakarta: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-dm-sans: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-inter: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-jetbrains-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  --font-playfair: "Playfair Display", Georgia, Cambria, "Times New Roman", Times, serif;
-  --font-space: "Space Grotesk", -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-fraunces: "Fraunces", Georgia, serif;
+  /* Faces come from next/font (--*-face on <html>); system stacks as fallback. */
+  --font-jakarta: var(--font-jakarta-face), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-dm-sans: var(--font-jakarta-face), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-inter: var(--font-inter-face), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-jetbrains-mono: var(--font-jetbrains-face), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-playfair: Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-space: var(--font-jakarta-face), -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-fraunces: Georgia, serif;
 }
 
 @theme inline {
@@ -375,3 +376,55 @@
 .dark .admin-console .admin-crumb-current {
   color: #cbd5e1;
 }
+
+/* Admin readability floor: nothing below 12px, small utility text bumped one step. */
+.admin-console .text-xs { font-size: 0.8125rem; line-height: 1.25rem; }
+.admin-console .text-\[11px\],
+.admin-console .text-\[10\.5px\],
+.admin-console .text-\[10px\] { font-size: 0.75rem; line-height: 1.1rem; }
+.admin-console .text-\[9px\],
+.admin-console .text-\[8px\] { font-size: 0.6875rem; }
+.admin-console button { font-weight: 500; }
+
+/* ---- Admin type scale (one place, every page) ----
+   Page title 22/700 · section title 16/600 · body 14/400 · meta 13 · table head 12.5/500 */
+.admin-console main h1 {
+  font-size: 1.375rem;
+  line-height: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+@media (max-width: 639px) {
+  .admin-console main h1 { font-size: 1.25rem; line-height: 1.6rem; }
+}
+.admin-console main h2 {
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.admin-console main h3 {
+  font-size: 0.9375rem;
+  line-height: 1.375rem;
+  font-weight: 600;
+}
+.admin-console .admin-th,
+.admin-console main thead th {
+  font-size: 0.78125rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #64748b;
+}
+.dark .admin-console .admin-th,
+.dark .admin-console main thead th { color: #94a3b8; }
+.admin-console main td { font-size: 0.875rem; }
+.admin-console .uppercase.tracking-wide,
+.admin-console .uppercase.tracking-wider { letter-spacing: 0.04em; }
+
+/* Browser surfaces */
+.admin-console ::selection { background: #059669; color: #fff; }
+.admin-console :focus-visible { outline-color: #059669; }
+.admin-console * { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+.dark .admin-console * { scrollbar-color: #334155 transparent; }
+.admin-console .tabular-nums, .admin-console .admin-price { font-variant-numeric: tabular-nums; }

@@ -103,10 +103,24 @@ export default function UsersSubscriptionsView({
   }
 
   if (mode === 'detail') {
-    const activeUser =
-      subscribers.find((u) => u.id === selectedCustomerId) || subscribers[0];
+    const activeUser = subscribers.find((u) => u.id === selectedCustomerId);
 
-    if (!activeUser) return null;
+    if (!activeUser) {
+      return (
+        <div className="rounded-lg border border-slate-200 bg-white p-8 text-center dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-sm text-slate-500">
+            {subscribers.length ? 'This customer was not found.' : 'Loading…'}
+          </p>
+          <button
+            type="button"
+            onClick={onBackToList}
+            className="mt-4 h-9 rounded-md border border-slate-200 px-4 text-sm font-medium dark:border-slate-700 cursor-pointer"
+          >
+            Back to customers
+          </button>
+        </div>
+      );
+    }
 
     return (
       <CustomerDetail

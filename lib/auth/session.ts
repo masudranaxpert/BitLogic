@@ -2,6 +2,8 @@ import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import type { NextResponse } from 'next/server';
 import type { Role } from '@/lib/auth/roles';
+import type { StaffPermissionKey } from '@/lib/auth/permissions';
+import { ROLES } from '@/lib/auth/roles';
 
 export const SESSION_COOKIE = 'bitlogic_session';
 
@@ -10,6 +12,10 @@ export type SessionUser = {
   email: string;
   name: string | null;
   role: Role;
+  /** Staff menu keys; empty/ignored for ADMIN. */
+  permissions: StaffPermissionKey[];
+  /** Must match User.sessionVersion; bumped on password change to sign out old sessions. */
+  sessionVersion?: number;
 };
 
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7;
@@ -37,6 +43,8 @@ export async function createSessionToken(user: SessionUser): Promise<string> {
     email: user.email,
     name: user.name,
     role: user.role,
+    permissions: user.role === ROLES.STAFF ? user.permissions : [],
+    sv: user.sessionVersion ?? 0,
   })
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(user.id)
@@ -56,15 +64,24 @@ export async function readSessionToken(
     if (
       typeof id !== 'string' ||
       typeof email !== 'string' ||
-      (role !== 'CUSTOMER' && role !== 'ADMIN')
+      (role !== ROLES.CUSTOMER &&
+        role !== ROLES.ADMIN &&
+        role !== ROLES.STAFF)
     ) {
       return null;
     }
+    const permissions = Array.isArray(payload.permissions)
+      ? (payload.permissions.filter(
+          (k): k is StaffPermissionKey => typeof k === 'string',
+        ) as StaffPermissionKey[])
+      : [];
     return {
       id,
       email,
       name: typeof payload.name === 'string' ? payload.name : null,
       role,
+      permissions: role === ROLES.STAFF ? permissions : [],
+      sessionVersion: typeof payload.sv === 'number' ? payload.sv : 0,
     };
   } catch {
     return null;
@@ -75,7 +92,25 @@ export async function getSession(): Promise<SessionUser | null> {
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
   if (!token) return null;
-  return readSessionToken(token);
+  const fromToken = await readSessionToken(token);
+  if (!fromToken) return null;
+  // Server-side truth: deleted users, password resets and role/permission changes apply at once.
+  const { db } = await import('@/lib/db');
+  const user = await db.user.findUnique({
+    where: { id: fromToken.id },
+    select: { email: true, name: true, role: true, permissionsJson: true, sessionVersion: true },
+  });
+  if (!user || user.sessionVersion !== (fromToken.sessionVersion ?? 0)) return null;
+  const role = (user.role === ROLES.ADMIN || user.role === ROLES.STAFF ? user.role : ROLES.CUSTOMER) as Role;
+  const { parsePermissionsJson } = await import('@/lib/auth/permissions');
+  return {
+    id: fromToken.id,
+    email: user.email,
+    name: user.name,
+    role,
+    permissions: role === ROLES.STAFF ? parsePermissionsJson(user.permissionsJson) : [],
+    sessionVersion: user.sessionVersion,
+  };
 }
 
 /** Attach session cookie on a Route Handler response (preferred over cookies().set). */

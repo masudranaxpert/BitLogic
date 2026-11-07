@@ -26,11 +26,3 @@ export function runCredentialLifecycle(
     changed: result.changed || vaultChanged,
   };
 }
-
-/** @deprecated prefer runCredentialLifecycle — kept for call sites that only have deliveries */
-export function clearExpiredCredentials(
-  deliveries: DigitalDelivery[],
-  asOf = todayYmd(),
-): DigitalDelivery[] {
-  return processCredentialWindows(deliveries, [], asOf).deliveries;
-}

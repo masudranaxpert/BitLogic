@@ -1,5 +1,6 @@
-﻿'use client';
+'use client';
 
+import { BrandLogo } from '@/components/brand/BrandLogo';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   BadgeCheck,
@@ -15,6 +16,8 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { heroSlides } from '@/lib/products';
+import { useStoreSettings } from '@/context/StoreSettingsContext';
+import type { HomeBannerItem } from '@/lib/home-banners-shared';
 import { useCart } from '@/context/CartContext';
 import { useCustomerSession } from '@/hooks/use-customer-session';
 import { useStoreNav } from '@/context/StoreNavContext';
@@ -53,24 +56,114 @@ const trusts = [
   { title: 'Cart checkout', Icon: ShoppingBag },
 ];
 
+/** A hero image with what happens when it is clicked. */
+type HeroImage = {
+  id: string;
+  image: string;
+  alt: string;
+  /** Internal navigation (product / category). */
+  onClick?: () => void;
+  /** Plain link (custom URL or path). */
+  href?: string;
+  external?: boolean;
+};
+
+/** One clickable (or plain) hero image frame. */
+function HeroFrame({
+  item,
+  className,
+  children,
+}: {
+  item: HeroImage;
+  className: string;
+  children: React.ReactNode;
+}) {
+  if (item.href) {
+    return (
+      <a
+        href={item.href}
+        className={`${className} no-underline`}
+        {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+        aria-label={item.alt || undefined}
+      >
+        {children}
+      </a>
+    );
+  }
+  if (item.onClick) {
+    return (
+      <button
+        type="button"
+        onClick={item.onClick}
+        className={`${className} border-0 p-0 bg-transparent cursor-pointer text-left`}
+        aria-label={item.alt || undefined}
+      >
+        {children}
+      </button>
+    );
+  }
+  // Not a link: shown as a picture only.
+  return <div className={className}>{children}</div>;
+}
+
 function ClassicHomeView() {
   const [index, setIndex] = useState(0);
   const scroller = useRef<HTMLDivElement>(null);
   const { navigateTo } = useStoreNav();
   const { products } = useCatalog();
+  const { homeBanners = [], homeBannersCustom = false } = useStoreSettings();
 
-  const slides =
+  /** Turns an admin banner into an image with a safe click action. */
+  const resolve = (b: HomeBannerItem): HeroImage => {
+    const base = { id: b.id, image: b.imageUrl, alt: b.alt };
+    if (b.linkType === 'product' && products.some((p) => p.id === b.linkValue)) {
+      return { ...base, onClick: () => navigateTo('product', { productId: b.linkValue }) };
+    }
+    if (b.linkType === 'category' && ['AI', 'STREAM', 'WORK', 'CREATE'].includes(b.linkValue)) {
+      return { ...base, onClick: () => navigateTo('shop', { code: b.linkValue as 'AI' }) };
+    }
+    if (b.linkType === 'url') {
+      if (/^https?:\/\//i.test(b.linkValue)) return { ...base, href: b.linkValue, external: true };
+      if (/^\/(?!\/)/.test(b.linkValue)) return { ...base, href: b.linkValue };
+    }
+    return base;
+  };
+
+  const defaultSlides: HeroImage[] =
     heroSlides.length > 0
-      ? heroSlides
+      ? heroSlides.map((s) => ({
+          id: s.id,
+          image: s.image,
+          alt: s.title,
+          onClick: () => navigateTo('product', { productId: s.productId }),
+        }))
       : products.slice(0, 3).map((p) => ({
           id: `slide-${p.id}`,
-          productId: p.id,
-          title: p.name,
           image: p.image,
+          alt: p.name,
+          onClick: () => navigateTo('product', { productId: p.id }),
         }));
-  const slide = slides[index] ?? slides[0];
-  const offers = products.filter((p) => p.sale || p.featured);
+  const defaultSides: HeroImage[] = sideCards.map((c) => ({
+    id: c.id,
+    image: c.image,
+    alt: c.label,
+    onClick: () => navigateTo('shop', { code: c.code }),
+  }));
+
+  // Once an admin has set banners up, only those are shown; until then the built-in defaults.
+  const slides = homeBannersCustom
+    ? homeBanners.filter((b) => b.slot === 'main').map(resolve)
+    : defaultSlides;
+  const sides = homeBannersCustom
+    ? homeBanners.filter((b) => b.slot === 'side').map(resolve)
+    : defaultSides;
+  const slide = slides[Math.min(index, slides.length - 1)] ?? slides[0];
+
   const featured = products.slice(0, 7);
+  const offers =
+    products.filter((p) => p.sale || p.featured).length > 0
+      ? products.filter((p) => p.sale || p.featured)
+      : products.slice(0, 5);
 
   useEffect(() => {
     if (slides.length <= 1) return;
@@ -86,34 +179,51 @@ function ClassicHomeView() {
     el.scrollBy({ left: dir * Math.min(el.clientWidth * 0.85, 280), behavior: 'smooth' });
   };
 
+  const hasHero = Boolean(slide) || sides.length > 0;
+
   return (
     <div className="home">
-      {slide ? (
+      {hasHero ? (
       <section className="offer-hero" aria-roledescription="carousel" aria-label="Offers">
-        <div className="offer-stage">
-          <button
-            type="button"
-            onClick={() => navigateTo('product', { productId: slide.productId })}
-            className="offer-banner border-0 p-0 bg-transparent cursor-pointer block w-full text-left"
-          >
-            <div className="offer-visual">
-              <img key={slide.image} src={slide.image} alt="" />
-            </div>
-          </button>
+        <div className={`offer-stage${sides.length === 0 ? ' offer-stage--solo' : ''}`}>
+          {slide ? (
+            <HeroFrame item={slide} className="offer-banner block w-full">
+              <div className="offer-visual">
+                <img
+                  key={slide.image}
+                  src={slide.image}
+                  alt={slide.alt || 'Featured offer'}
+                  fetchPriority="high"
+                  decoding="async"
+                  width={1200}
+                  height={600}
+                />
+              </div>
+            </HeroFrame>
+          ) : (
+            <div />
+          )}
 
-          <aside className="offer-sides" aria-label="Category highlights">
-            {sideCards.map((card) => (
-              <button
-                key={card.id}
-                type="button"
-                onClick={() => navigateTo('shop', { code: card.code })}
-                className="offer-side border-0 p-0 bg-transparent cursor-pointer block"
-                aria-label={card.label}
-              >
-                <img src={card.image} alt="" />
-              </button>
+          {sides.length > 0 ? (
+          <aside
+            className="offer-sides"
+            aria-label="Highlights"
+            style={{ gridTemplateRows: `repeat(${sides.length}, minmax(0, 1fr))` }}
+          >
+            {sides.map((card) => (
+              <HeroFrame key={card.id} item={card} className="offer-side block">
+                <img
+                  src={card.image}
+                  alt={card.alt || 'Highlight'}
+                  loading="lazy"
+                  decoding="async"
+                  width={400}
+                  height={240}
+                />
+              </HeroFrame>
             ))}
           </aside>
+          ) : null}
         </div>
 
         {slides.length > 1 ? (
@@ -132,7 +242,7 @@ function ClassicHomeView() {
                 type="button"
                 role="tab"
                 aria-selected={i === index}
-                aria-label={s.title}
+                aria-label={s.alt || `Slide ${i + 1}`}
                 className={i === index ? 'is-on' : ''}
                 onClick={() => setIndex(i)}
               />
@@ -228,8 +338,11 @@ export function ClassicStorefrontView() {
   const { view, selectedProductId, navigateTo } = useStoreNav();
   const session = useCustomerSession();
   const [searchOpen, setSearchOpen] = useState(false);
+  // Account has its own sidebar + top bar — never wrap it in store chrome.
+  const isUserPanel = view === 'account';
 
   useEffect(() => {
+    if (isUserPanel) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
@@ -238,10 +351,16 @@ export function ClassicStorefrontView() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  }, [isUserPanel]);
 
-  if (view === 'account') {
-    return <AccountPageView />;
+  if (isUserPanel) {
+    return (
+      <div className="app-shell">
+        <main id="main">
+          <AccountPageView />
+        </main>
+      </div>
+    );
   }
 
   return (
@@ -255,12 +374,7 @@ export function ClassicStorefrontView() {
             className="flex items-center gap-2 cursor-pointer border-0 bg-transparent p-0 shrink-0"
             aria-label="Bitlogic home"
           >
-            <span className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl sm:rounded-2xl bg-[#FF5E5B] text-white font-extrabold text-sm sm:text-base flex items-center justify-center shadow-md shadow-[#FF5E5B]/25 rotate-[-4deg] shrink-0">
-              B
-            </span>
-            <span className="font-display font-extrabold text-lg sm:text-xl tracking-tight text-[#0F172A] whitespace-nowrap">
-              Bit<span className="text-[#FF5E5B]">logic</span>
-            </span>
+            <BrandLogo />
           </button>
 
           <nav

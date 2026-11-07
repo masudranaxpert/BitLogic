@@ -41,7 +41,6 @@ interface TicketDetailChatProps {
     ticketId: string,
     priority: AdminSupportTicket['priority']
   ) => void;
-  onSimulateBuyerTicketReply: (ticketId: string) => void;
   onOpenOrderChat: (orderId: string, deliveryId?: string) => void;
 }
 
@@ -52,7 +51,6 @@ export function TicketDetailChat({
   onReplyTicket,
   onUpdateTicketStatus,
   onUpdateTicketPriority,
-  onSimulateBuyerTicketReply,
   onOpenOrderChat,
 }: TicketDetailChatProps) {
   const [replyText, setReplyText] = useState('');
@@ -165,14 +163,6 @@ export function TicketDetailChat({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => onSimulateBuyerTicketReply(ticket.id)}
-            className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-emerald-500 text-slate-700 dark:text-slate-300 cursor-pointer"
-          >
-            Simulate Buyer Reply
-          </button>
-
           <select
             value={ticket.priority}
             onChange={(e) =>

@@ -14,6 +14,7 @@ const TAB_TO_PATH: Record<AdminTab, string> = {
   'vault-view': '/admin/vault/view',
   'vault-edit': '/admin/vault/edit',
   deliveries: '/admin/orders',
+  'order-add': '/admin/orders/add',
   'orders-pinned': '/admin/orders/pinned',
   'orders-renewals': '/admin/orders/renewals',
   'warranty-claims': '/admin/orders/warranty',
@@ -23,7 +24,13 @@ const TAB_TO_PATH: Record<AdminTab, string> = {
   'user-add': '/admin/users/add',
   media: '/admin/media',
   payments: '/admin/payments',
+  coupons: '/admin/payments/coupons',
   features: '/admin/settings',
+  email: '/admin/email',
+  contact: '/admin/contact',
+  storefront: '/admin/storefront',
+  staff: '/admin/staff',
+  'staff-add': '/admin/staff/add',
 };
 
 const PATH_TO_TAB: Array<{ prefix: string; tab: AdminTab }> = [
@@ -38,6 +45,7 @@ const PATH_TO_TAB: Array<{ prefix: string; tab: AdminTab }> = [
   { prefix: '/admin/vault/view', tab: 'vault-view' },
   { prefix: '/admin/vault/edit', tab: 'vault-edit' },
   { prefix: '/admin/vault', tab: 'vault' },
+  { prefix: '/admin/orders/add', tab: 'order-add' },
   { prefix: '/admin/orders/pinned', tab: 'orders-pinned' },
   { prefix: '/admin/orders/renewals', tab: 'orders-renewals' },
   { prefix: '/admin/orders/warranty', tab: 'warranty-claims' },
@@ -48,8 +56,14 @@ const PATH_TO_TAB: Array<{ prefix: string; tab: AdminTab }> = [
   { prefix: '/admin/users/detail', tab: 'user-detail' },
   { prefix: '/admin/users', tab: 'users' },
   { prefix: '/admin/media', tab: 'media' },
+  { prefix: '/admin/payments/coupons', tab: 'coupons' },
   { prefix: '/admin/payments', tab: 'payments' },
+  { prefix: '/admin/email', tab: 'email' },
+  { prefix: '/admin/contact', tab: 'contact' },
+  { prefix: '/admin/storefront', tab: 'storefront' },
   { prefix: '/admin/settings', tab: 'features' },
+  { prefix: '/admin/staff/add', tab: 'staff-add' },
+  { prefix: '/admin/staff', tab: 'staff' },
   { prefix: '/admin', tab: 'overview' },
 ];
 
@@ -79,9 +93,10 @@ export function isOrdersAdminTab(tab: AdminTab): boolean {
 /** Human breadcrumb / command labels (never expose raw tab ids like "deliveries"). */
 export function adminTabLabel(
   tab: AdminTab,
-  opts?: { productEdit?: boolean; orderChat?: boolean },
+  opts?: { productEdit?: boolean; orderChat?: boolean; staffEdit?: boolean },
 ): string {
   if (opts?.productEdit) return 'Edit Product';
+  if (opts?.staffEdit) return 'Edit Staff';
   if (opts?.orderChat) return 'Order Chat';
 
   const labels: Record<AdminTab, string> = {
@@ -98,6 +113,7 @@ export function adminTabLabel(
     'vault-view': 'Credential',
     'vault-edit': 'Edit Credential',
     deliveries: 'Orders',
+    'order-add': 'Add Order',
     'orders-pinned': 'Pinned Orders',
     'orders-renewals': 'Renewals',
     'warranty-claims': 'Warranty Claims',
@@ -107,7 +123,13 @@ export function adminTabLabel(
     'user-add': 'Add Customer',
     media: 'Media',
     payments: 'Payments',
+    coupons: 'Coupons',
     features: 'Settings',
+    email: 'Email',
+    contact: 'Contact',
+    storefront: 'Storefront',
+    staff: 'Staff',
+    'staff-add': 'Add Staff',
   };
 
   return labels[tab] ?? tab.replace(/-/g, ' ');

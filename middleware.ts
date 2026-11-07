@@ -12,7 +12,10 @@ function getSecret() {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   if (!pathname.startsWith('/admin')) {
-    return NextResponse.next();
+    // Lets the store layout know the path (maintenance mode keeps /login reachable).
+    const headers = new Headers(request.headers);
+    headers.set('x-pathname', pathname);
+    return NextResponse.next({ request: { headers } });
   }
 
   const secret = getSecret();
@@ -26,8 +29,15 @@ export async function middleware(request: NextRequest) {
 
   try {
     const { payload } = await jwtVerify(token, secret);
-    if (payload.role !== ROLES.ADMIN) {
+    if (payload.role !== ROLES.ADMIN && payload.role !== ROLES.STAFF) {
       return NextResponse.redirect(new URL('/', request.url));
+    }
+    // Staff page is Admin-only (UI also hides it).
+    if (
+      pathname.startsWith('/admin/staff') &&
+      payload.role !== ROLES.ADMIN
+    ) {
+      return NextResponse.redirect(new URL('/admin', request.url));
     }
     return NextResponse.next();
   } catch {
@@ -38,5 +48,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin', '/admin/:path*'],
+  // Every page route (admin guard + store path header); skips API, Next assets and files with an extension.
+  matcher: ['/admin', '/admin/:path*', '/((?!api|_next/static|_next/image|favicon\\.ico|.*\\..*).*)'],
 };

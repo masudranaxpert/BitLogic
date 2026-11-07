@@ -1,6 +1,6 @@
 'use client';
 
-import React, { type ComponentType, type InputHTMLAttributes } from 'react';
+import React, { useId, type ComponentType, type InputHTMLAttributes } from 'react';
 
 type IconComponent = ComponentType<{ size?: number; className?: string }>;
 
@@ -28,6 +28,8 @@ export function StoreInputField({
   className = '',
   ...rest
 }: StoreInputFieldProps) {
+  const autoId = useId();
+  const fieldId = id ?? autoId;
   const showInvalid = Boolean(error) || invalid;
 
   return (
@@ -35,7 +37,7 @@ export function StoreInputField({
       {label && (
         <div className="flex items-center justify-between gap-2 mb-1.5">
           <label
-            htmlFor={id}
+            htmlFor={fieldId}
             className="block text-xs font-semibold text-slate-700"
           >
             {label} {required && <span className="text-[#FF5E5B]">*</span>}
@@ -53,7 +55,7 @@ export function StoreInputField({
           />
         )}
         <input
-          id={id}
+          id={fieldId}
           required={required}
           disabled={disabled}
           aria-invalid={showInvalid || undefined}

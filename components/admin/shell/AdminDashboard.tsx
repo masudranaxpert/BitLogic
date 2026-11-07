@@ -2,31 +2,22 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  LayoutDashboard,
-  Layers,
-  Database,
-  Send,
-  Ticket,
-  Users,
-  CreditCard,
-  Sliders,
-  Image as ImageIcon,
   Menu,
-  X,
-  Sun,
-  Moon,
   Search,
   CheckCircle2,
   ArrowUpRight,
-  ChevronRight,
-  ChevronDown,
-  Bell,
   MessageSquare,
   ShieldAlert,
   Check,
 } from 'lucide-react';
 import {
+  canAccessAdminTab,
+  type StaffPermissionKey,
+} from '@/lib/auth/permissions';
+import { ROLES } from '@/lib/auth/roles';
+import {
   fetchAdminWorkspace,
+  hasPendingAdminSaves,
   persistAdminProduct,
   persistAdminTaxonomies,
   persistAdminWorkspace,
@@ -40,7 +31,6 @@ import {
   SubscriberUser,
   PaymentTransaction,
   CouponCode,
-  SystemFeatureFlag,
   MediaAsset,
   AdminSupportTicket,
   AdminNotificationItem,
@@ -50,6 +40,9 @@ import {
   ProductCategory,
 } from '@/lib/admin-data';
 import { ModalShell } from '@/components/admin/ui/primitives';
+import { CommandPalette } from '@/components/admin/shell/CommandPalette';
+import { parseStamp, warrantyWindow } from '@/lib/warranty';
+import { BrandLogo } from '@/components/brand/BrandLogo';
 import { AdminViewRouter } from '@/components/admin/shell/AdminViewRouter';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -65,26 +58,47 @@ import {
 } from '@/lib/admin/credential-lifecycle';
 import { runCredentialLifecycle } from '@/lib/admin/clear-expired-credentials';
 import { cappedCredentialExpiresAt } from '@/lib/admin/renewal-lifecycle';
-
-interface NavSubItem {
-  id: AdminTab;
-  label: string;
-}
-
-interface NavGroupItem {
-  id: AdminTab;
-  label: string;
-  shortLabel: string;
-  icon: React.ComponentType<{ className?: string }>;
-  count?: number;
-  subItems?: NavSubItem[];
-}
+import { applyRefundOrder } from '@/lib/admin/apply-refund-order';
+import type { ConsoleUser } from '@/components/admin/shell/admin-nav-types';
+import { buildAdminNavMenus } from '@/components/admin/shell/admin-nav-config';
+import { AdminNotificationsPanel } from '@/components/admin/shell/AdminNotificationsPanel';
+import {
+  AdminMobileBottomNav,
+  AdminSidebarNav,
+} from '@/components/admin/shell/AdminSidebarNav';
 
 export default function AdminDashboard() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const activeTab = pathToAdminTab(pathname);
+
+  const [consoleUser, setConsoleUser] = useState<ConsoleUser | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch('/api/admin/me', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!cancelled && d?.user) setConsoleUser(d.user as ConsoleUser);
+      })
+      .catch(() => {
+        /* ignore */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const canOpenTab = (tab: AdminTab) => {
+    if (!consoleUser) return true;
+    if (consoleUser.isFullAdmin) return true;
+    return canAccessAdminTab(
+      ROLES.STAFF,
+      consoleUser.permissions,
+      tab,
+    );
+  };
 
   // Old /admin/deliveries → canonical Orders URL
   useEffect(() => {
@@ -95,8 +109,39 @@ export default function AdminDashboard() {
     }
   }, [pathname, router, searchParams]);
 
+  // Staff landed on a forbidden tab → send them to the first allowed area.
+  useEffect(() => {
+    if (!consoleUser || consoleUser.isFullAdmin) return;
+    if (canAccessAdminTab(ROLES.STAFF, consoleUser.permissions, activeTab)) {
+      return;
+    }
+    const fallback: AdminTab[] = [
+      'overview',
+      'deliveries',
+      'tickets',
+      'payments',
+      'products',
+      'vault',
+      'users',
+      'media',
+      'features',
+      'email',
+      'contact',
+      'storefront',
+    ];
+    const next =
+      fallback.find((t) =>
+        canAccessAdminTab(ROLES.STAFF, consoleUser.permissions, t),
+      ) || 'overview';
+    router.replace(adminTabToPath(next));
+  }, [consoleUser, activeTab, router]);
+
+  // Customer detail lives in the URL (?id=) so refresh, back and deep links open the right person.
+  const pendingCustomerIdRef = useRef<string | null>(null);
   const setActiveTab = (tab: AdminTab) => {
-    router.push(adminTabToPath(tab));
+    const id = tab === 'user-detail' ? pendingCustomerIdRef.current : null;
+    pendingCustomerIdRef.current = null;
+    router.push(id ? `${adminTabToPath(tab)}?id=${encodeURIComponent(id)}` : adminTabToPath(tab));
   };
 
   const openProductOptionPage = (productId?: string, variantId?: string) => {
@@ -119,7 +164,7 @@ export default function AdminDashboard() {
   /** Accordion: only the active section’s submenu stays open. */
   const navGroupForTab = (
     tab: AdminTab,
-  ): 'products' | 'vault' | 'users' | 'deliveries' | null => {
+  ): 'products' | 'vault' | 'users' | 'deliveries' | 'payments' | null => {
     if (
       tab === 'products' ||
       tab === 'product-add' ||
@@ -142,8 +187,10 @@ export default function AdminDashboard() {
     if (tab === 'users' || tab === 'user-detail' || tab === 'user-add') {
       return 'users';
     }
+    if (tab === 'payments' || tab === 'coupons') return 'payments';
     if (
       tab === 'deliveries' ||
+      tab === 'order-add' ||
       tab === 'orders-pinned' ||
       tab === 'orders-renewals' ||
       tab === 'warranty-claims'
@@ -160,13 +207,12 @@ export default function AdminDashboard() {
       vault: open === 'vault',
       users: open === 'users',
       deliveries: open === 'deliveries',
+      payments: open === 'payments',
     };
   });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
-  const [sidebarSearch, setSidebarSearch] = useState('');
   const [commandOpen, setCommandOpen] = useState(false);
-  const [commandQuery, setCommandQuery] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const [products, setProducts] = useState<DigitalProduct[]>([]);
@@ -178,6 +224,7 @@ export default function AdminDashboard() {
     [],
   );
   const [catalogHydrated, setCatalogHydrated] = useState(false);
+  const [workspaceError, setWorkspaceError] = useState(false);
   const [vault, setVaultState] = useState<VaultCredential[]>([]);
   const [deliveries, setDeliveriesState] = useState<DigitalDelivery[]>([]);
   const [tickets, setTicketsState] = useState<AdminSupportTicket[]>([]);
@@ -187,7 +234,6 @@ export default function AdminDashboard() {
   const [subscribers, setSubscribersState] = useState<SubscriberUser[]>([]);
   const [payments, setPaymentsState] = useState<PaymentTransaction[]>([]);
   const [coupons, setCouponsState] = useState<CouponCode[]>([]);
-  const [features, setFeaturesState] = useState<SystemFeatureFlag[]>([]);
   const [mediaAssets, setMediaAssetsState] = useState<MediaAsset[]>([]);
 
   const [selectedChatDeliveryId, setSelectedChatDeliveryId] = useState<string | null>(null);
@@ -203,20 +249,10 @@ export default function AdminDashboard() {
     setSelectedChatDeliveryId((prev) => (prev === id ? prev : id));
   }, [activeTab, searchParams]);
 
-  // Admin Notification Popover & Live Toast
-  const [notifOpen, setNotifOpen] = useState(false);
-  const [notifFilter, setNotifFilter] = useState<'ALL' | 'UNREAD'>('ALL');
-  const [liveAdminToast, setLiveAdminToast] = useState<{
-    id: string;
-    title: string;
-    message: string;
-    orderId?: string;
-    deliveryId?: string;
-    ticketId?: string;
-  } | null>(null);
-  const notifContainerRef = useRef<HTMLDivElement | null>(null);
-
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const selectedCustomerId = searchParams.get('id');
+  const setSelectedCustomerId = (id: string | null) => {
+    pendingCustomerIdRef.current = id;
+  };
   const [activePortalUserId] = useState<string>('');
 
   const [preselectedVaultTarget, setPreselectedVaultTarget] = useState<{
@@ -232,13 +268,9 @@ export default function AdminDashboard() {
     }
   }, [darkMode]);
 
-  // Full admin workspace from DB (Prisma seed only bootstraps empty DB).
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const workspace = await fetchAdminWorkspace();
-      if (cancelled) return;
-      if (workspace) {
+  const applyWorkspace = (
+    workspace: NonNullable<Awaited<ReturnType<typeof fetchAdminWorkspace>>>,
+  ) => {
         setProducts(workspace.products ?? []);
         setWarranties(workspace.warranties ?? []);
         setCredentialSchemes(workspace.credentialSchemes ?? []);
@@ -260,14 +292,61 @@ export default function AdminDashboard() {
         setSubscribersState(workspace.subscribers ?? []);
         setPaymentsState(workspace.payments ?? []);
         setCouponsState(workspace.coupons ?? []);
-        setFeaturesState(workspace.features ?? []);
         setMediaAssetsState(workspace.mediaAssets ?? []);
-      }
+  };
+
+  /** Re-read everything from the DB (after server-side writes like Add Order). */
+  const reloadWorkspace = async () => {
+    const workspace = await fetchAdminWorkspace();
+    if (workspace) {
+      applyWorkspace(workspace);
+      setWorkspaceError(false);
       setCatalogHydrated(true);
+    }
+  };
+
+  // Child panels that write server-side (order notes, no-credential delivery) ask for a refresh.
+  useEffect(() => {
+    const onReload = () => void reloadWorkspace();
+    window.addEventListener('admin:reload-workspace', onReload);
+    return () => window.removeEventListener('admin:reload-workspace', onReload);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Storefront orders and other tabs write to the DB. Re-sync so a stale list here can
+  // never overwrite them (vault stock, chat, order status).
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (hasPendingAdminSaves()) return;
+      void reloadWorkspace();
+    };
+    const timer = window.setInterval(refresh, 20000);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Full admin workspace from DB (Prisma seed only bootstraps empty DB).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const workspace = await fetchAdminWorkspace();
+      if (cancelled) return;
+      if (workspace) {
+        applyWorkspace(workspace);
+        setCatalogHydrated(true);
+      } else {
+        setWorkspaceError(true);
+      }
     })();
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const commitVault = (
@@ -338,16 +417,6 @@ export default function AdminDashboard() {
     });
   };
 
-  const commitFeatures = (
-    updater: React.SetStateAction<SystemFeatureFlag[]>,
-  ) => {
-    setFeaturesState((prev) => {
-      const next = typeof updater === 'function' ? updater(prev) : updater;
-      void persistAdminWorkspace({ features: next });
-      return next;
-    });
-  };
-
   const commitMedia = (updater: React.SetStateAction<MediaAsset[]>) => {
     setMediaAssetsState((prev) => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
@@ -367,38 +436,9 @@ export default function AdminDashboard() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (
-        notifContainerRef.current &&
-        !notifContainerRef.current.contains(e.target as Node)
-      ) {
-        setNotifOpen(false);
-      }
-    };
-    if (notifOpen) {
-      document.addEventListener('mousedown', handleOutsideClick);
-    }
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, [notifOpen]);
-
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3200);
-  };
-
-  const triggerLiveAdminToast = (payload: {
-    title: string;
-    message: string;
-    orderId?: string;
-    deliveryId?: string;
-    ticketId?: string;
-  }) => {
-    const id = `latoast-${Date.now()}`;
-    setLiveAdminToast({ id, ...payload });
-    setTimeout(() => {
-      setLiveAdminToast((prev) => (prev?.id === id ? null : prev));
-    }, 5000);
   };
 
   const handleSelectChatDelivery = (deliveryId: string | null) => {
@@ -410,9 +450,7 @@ export default function AdminDashboard() {
     if (deliveryId) {
       router.push(`${ordersBase}?id=${encodeURIComponent(deliveryId)}`);
       const target = deliveries.find((d) => d.id === deliveryId);
-      commitDeliveries((prev) =>
-        prev.map((d) => (d.id === deliveryId ? { ...d, unreadChatCount: 0 } : d))
-      );
+      // Chat is marked read when the admin actually opens it (handleMarkOrderChatRead).
       if (target) {
         commitNotifications((prev) =>
           prev.map((n) =>
@@ -459,61 +497,6 @@ export default function AdminDashboard() {
           : d
       )
     );
-  };
-
-  const handleSimulateBuyerMessage = (deliveryId: string) => {
-    const target = deliveries.find((d) => d.id === deliveryId);
-    if (!target) return;
-
-    const sampleBuyerMessages = [
-      `Hi Admin, I just checked ${target.orderId}. Can you confirm the workspace invite status?`,
-      `Thank you! Quick question on ${target.orderId}: can I sign in on my laptop and phone simultaneously?`,
-      `Hello, I need the 2FA / verification code for ${target.productName} (${target.orderId}).`,
-    ];
-    const randomText =
-      sampleBuyerMessages[Math.floor(Math.random() * sampleBuyerMessages.length)];
-
-    const isCurrentlyViewing =
-      activeTab === 'deliveries' && selectedChatDeliveryId === deliveryId;
-
-    commitDeliveries((prev) =>
-      prev.map((d) =>
-        d.id === deliveryId
-          ? {
-              ...d,
-              unreadChatCount: isCurrentlyViewing ? 0 : (d.unreadChatCount || 0) + 1,
-              chatMessages: [
-                ...(d.chatMessages || []),
-                {
-                  id: `sim-chat-${Date.now()}`,
-                  sender: 'customer',
-                  senderName: target.buyerName,
-                  text: randomText,
-                  time: 'Just now',
-                },
-              ],
-            }
-          : d
-      )
-    );
-
-    const newNotif: AdminNotificationItem = {
-      id: `anotif-${Date.now()}`,
-      type: 'order_chat',
-      orderId: target.orderId,
-      deliveryId: target.id,
-      title: `Order Chat · ${target.buyerName}`,
-      message: randomText,
-      time: 'Just now',
-      read: false,
-    };
-    commitNotifications((prev) => [newNotif, ...prev]);
-    triggerLiveAdminToast({
-      title: `${target.orderId} · ${target.buyerName}`,
-      message: randomText,
-      orderId: target.orderId,
-      deliveryId: target.id,
-    });
   };
 
   const handleSelectTicket = (ticketId: string | null) => {
@@ -592,9 +575,13 @@ export default function AdminDashboard() {
     priority: AdminSupportTicket['priority'];
     initialMessage: string;
   }) => {
-    const matchedDelivery =
-      deliveries.find((d) => d.orderId === newTicketData.orderId) || deliveries[0];
-    const newId = `TKT-${Math.floor(4100 + Math.random() * 800)}`;
+    // Never fall back to another customer's order.
+    const matchedDelivery = deliveries.find((d) => d.orderId === newTicketData.orderId);
+    if (!matchedDelivery) {
+      showToast(`Order ${newTicketData.orderId} not found.`);
+      return;
+    }
+    const newId = `TCK-${Date.now().toString(36).toUpperCase().slice(-4)}${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
 
     const created: AdminSupportTicket = {
       id: newId,
@@ -602,8 +589,8 @@ export default function AdminDashboard() {
       orderId: newTicketData.orderId,
       deliveryId: matchedDelivery?.id,
       buyerName: matchedDelivery?.buyerName || 'Customer',
-      buyerEmail: matchedDelivery?.buyerEmail || 'customer@gmail.com',
-      buyerPhone: matchedDelivery?.buyerPhone || '+880 1700-000000',
+      buyerEmail: matchedDelivery.buyerEmail || '',
+      buyerPhone: matchedDelivery.buyerPhone || '',
       productName: matchedDelivery
         ? `${matchedDelivery.productName} · ${matchedDelivery.variantName}`
         : 'Digital Subscription',
@@ -628,63 +615,6 @@ export default function AdminDashboard() {
     showToast(`Created ticket ${created.id}.`);
   };
 
-  const handleSimulateBuyerTicketReply = (ticketId: string) => {
-    const target = tickets.find((t) => t.id === ticketId);
-    if (!target) return;
-
-    const replySamples = [
-      `I checked my inbox and spam folder for ${target.orderId}—please resend or share the direct link here.`,
-      `Got it, thank you! Please keep ${target.id} open until I verify login on my device.`,
-      `Here is an update on ${target.orderId}: still seeing the verification prompt when signing in.`,
-    ];
-    const text = replySamples[Math.floor(Math.random() * replySamples.length)];
-
-    commitTickets((prev) =>
-      prev.map((t) =>
-        t.id === ticketId
-          ? {
-              ...t,
-              status: 'open',
-              updatedAt: 'Just now',
-              unreadCount:
-                activeTab === 'tickets' && selectedTicketId === ticketId
-                  ? 0
-                  : (t.unreadCount || 0) + 1,
-              messages: [
-                ...t.messages,
-                {
-                  id: `tmsg-sim-${Date.now()}`,
-                  sender: 'customer',
-                  senderName: target.buyerName,
-                  text,
-                  time: 'Just now',
-                },
-              ],
-            }
-          : t
-      )
-    );
-
-    const newNotif: AdminNotificationItem = {
-      id: `anotif-${Date.now()}`,
-      type: 'ticket',
-      ticketId: target.id,
-      orderId: target.orderId,
-      deliveryId: target.deliveryId,
-      title: `Ticket ${target.id} · ${target.buyerName}`,
-      message: text,
-      time: 'Just now',
-      read: false,
-    };
-    commitNotifications((prev) => [newNotif, ...prev]);
-    triggerLiveAdminToast({
-      title: `Ticket ${target.id} · ${target.buyerName}`,
-      message: text,
-      ticketId: target.id,
-      orderId: target.orderId,
-    });
-  };
-
   const handleOpenOrderChatFromTicket = (orderId: string, deliveryId?: string) => {
     const targetDelivery =
       deliveries.find((d) => d.id === deliveryId) ||
@@ -694,39 +624,6 @@ export default function AdminDashboard() {
     } else {
       setActiveTab('deliveries');
     }
-  };
-
-  const handleNotificationClick = (notif: AdminNotificationItem) => {
-    commitNotifications((prev) =>
-      prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n))
-    );
-    setNotifOpen(false);
-
-    if (notif.type === 'ticket' && notif.ticketId) {
-      setActiveTab('tickets');
-      handleSelectTicket(notif.ticketId);
-      return;
-    }
-
-    if (notif.type === 'payment') {
-      setActiveTab('payments');
-      return;
-    }
-
-    const matchedDelivery =
-      deliveries.find((d) => d.id === notif.deliveryId) ||
-      deliveries.find((d) => d.orderId === notif.orderId);
-    if (matchedDelivery) {
-      handleSelectChatDelivery(matchedDelivery.id);
-    } else {
-      setActiveTab('deliveries');
-    }
-  };
-
-  const handleMarkAllAdminNotifsRead = () => {
-    commitNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    commitDeliveries((prev) => prev.map((d) => ({ ...d, unreadChatCount: 0 })));
-    commitTickets((prev) => prev.map((t) => ({ ...t, unreadCount: 0 })));
   };
 
   const handleSaveNewProduct = (
@@ -752,6 +649,7 @@ export default function AdminDashboard() {
     if (newCredentials.length > 0) {
       commitVault((prev) => [...newCredentials, ...prev]);
     }
+    setActiveTab('products');
     showToast(`Saved "${product.name}" (${product.variants.length} options).`);
     void persistAdminProduct(product).then((ok) => {
       if (!ok) showToast('DB write failed — changes may not survive refresh.');
@@ -774,39 +672,53 @@ export default function AdminDashboard() {
   };
 
   const handleAddVariant = (productId: string, variant: ProductVariant) => {
+    let updatedProduct: DigitalProduct | undefined;
     setProducts((prev) =>
-      prev.map((p) =>
-        p.id === productId
-          ? {
-              ...p,
-              variants: [
-                ...(variant.isDefault
-                  ? p.variants.map((v) => ({ ...v, isDefault: false }))
-                  : p.variants),
-                variant,
-              ],
-            }
-          : p
-      )
+      prev.map((p) => {
+        if (p.id === productId) {
+          const nextVariants = [
+            ...(variant.isDefault
+              ? p.variants.map((v) => ({ ...v, isDefault: false }))
+              : p.variants),
+            variant,
+          ];
+          updatedProduct = { ...p, variants: nextVariants };
+          return updatedProduct;
+        }
+        return p;
+      })
     );
+    if (updatedProduct) {
+      void persistAdminProduct(updatedProduct).then((ok) => {
+        if (!ok) showToast('DB write failed — changes may not survive refresh.');
+      });
+    }
+    setActiveTab('products');
     showToast(`Added option "${variant.name}".`);
   };
 
   const handleUpdateVariant = (productId: string, updatedVariant: ProductVariant) => {
+    let updatedProduct: DigitalProduct | undefined;
     setProducts((prev) =>
-      prev.map((p) =>
-        p.id === productId
-          ? {
-              ...p,
-              variants: p.variants.map((v) => {
-                if (v.id === updatedVariant.id) return updatedVariant;
-                if (updatedVariant.isDefault) return { ...v, isDefault: false };
-                return v;
-              }),
-            }
-          : p
-      )
+      prev.map((p) => {
+        if (p.id === productId) {
+          const nextVariants = p.variants.map((v) => {
+            if (v.id === updatedVariant.id) return updatedVariant;
+            if (updatedVariant.isDefault) return { ...v, isDefault: false };
+            return v;
+          });
+          updatedProduct = { ...p, variants: nextVariants };
+          return updatedProduct;
+        }
+        return p;
+      })
     );
+    if (updatedProduct) {
+      void persistAdminProduct(updatedProduct).then((ok) => {
+        if (!ok) showToast('DB write failed — changes may not survive refresh.');
+      });
+    }
+    setActiveTab('products');
     showToast(`Updated "${updatedVariant.name}".`);
   };
 
@@ -870,9 +782,6 @@ export default function AdminDashboard() {
       profilePin?: string;
       vaultCredentialId?: string;
       customAdminNote: string;
-      vpnRequired: boolean;
-      vpnRegionNote: string;
-      warrantyDays: number;
     },
     isWarrantyReplacement: boolean
   ) => {
@@ -898,7 +807,7 @@ export default function AdminDashboard() {
       const now = new Date();
       const pad = (n: number) => String(n).padStart(2, '0');
       const addedAt = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-      linkedVaultCredentialId = `vlt-${Date.now()}`;
+      linkedVaultCredentialId = `vlt-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
       const newVaultItem: VaultCredential = {
         id: linkedVaultCredentialId,
         productId: targetDelivery.productId,
@@ -974,7 +883,7 @@ export default function AdminDashboard() {
             ? ('replaced' as const)
             : ('assigned' as const);
         const auditEntry = {
-          id: `aud-${Date.now()}`,
+          id: `aud-${deliveryId}-${Date.now()}`,
           at: stampNow,
           action: auditAction,
           source: (payload.vaultCredentialId ? 'vault' : 'custom') as
@@ -988,6 +897,7 @@ export default function AdminDashboard() {
         };
         return {
           ...d,
+          ...(!isWarrantyReplacement ? startWarrantyIfNeeded(d, new Date()) : {}),
           status: isWarrantyReplacement ? 'replaced' : 'delivered',
           deliveredAt: stampNow,
           vaultCredentialId: linkedVaultCredentialId,
@@ -998,9 +908,6 @@ export default function AdminDashboard() {
             profilePin: payload.profilePin,
             vaultCredentialId: linkedVaultCredentialId,
           },
-          vpnRequired: payload.vpnRequired,
-          vpnRegionNote: payload.vpnRegionNote,
-          warrantyRemainingDays: payload.warrantyDays,
           replacementHistoryCount: isReplace
             ? d.replacementHistoryCount + 1
             : d.replacementHistoryCount,
@@ -1029,6 +936,7 @@ export default function AdminDashboard() {
     showToast(`Added customer "${newCustomer.name}".`);
   };
 
+  /** Create order via server API (same path as Add Order) — no client-side ORD invent. */
   const handleCreateOrderDelivery = (
     userId: string,
     productId: string,
@@ -1038,174 +946,56 @@ export default function AdminDashboard() {
   ) => {
     const prod = products.find((p) => p.id === productId);
     const variant = prod?.variants.find((v) => v.id === variantId);
-    if (!prod || !variant) return;
+    const customer = subscribers.find((u) => u.id === userId);
+    if (!prod || !variant || !customer) return;
 
     const qty = Math.max(1, Math.min(100, Math.round(quantity) || 1));
-    void amountBDT; // order value lives on the delivery; no fake payment row
+    const unitPrice =
+      amountBDT !== undefined && Number.isFinite(amountBDT)
+        ? Math.round(amountBDT / qty)
+        : variant.priceBDT;
 
-    const now = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const startedAt = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-    const expires = new Date(now);
-    expires.setDate(expires.getDate() + (variant.durationDays || 30));
-    const expiresAt = `${expires.getFullYear()}-${pad(expires.getMonth() + 1)}-${pad(expires.getDate())}`;
-    const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    const orderId = `ORD-${Math.floor(89000 + Math.random() * 900)}`;
-    const baseDlv = Math.floor(9200 + Math.random() * 700);
-    const customer = subscribers.find((u) => u.id === userId);
-
-    const stockPool = vault.filter(
-      (v) =>
-        v.productId === prod.id &&
-        v.variantId === variant.id &&
-        v.status === 'available',
-    );
-    const assignedVaultIds: string[] = [];
-    const unitVault: Array<(typeof vault)[number] | null> = [];
-    for (let i = 0; i < qty; i++) {
-      const item = stockPool[i] || null;
-      unitVault.push(item);
-      if (item) assignedVaultIds.push(item.id);
-    }
-
-    if (assignedVaultIds.length > 0) {
-      const idSet = new Set(assignedVaultIds);
-      commitVault((prev) =>
-        prev.map((v) =>
-          idSet.has(v.id)
-            ? {
-                ...v,
-                status: 'delivered' as const,
-                assignedOrderId: orderId,
-                assignedBuyerEmail: customer?.email || '',
-              }
-            : v,
-        ),
-      );
-    }
-
-    const newDeliveries: DigitalDelivery[] = [];
-    const newSubs: SubscriberUser['activeSubscriptions'] = [];
-
-    for (let i = 0; i < qty; i++) {
-      const unitIndex = i + 1;
-      const deliveryId =
-        qty === 1 ? `DLV-${baseDlv}` : `DLV-${baseDlv}-${unitIndex}`;
-      const vaultItem = unitVault[i];
-      const instant = Boolean(vaultItem);
-      const credExpires = instant
-        ? cappedCredentialExpiresAt(
-            startedAt,
-            variant.durationDays || 30,
-            vaultItem?.expiresAt,
-          )
-        : undefined;
-
-      newSubs.push({
-        id: `sub-${Date.now()}-${unitIndex}`,
-        orderId,
-        deliveryId,
-        productName: prod.name,
-        variantName: variant.name,
-        credentialType: variant.credentialType,
-        startedAt,
-        expiresAt,
-        remainingDays: variant.durationDays || 30,
-        autoRenew: true,
-        warrantyActive: variant.hasWarranty,
-        status: instant ? 'active' : 'pending_credential',
-      });
-
-      if (!customer) continue;
-
-      newDeliveries.push({
-        id: deliveryId,
-        orderId,
-        createdAt: stamp,
-        buyerName: customer.name,
-        buyerEmail: customer.email,
-        buyerPhone: customer.phone,
-        productId: prod.id,
-        productName: prod.name,
-        variantId: variant.id,
-        variantName: variant.name,
-        credentialType: variant.credentialType,
-        deliveryMode: variant.deliveryMode,
-        status: instant ? 'delivered' : 'pending_dispatch',
-        deliveredAt: instant ? stamp : undefined,
-        vaultCredentialId: vaultItem?.id,
-        credentialPayload: instant
-          ? {
-              secretValue: vaultItem?.secretValue || '',
-              email: vaultItem?.email,
-              password: vaultItem?.password,
-              profilePin: vaultItem?.profilePin,
-              vaultCredentialId: vaultItem?.id,
-            }
-          : { secretValue: '' },
-        vpnRequired: variant.vpnRequired,
-        vpnRegionNote: variant.vpnRegionNote,
-        hasWarranty: variant.hasWarranty,
-        warrantyDays: variant.warrantyDays,
-        warrantyRemainingDays: variant.warrantyDays,
-        warrantyTerms: variant.warrantyTerms,
-        replacementHistoryCount: 0,
-        loginInstructions: variant.loginInstructions || [],
-        customAdminNote: '',
-        credentialValidDays: variant.durationDays || 30,
-        orderExpiresAt: expiresAt,
-        credentialAssignedAt: instant ? startedAt : undefined,
-        credentialExpiresAt: credExpires,
-        renewalPending: false,
-        pinned: false,
-        orderQuantity: qty,
-        unitIndex,
-        credentialAudit:
-          instant && vaultItem
-            ? [
-                {
-                  id: `aud-${deliveryId}-1`,
-                  at: stamp,
-                  action: 'assigned',
-                  source: 'vault',
-                  secretValue: vaultItem.secretValue,
-                  vaultCredentialId: vaultItem.id,
-                  credentialExpiresAt: credExpires,
-                },
-              ]
-            : [],
-        unreadChatCount: 0,
-        chatMessages: [],
-      });
-    }
-
-    // No fake payment — Payments stay empty until real TrxID is recorded.
-    commitSubscribers((prev) =>
-      prev.map((u) =>
-        u.id === userId
-          ? {
-              ...u,
-              status: 'active',
-              ordersCount: u.ordersCount + 1,
-              activeSubscriptions: [...newSubs, ...u.activeSubscriptions],
-            }
-          : u,
-      ),
-    );
-
-    if (customer && newDeliveries.length > 0) {
-      commitDeliveries((prev) => [...newDeliveries, ...prev]);
-      const sent = assignedVaultIds.length;
-      showToast(
-        sent === qty
-          ? `Order ${orderId} · ${qty} sent`
-          : sent > 0
-            ? `Order ${orderId} · ${sent}/${qty} sent, ${qty - sent} pending`
-            : `Order ${orderId} · ${qty} pending`,
-      );
-    } else {
-      showToast(`Order ${orderId} · ${qty} unit${qty > 1 ? 's' : ''}`);
-    }
+    void (async () => {
+      try {
+        const res = await fetch('/api/admin/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerName: customer.name,
+            customerEmail: customer.email,
+            customerPhone: customer.phone,
+            items: [
+              {
+                productId: prod.id,
+                planId: variant.id,
+                qty,
+                unitPriceBdt: unitPrice,
+              },
+            ],
+            paidBdt: 0,
+          }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          showToast(data?.error || 'Could not create order.');
+          return;
+        }
+        await reloadWorkspace();
+        const pending = (data?.deliveries || []).filter(
+          (d: { status: string }) => d.status === 'pending_dispatch',
+        ).length;
+        const total = data?.deliveries?.length || qty;
+        showToast(
+          pending === total
+            ? `Order ${data.orderId} · ${total} pending assign`
+            : pending > 0
+              ? `Order ${data.orderId} · ${total - pending}/${total} sent, ${pending} pending`
+              : `Order ${data.orderId} · ${total} sent`,
+        );
+      } catch {
+        showToast('Could not create order.');
+      }
+    })();
   };
 
   /**
@@ -1231,6 +1021,16 @@ export default function AdminDashboard() {
     const gateway = paymentMeta?.gateway;
     if (!trxId || !gateway) {
       showToast('Renew needs gateway + TrxID.');
+      return;
+    }
+
+    const renewProduct = products.find((p) => p.name === sub.productName);
+    if (renewProduct?.renewable === false) {
+      showToast(renewProduct.name + ' is a one-time product — renewals are disabled.');
+      return;
+    }
+    if (renewProduct?.status === 'draft') {
+      showToast(renewProduct.name + ' is not available — renewals are blocked.');
       return;
     }
 
@@ -1268,8 +1068,12 @@ export default function AdminDashboard() {
       trxId,
       status: 'verified',
       createdAt: stamp,
+      verifiedAt: stamp,
       kind: 'renewal',
       deliveryId: delivery?.id,
+      renewDeliveryIds: delivery ? [delivery.id] : undefined,
+      periodFrom: baseExpiry < today ? today : addDaysYmd(baseExpiry, 1),
+      periodTo: newOrderExpiry,
     };
 
     commitPayments((prev) => [payment, ...prev]);
@@ -1375,11 +1179,232 @@ export default function AdminDashboard() {
 
   const handleVerifyPayment = (paymentId: string) => {
     const pay = payments.find((p) => p.id === paymentId);
+    if (!pay) return;
+
+    const verifiedAt = formatStamp();
     commitPayments((prev) =>
-      prev.map((p) => (p.id === paymentId ? { ...p, status: 'verified' } : p))
+      prev.map((p) => (p.id === paymentId ? { ...p, status: 'verified', verifiedAt } : p))
     );
-    if (pay) {
-      showToast(`Verified ${pay.gateway} (${pay.trxId}).`);
+
+    // Customer-initiated renewal: extend the window on every live unit of the order.
+    if (pay.kind === 'renewal') {
+      const today = todayYmd();
+      const msg = {
+        id: `adm-msg-${Date.now()}-renew`,
+        sender: 'admin' as const,
+        senderName: 'Support Admin',
+        text: `Renewal payment ${pay.trxId} confirmed. ${pay.productSummary.replace(/^Renewal · /, '')} extended.`,
+        time: 'Just now',
+      };
+      // Only the units this payment paid for; each keeps its own plan length and warranty.
+      const scope = new Set(pay.renewDeliveryIds || []);
+      // The period this payment paid for, recorded on the payment so the order shows it later.
+      let periodFrom = '';
+      let periodTo = '';
+      let next = deliveries.map((d) => {
+        if (d.orderId !== pay.orderId) return d;
+        const withMsg = { ...d, chatMessages: [...(d.chatMessages || []), msg] };
+        if (d.status === 'refunded' || d.status === 'revoked') return withMsg;
+        if (scope.size > 0 && !scope.has(d.id)) return withMsg;
+        const early = Boolean(d.orderExpiresAt && d.orderExpiresAt >= today);
+        const base = early ? (d.orderExpiresAt as string) : today;
+        const newEnd = addDaysYmd(base, d.credentialValidDays ?? 30);
+        const periodStart = early ? parseStamp(addDaysYmd(base, 1)) ?? new Date() : new Date();
+        const fromYmd = early ? addDaysYmd(base, 1) : today;
+        if (!periodFrom || fromYmd < periodFrom) periodFrom = fromYmd;
+        if (newEnd > periodTo) periodTo = newEnd;
+        const w = d.hasWarranty && d.warrantyDays ? warrantyWindow(periodStart, d.warrantyDays, newEnd) : null;
+        return {
+          ...withMsg,
+          orderExpiresAt: newEnd,
+          ...(w
+            ? early
+              ? {
+                  nextWarrantyStartsAt: w.startsAt,
+                  nextWarrantyEndsAt: w.endsAt,
+                  // The running warranty can never outlive its own paid period.
+                  ...(d.warrantyEndsAt && d.warrantyEndsAt > `${base} 23:59` ? { warrantyEndsAt: `${base} 23:59` } : {}),
+                }
+              : {
+                  warrantyStartsAt: w.startsAt,
+                  warrantyEndsAt: w.endsAt,
+                  nextWarrantyStartsAt: undefined,
+                  nextWarrantyEndsAt: undefined,
+                  warrantyRemainingDays: d.warrantyDays,
+                }
+            : {}),
+          renewalPending: true,
+        };
+      });
+      const life = runCredentialLifecycle(next, vault);
+      next = life.deliveries;
+      commitDeliveries(() => next);
+      if (life.changed) commitVault(() => life.vault);
+      if (periodFrom) {
+        commitPayments((prev) =>
+          prev.map((p) => (p.id === paymentId ? { ...p, periodFrom, periodTo } : p)),
+        );
+      }
+      showToast(`Renewal verified for ${pay.orderId}.`);
+      return;
+    }
+
+    const relatedDeliveries = deliveries.filter((d) => d.orderId === pay.orderId);
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const stampNow = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const assignedDay = stampNow.slice(0, 10);
+
+    const allocatedVaultIds = new Set<string>();
+    const updatedDeliveriesList: DigitalDelivery[] = [];
+    let currentVault = [...vault];
+
+    for (const del of relatedDeliveries) {
+      if (del.status === 'pending_dispatch' && del.deliveryMode === 'auto_vault') {
+        const availableVault = currentVault.find(
+          (v) =>
+            v.productId === del.productId &&
+            v.variantId === del.variantId &&
+            v.status === 'available' &&
+            !allocatedVaultIds.has(v.id),
+        );
+
+        if (availableVault) {
+          allocatedVaultIds.add(availableVault.id);
+
+          currentVault = currentVault.map((v) =>
+            v.id === availableVault.id
+              ? {
+                  ...v,
+                  status: 'delivered' as const,
+                  assignedOrderId: del.orderId,
+                  assignedBuyerEmail: del.buyerEmail,
+                }
+              : v,
+          );
+
+          const validDays = del.credentialValidDays ?? 30;
+          const credExpires = cappedCredentialExpiresAt(
+            assignedDay,
+            validDays,
+            availableVault.expiresAt,
+          );
+
+          const auditEntry = {
+            id: `aud-${Date.now()}-${del.id}`,
+            at: stampNow,
+            action: 'assigned' as const,
+            source: 'vault' as const,
+            secretValue: availableVault.secretValue,
+            vaultCredentialId: availableVault.id,
+            credentialExpiresAt: credExpires,
+          };
+
+          const newChatMessage = {
+            id: `msg-${Date.now()}-${del.id}`,
+            sender: 'admin' as const,
+            senderName: 'Support',
+            text: `Payment ${pay.gateway} (${pay.trxId}) verified! Your credentials have been automatically provisioned.`,
+            time: 'Just now',
+          };
+
+          updatedDeliveriesList.push({
+            ...del,
+            ...startWarrantyIfNeeded(del, now),
+            status: 'delivered',
+            deliveredAt: stampNow,
+            vaultCredentialId: availableVault.id,
+            credentialPayload: {
+              secretValue: availableVault.secretValue,
+              email: availableVault.email,
+              password: availableVault.password,
+              profilePin: availableVault.profilePin,
+              vaultCredentialId: availableVault.id,
+            },
+            credentialAudit: [auditEntry, ...(del.credentialAudit || [])],
+            credentialAssignedAt: assignedDay,
+            credentialExpiresAt: credExpires,
+            chatMessages: [...(del.chatMessages || []), newChatMessage],
+          });
+          continue;
+        }
+      }
+
+      // Fallback for manual delivery mode or when auto_vault stock is exhausted
+      if (del.status === 'pending_dispatch') {
+        const manualNoticeMessage = {
+          id: `msg-${Date.now()}-${del.id}`,
+          sender: 'admin' as const,
+          senderName: 'Support',
+          text: `Payment ${pay.gateway} (${pay.trxId}) verified! Your access is being processed by our team.`,
+          time: 'Just now',
+        };
+        updatedDeliveriesList.push({
+          ...del,
+          chatMessages: [...(del.chatMessages || []), manualNoticeMessage],
+        });
+      }
+    }
+
+    if (updatedDeliveriesList.length > 0) {
+      if (allocatedVaultIds.size > 0) {
+        commitVault(currentVault);
+      }
+      commitDeliveries((prev) =>
+        prev.map((d) => {
+          const updated = updatedDeliveriesList.find((ud) => ud.id === d.id);
+          return updated || d;
+        }),
+      );
+
+      commitSubscribers((prev) =>
+        prev.map((u) => {
+          if (
+            u.email.toLowerCase() === pay.buyerEmail.toLowerCase() ||
+            u.name.toLowerCase() === pay.buyerName.toLowerCase()
+          ) {
+            return {
+              ...u,
+              activeSubscriptions: u.activeSubscriptions.map((sub) =>
+                sub.orderId === pay.orderId
+                  ? { ...sub, status: 'active' as const }
+                  : sub,
+              ),
+            };
+          }
+          return u;
+        }),
+      );
+    }
+
+    const unallocatedCount = relatedDeliveries.length - allocatedVaultIds.size;
+    if (unallocatedCount > 0) {
+      commitNotifications((prev) => [
+        {
+          id: `notif-${Date.now()}`,
+          type: 'payment' as const,
+          orderId: pay.orderId,
+          title: `Manual dispatch needed for ${pay.orderId}`,
+          message: `Payment verified (${pay.gateway} ${pay.trxId}), but ${unallocatedCount} unit(s) require manual dispatch or restocking.`,
+          time: 'Just now',
+          read: false,
+        },
+        ...prev,
+      ]);
+    }
+
+    if (allocatedVaultIds.size === relatedDeliveries.length && relatedDeliveries.length > 0) {
+      showToast(
+        `Verified ${pay.gateway} (${pay.trxId}) — auto-allocated ${allocatedVaultIds.size} credential(s).`,
+      );
+    } else if (allocatedVaultIds.size > 0) {
+      showToast(
+        `Verified ${pay.gateway} (${pay.trxId}) — auto-allocated ${allocatedVaultIds.size}/${relatedDeliveries.length}. ${unallocatedCount} pending manual dispatch.`,
+      );
+    } else {
+      showToast(
+        `Verified ${pay.gateway} (${pay.trxId}) — queued for manual fulfillment.`,
+      );
     }
   };
 
@@ -1391,6 +1416,79 @@ export default function AdminDashboard() {
       prev.map((p) => (p.id === paymentId ? { ...p, status: nextStatus } : p))
     );
     showToast(`Marked payment ${paymentId} as ${nextStatus}.`);
+  };
+
+  /** Starts the warranty clock on first delivery; leaves an existing clock alone. */
+  function startWarrantyIfNeeded(d: DigitalDelivery, at: Date): Partial<DigitalDelivery> {
+    if (d.warrantyStartsAt || !d.hasWarranty || !d.warrantyDays) return {};
+    const w = warrantyWindow(at, d.warrantyDays, d.orderExpiresAt);
+    return { warrantyStartsAt: w.startsAt, warrantyEndsAt: w.endsAt, warrantyRemainingDays: d.warrantyDays };
+  }
+
+  /** Admin sets when the warranty starts (e.g. 12 hours after delivery). */
+  const handleSetWarrantyStart = (deliveryIds: string[], startsAt: string) => {
+    const at = parseStamp(startsAt);
+    if (!at) return;
+    const ids = new Set(deliveryIds);
+    commitDeliveries((prev) =>
+      prev.map((d) => {
+        if (!ids.has(d.id) || !d.hasWarranty || !d.warrantyDays) return d;
+        const w = warrantyWindow(at, d.warrantyDays, d.orderExpiresAt);
+        // Never overlap a warranty already queued for the next paid period.
+        const end =
+          d.nextWarrantyStartsAt && w.endsAt > d.nextWarrantyStartsAt ? d.nextWarrantyStartsAt : w.endsAt;
+        return { ...d, warrantyStartsAt: w.startsAt, warrantyEndsAt: end };
+      }),
+    );
+    showToast('Warranty start updated.');
+  };
+
+  const handleMarkOrderChatRead = (orderId: string) => {
+    commitDeliveries((prev) =>
+      prev.map((d) => (d.orderId === orderId ? { ...d, unreadChatCount: 0 } : d)),
+    );
+  };
+
+  /** Refund chosen payments and end access for chosen units; logs a locked-in note. */
+  const handleRefundOrder = (req: {
+    orderId: string;
+    paymentIds: string[];
+    revokeDeliveryIds: string[];
+    reason: string;
+    amountBdt: number;
+  }) => {
+    const stamp = formatStamp();
+    const { nextPayments, nextDeliveries, amount } = applyRefundOrder(
+      payments,
+      deliveries,
+      req,
+      stamp,
+    );
+    setPaymentsState(nextPayments);
+    setDeliveriesState(nextDeliveries);
+
+    void (async () => {
+      const ok = await persistAdminWorkspace({
+        payments: nextPayments,
+        deliveries: nextDeliveries,
+      });
+      await fetch('/api/admin/orders/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: req.orderId,
+          text:
+            `Refund ${amount > 0 ? 'BDT ' + amount : ''}${req.revokeDeliveryIds.length ? ` · access ended for ${req.revokeDeliveryIds.length} item(s)` : ''}` +
+            (req.reason ? ` · ${req.reason}` : ''),
+        }),
+      });
+      if (ok) window.dispatchEvent(new Event('admin:reload-workspace'));
+      showToast(
+        ok
+          ? `Refund recorded for ${req.orderId}.`
+          : `Refund saved locally — sync failed, retry refresh.`,
+      );
+    })();
   };
 
   const handleAddCoupon = (coupon: CouponCode) => {
@@ -1408,11 +1506,23 @@ export default function AdminDashboard() {
     );
   };
 
-  const handleToggleFeature = (id: string) => {
-    commitFeatures((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, enabled: !f.enabled } : f))
+  const handleUpdateDeliveryVpn = (
+    deliveryIds: string[],
+    patch: { vpnRequired: boolean; vpnRegionNote: string },
+  ) => {
+    if (deliveryIds.length === 0) return;
+    const idSet = new Set(deliveryIds);
+    commitDeliveries((prev) =>
+      prev.map((d) =>
+        idSet.has(d.id)
+          ? {
+              ...d,
+              vpnRequired: patch.vpnRequired,
+              vpnRegionNote: patch.vpnRequired ? patch.vpnRegionNote : '',
+            }
+          : d,
+      ),
     );
-    showToast('Updated feature state.');
   };
 
   const handleTogglePinOrder = (deliveryId: string) => {
@@ -1427,139 +1537,52 @@ export default function AdminDashboard() {
     );
   };
 
-  const pendingDeliveriesBadge = deliveries.filter(
-    (d) =>
-      d.status === 'pending_dispatch' ||
-      d.status === 'warranty_claim' ||
-      d.renewalPending ||
-      (d.unreadChatCount || 0) > 0
-  ).length;
+  const pendingDeliveriesBadge = new Set(
+    deliveries
+      .filter(
+        (d) =>
+          d.status === 'pending_dispatch' ||
+          d.status === 'warranty_claim' ||
+          d.renewalPending ||
+          (d.unreadChatCount || 0) > 0,
+      )
+      .map((d) => d.orderId),
+  ).size;
   const openTicketsBadge = tickets.filter((t) => t.status === 'open').length;
   const unreadOrderChatsCount = deliveries.reduce(
     (sum, d) => sum + (d.unreadChatCount || 0),
     0
   );
-  const unreadNotificationsCount = adminNotifications.filter((n) => !n.read).length;
-  const visibleAdminNotifications = adminNotifications
-    .filter((n) => (notifFilter === 'UNREAD' ? !n.read : true))
-    .slice(0, 7);
-
   const pendingPaymentsBadge = payments.filter(
     (p) => p.status === 'pending_verification'
   ).length;
   const availableVaultBadge = vault.filter((v) => v.status === 'available').length;
 
-  const mainMenuItems: NavGroupItem[] = [
-    { id: 'overview', label: 'Dashboard', shortLabel: 'Home', icon: LayoutDashboard },
+  const { main: mainMenuItems, tools: toolsMenuItems } = buildAdminNavMenus(
     {
-      id: 'products',
-      label: 'Product',
-      shortLabel: 'Product',
-      icon: Layers,
-      count: products.length,
-      subItems: [
-        { id: 'products', label: 'All Products' },
-        { id: 'product-add', label: 'Add Product' },
-        { id: 'warranties', label: 'Warranties' },
-        { id: 'credential-types', label: 'Credential Types' },
-        { id: 'categories', label: 'Categories' },
-      ],
+      products: products.length,
+      availableVault: availableVaultBadge,
+      pendingDeliveries: pendingDeliveriesBadge,
+      pendingPayments: pendingPaymentsBadge,
+      openTickets: openTicketsBadge,
+      subscribers: subscribers.length,
+      media: mediaAssets.length,
     },
-    {
-      id: 'vault',
-      label: 'Credentials',
-      shortLabel: 'Credentials',
-      icon: Database,
-      count: availableVaultBadge,
-      subItems: [
-        { id: 'vault', label: 'Inventory' },
-        { id: 'vault-manual', label: 'Manual Add' },
-        { id: 'vault-bulk', label: 'Bulk Import' },
-      ],
-    },
-    {
-      id: 'deliveries',
-      label: 'Orders',
-      shortLabel: 'Orders',
-      icon: Send,
-      count: pendingDeliveriesBadge,
-      subItems: [
-        { id: 'deliveries', label: 'All Orders' },
-        { id: 'orders-renewals', label: 'Renewals' },
-        { id: 'orders-pinned', label: 'Pinned' },
-        { id: 'warranty-claims', label: 'Warranty Claims' },
-      ],
-    },
-    {
-      id: 'tickets',
-      label: 'Support Tickets',
-      shortLabel: 'Tickets',
-      icon: Ticket,
-      count: openTicketsBadge,
-    },
-    {
-      id: 'users',
-      label: 'Customer',
-      shortLabel: 'Customer',
-      icon: Users,
-      count: subscribers.length,
-      subItems: [
-        { id: 'users', label: 'All Customers' },
-        { id: 'user-add', label: 'Add Customer' },
-      ],
-    },
-    {
-      id: 'media',
-      label: 'Media Library',
-      shortLabel: 'Media',
-      icon: ImageIcon,
-      count: mediaAssets.length,
-    },
-  ];
+    { isFullAdmin: Boolean(consoleUser?.isFullAdmin) },
+  );
 
-  const toolsMenuItems: NavGroupItem[] = [
-    {
-      id: 'payments',
-      label: 'Payments',
-      shortLabel: 'Payments',
-      icon: CreditCard,
-      count: pendingPaymentsBadge,
-    },
-    { id: 'features', label: 'Settings', shortLabel: 'Settings', icon: Sliders },
-  ];
-
-  const isGroupActive = (item: NavGroupItem) => {
-    if (activeTab === item.id) return true;
-    if (
-      item.id === 'vault' &&
-      (activeTab === 'vault-view' ||
-        activeTab === 'vault-edit' ||
-        activeTab === 'vault-manual' ||
-        activeTab === 'vault-bulk')
-    ) {
-      return true;
-    }
-    if (item.id === 'users' && (activeTab === 'user-detail' || activeTab === 'user-add')) {
-      return true;
-    }
-    if (
-      item.id === 'products' &&
-      (activeTab === 'product-add' || activeTab === 'product-option')
-    ) {
-      return true;
-    }
-    if (item.subItems?.some((sub) => sub.id === activeTab)) return true;
-    return false;
-  };
+  const visibleMainMenu = mainMenuItems.filter((item) => canOpenTab(item.id));
+  const visibleToolsMenu = toolsMenuItems.filter((item) => canOpenTab(item.id));
 
   const openNavGroup = (
-    groupId: 'products' | 'vault' | 'users' | 'deliveries' | null,
+    groupId: 'products' | 'vault' | 'users' | 'deliveries' | 'payments' | null,
   ) => {
     setExpandedGroups({
       products: groupId === 'products',
       vault: groupId === 'vault',
       users: groupId === 'users',
       deliveries: groupId === 'deliveries',
+      payments: groupId === 'payments',
     });
   };
 
@@ -1571,6 +1594,7 @@ export default function AdminDashboard() {
         vault: groupId === 'vault' ? nextOpen : false,
         users: groupId === 'users' ? nextOpen : false,
         deliveries: groupId === 'deliveries' ? nextOpen : false,
+        payments: groupId === 'payments' ? nextOpen : false,
       };
     });
   };
@@ -1583,53 +1607,12 @@ export default function AdminDashboard() {
       vault: open === 'vault',
       users: open === 'users',
       deliveries: open === 'deliveries',
+      payments: open === 'payments',
     });
   }, [activeTab]);
 
   return (
     <div className="admin-console min-h-dvh flex bg-[#f6f8fa] dark:bg-[#090d16] text-slate-900 dark:text-slate-100 selection:bg-emerald-600 selection:text-white">
-      {/* Top-Right Sonner Live Toast for Admin */}
-      {liveAdminToast && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed top-3.5 right-4 z-50 w-[calc(100vw-2rem)] sm:w-[350px] bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-800 rounded-lg shadow-[0_10px_28px_-6px_rgba(15,23,42,0.18)] p-3 flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-200"
-        >
-          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-          <div className="min-w-0 flex-1">
-            <div className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
-              {liveAdminToast.title}
-            </div>
-            <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
-              {liveAdminToast.message}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              if (liveAdminToast.ticketId) {
-                setActiveTab('tickets');
-                handleSelectTicket(liveAdminToast.ticketId);
-              } else if (liveAdminToast.deliveryId) {
-                handleSelectChatDelivery(liveAdminToast.deliveryId);
-              }
-              setLiveAdminToast(null);
-            }}
-            className="px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold shrink-0 cursor-pointer"
-          >
-            View
-          </button>
-          <button
-            type="button"
-            onClick={() => setLiveAdminToast(null)}
-            className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer shrink-0"
-            aria-label="Dismiss notification"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-
       {mobileMenuOpen && (
         <div
           className="fixed inset-0 z-40 bg-slate-950/50 backdrop-blur-[1px] lg:hidden"
@@ -1638,278 +1621,20 @@ export default function AdminDashboard() {
         />
       )}
 
-      <aside
-        className={`${
-          mobileMenuOpen ? 'fixed inset-y-0 left-0 z-50 flex shadow-2xl' : 'hidden'
-        } lg:sticky lg:top-0 lg:h-dvh lg:flex w-60 shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 flex-col justify-between select-none`}
-      >
-        <div className="p-4 space-y-5 overflow-y-auto">
-          <div className="p-2.5 rounded-xl bg-slate-50/70 dark:bg-slate-950/50 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)] flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-[7px] bg-emerald-600 text-white font-display font-bold text-sm flex items-center justify-center shadow-2xs">
-                B
-              </div>
-              <div>
-                <div className="font-display text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight">
-                  BitLogic Inc.
-                </div>
-                <div className="text-[11px] text-slate-500 dark:text-slate-400">Admin Store</div>
-              </div>
-            </div>
-            {mobileMenuOpen && (
-              <button
-                type="button"
-                onClick={() => setMobileMenuOpen(false)}
-                className="lg:hidden p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-md cursor-pointer"
-                aria-label="Close sidebar"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="text"
-              value={sidebarSearch}
-              onChange={(e) => setSidebarSearch(e.target.value)}
-              placeholder="Search"
-              aria-label="Filter sidebar menu"
-              className="w-full h-9 pl-8 pr-12 text-sm bg-slate-100/80 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700/70 rounded-lg focus:outline-none focus:border-emerald-600"
-            />
-            <button
-              type="button"
-              onClick={() => setCommandOpen(true)}
-              title="Open Quick Command (⌘K)"
-              aria-label="Open Quick Command (Command K)"
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[10px] font-mono bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-[5px] text-slate-500 hover:border-emerald-600 cursor-pointer"
-            >
-              ⌘ K
-            </button>
-          </div>
-
-          <div>
-            <div className="admin-section-label px-2.5 text-[11px] uppercase mb-2">
-              Main menu
-            </div>
-            <div className="space-y-1">
-              {mainMenuItems
-                .filter(
-                  (item) =>
-                    item.label.toLowerCase().includes(sidebarSearch.toLowerCase()) ||
-                    item.subItems?.some((s) =>
-                      s.label.toLowerCase().includes(sidebarSearch.toLowerCase())
-                    )
-                )
-                .map((item) => {
-                  const Icon = item.icon;
-                  const active = isGroupActive(item);
-                  const hasSubs = Boolean(item.subItems && item.subItems.length > 0);
-                  const isExpanded = Boolean(expandedGroups[item.id]);
-
-                  return (
-                    <div key={item.id} className="space-y-0.5">
-                      <button
-                        type="button"
-                        aria-current={active ? 'page' : undefined}
-                        onClick={() => {
-                          if (hasSubs) {
-                            toggleGroupExpand(item.id);
-                            if (!active) {
-                              setActiveTab(item.id);
-                            }
-                          } else {
-                            setActiveTab(item.id);
-                            setMobileMenuOpen(false);
-                          }
-                        }}
-                        className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 ${
-                          active
-                            ? 'bg-emerald-50/90 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 font-semibold shadow-[inset_0_0_0_1px_rgba(5,150,105,0.22)]'
-                            : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100/70 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-100'
-                        }`}
-                      >
-                        <span className="flex items-center gap-2.5 truncate">
-                          <Icon
-                            className={`w-4 h-4 shrink-0 ${
-                              active
-                                ? 'text-emerald-600 dark:text-emerald-400'
-                                : 'text-slate-500 dark:text-slate-400'
-                            }`}
-                          />
-                          <span className="truncate">{item.label}</span>
-                        </span>
-
-                        <span className="flex items-center gap-1.5 shrink-0">
-                          {typeof item.count === 'number' && (
-                            <span
-                              className={`px-1.5 py-0.5 rounded text-[11px] font-mono tabular-nums ${
-                                active
-                                  ? 'bg-emerald-100/80 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 font-semibold'
-                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-                              }`}
-                            >
-                              {item.count}
-                            </span>
-                          )}
-                          {hasSubs && (
-                            <ChevronDown
-                              className={`w-3.5 h-3.5 text-slate-400 transition-transform ${
-                                isExpanded ? 'rotate-0' : '-rotate-90'
-                              }`}
-                            />
-                          )}
-                        </span>
-                      </button>
-
-                      {hasSubs && (isExpanded || active) && (
-                        <div className="ml-5 pl-3 border-l border-slate-200 dark:border-slate-800 space-y-0.5 py-0.5">
-                          {item.subItems?.map((sub) => {
-                            const subActive =
-                              activeTab === sub.id ||
-                              (sub.id === 'vault' &&
-                                (activeTab === 'vault-view' ||
-                                  activeTab === 'vault-edit')) ||
-                              (sub.id === 'users' &&
-                                activeTab === 'user-detail') ||
-                              (sub.id === 'deliveries' &&
-                                activeTab === 'deliveries' &&
-                                item.id === 'deliveries');
-                            return (
-                              <button
-                                key={sub.id}
-                                type="button"
-                                onClick={() => {
-                                  setActiveTab(sub.id);
-                                  setMobileMenuOpen(false);
-                                }}
-                                className={`w-full text-left px-2.5 py-1.5 text-sm rounded-md transition-colors cursor-pointer flex items-center justify-between ${
-                                  subActive
-                                    ? 'text-emerald-700 dark:text-emerald-300 font-medium bg-emerald-50/60 dark:bg-emerald-950/40'
-                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/40'
-                                }`}
-                              >
-                                <span>{sub.label}</span>
-                                {subActive && (
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-            </div>
-          </div>
-
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80">
-            <div className="admin-section-label px-2.5 text-[11px] uppercase mb-2">
-              Tools
-            </div>
-            <div className="space-y-1">
-              {toolsMenuItems
-                .filter((item) =>
-                  item.label.toLowerCase().includes(sidebarSearch.toLowerCase())
-                )
-                .map((item) => {
-                  const Icon = item.icon;
-                  const active = activeTab === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      aria-current={active ? 'page' : undefined}
-                      onClick={() => {
-                        setActiveTab(item.id);
-                        setMobileMenuOpen(false);
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 ${
-                        active
-                          ? 'bg-emerald-50/90 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 font-semibold shadow-[inset_0_0_0_1px_rgba(5,150,105,0.22)]'
-                          : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100/70 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-100'
-                      }`}
-                    >
-                      <span className="flex items-center gap-2.5 truncate">
-                        <Icon
-                          className={`w-4 h-4 shrink-0 ${
-                            active
-                              ? 'text-emerald-600 dark:text-emerald-400'
-                              : 'text-slate-400 dark:text-slate-500'
-                          }`}
-                        />
-                        <span className="truncate">{item.label}</span>
-                      </span>
-                      {typeof item.count === 'number' && item.count > 0 && (
-                        <span className="px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/60 text-[11px] font-mono tabular-nums font-semibold text-amber-700 dark:text-amber-400">
-                          {item.count}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-            </div>
-          </div>
-        </div>
-
-        <div className="p-4 space-y-2.5 border-t border-slate-200/80 dark:border-slate-800">
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('deliveries');
-              setMobileMenuOpen(false);
-            }}
-            className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)] hover:shadow-[inset_0_0_0_1px_#059669] flex items-center justify-between text-left cursor-pointer"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-7 h-7 rounded-[6px] bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                <Send className="w-3.5 h-3.5" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">
-                  Orders Queue
-                </div>
-                <div className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
-                  {pendingDeliveriesBadge} pending action
-                </div>
-              </div>
-            </div>
-            <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-          </button>
-
-          <div className="flex items-center justify-between pt-1">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-7 h-7 rounded-lg bg-slate-900 dark:bg-slate-800 text-white font-display font-bold text-[11px] flex items-center justify-center shrink-0">
-                MR
-              </div>
-              <div className="min-w-0">
-                <div className="font-display text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
-                  Masud Rana
-                </div>
-                <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                  Admin
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-emerald-500 cursor-pointer shrink-0"
-              title="Toggle Light / Dark Mode"
-              aria-label="Toggle Light or Dark Mode"
-            >
-              {darkMode ? (
-                <Sun className="w-4 h-4 text-amber-400" />
-              ) : (
-                <Moon className="w-4 h-4 text-slate-600" />
-              )}
-            </button>
-          </div>
-        </div>
-      </aside>
+      <AdminSidebarNav
+        mobileMenuOpen={mobileMenuOpen}
+        setMobileMenuOpen={setMobileMenuOpen}
+        visibleMainMenu={visibleMainMenu}
+        visibleToolsMenu={visibleToolsMenu}
+        activeTab={activeTab}
+        expandedGroups={expandedGroups}
+        toggleGroupExpand={toggleGroupExpand}
+        setActiveTab={setActiveTab}
+        pendingDeliveriesBadge={pendingDeliveriesBadge}
+        consoleUser={consoleUser}
+        darkMode={darkMode}
+        setDarkMode={setDarkMode}
+      />
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Sticky Admin Top Bar (Mobile + Desktop) with Order Chat, Tickets & Notification Popover */}
@@ -1923,8 +1648,8 @@ export default function AdminDashboard() {
             >
               <Menu className="w-4 h-4" />
             </button>
-            <span className="lg:hidden font-display text-sm font-bold text-slate-900 dark:text-slate-100">
-              BitLogic Inc.
+            <span className="lg:hidden">
+              <BrandLogo size="sm" />
             </span>
             <div className="hidden lg:flex items-center gap-2 text-sm">
               <span className="font-semibold text-slate-900 dark:text-slate-100">
@@ -1938,6 +1663,9 @@ export default function AdminDashboard() {
                   productEdit:
                     activeTab === 'product-add' &&
                     Boolean(searchParams.get('productId')),
+                  staffEdit:
+                    activeTab === 'staff-add' &&
+                    Boolean(searchParams.get('id')),
                   orderChat:
                     isOrdersAdminTab(activeTab) &&
                     Boolean(selectedChatDeliveryId),
@@ -1946,150 +1674,48 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2" ref={notifContainerRef}>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setNotifOpen((prev) => !prev)}
-                className={`relative w-9 h-9 rounded-lg border transition-colors inline-flex items-center justify-center cursor-pointer shadow-2xs ${
-                  notifOpen
-                    ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
-                    : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-emerald-500 text-slate-700 dark:text-slate-200'
-                }`}
-                aria-label="Notifications"
-                title="Notifications"
-              >
-                <Bell className="w-4 h-4" />
-                {unreadNotificationsCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-600 text-white font-mono text-[10px] font-bold inline-flex items-center justify-center ring-2 ring-white dark:ring-slate-900 tabular-nums">
-                    {unreadNotificationsCount}
-                  </span>
-                )}
-              </button>
-
-              {notifOpen && (
-                <div className="fixed inset-x-3 top-15 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[360px] z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-xl overflow-hidden">
-                  <div className="px-3.5 py-2.5 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-display text-xs font-bold text-slate-900 dark:text-slate-100">
-                        Notifications
-                      </span>
-                      <div className="inline-flex p-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[11px]">
-                        <button
-                          type="button"
-                          onClick={() => setNotifFilter('ALL')}
-                          className={`px-2 py-0.5 rounded-xs font-semibold cursor-pointer ${
-                            notifFilter === 'ALL'
-                              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs'
-                              : 'text-slate-500 hover:text-slate-800'
-                          }`}
-                        >
-                          All
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setNotifFilter('UNREAD')}
-                          className={`px-2 py-0.5 rounded-xs font-semibold cursor-pointer ${
-                            notifFilter === 'UNREAD'
-                              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs'
-                              : 'text-slate-500 hover:text-slate-800'
-                          }`}
-                        >
-                          Unread ({unreadNotificationsCount})
-                        </button>
-                      </div>
-                    </div>
-
-                    {unreadNotificationsCount > 0 && (
-                      <button
-                        type="button"
-                        onClick={handleMarkAllAdminNotifsRead}
-                        className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 hover:text-emerald-600 cursor-pointer whitespace-nowrap"
-                      >
-                        Mark all read
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                    {visibleAdminNotifications.length === 0 ? (
-                      <div className="py-8 px-4 text-center text-xs text-slate-400">
-                        No unread notifications.
-                      </div>
-                    ) : (
-                      visibleAdminNotifications.map((item) => {
-                        const refCode = item.ticketId || item.orderId;
-                        return (
-                          <button
-                            key={item.id}
-                            type="button"
-                            onClick={() => handleNotificationClick(item)}
-                            className={`w-full text-left px-3.5 py-2.5 flex items-start gap-2.5 transition-colors cursor-pointer ${
-                              !item.read
-                                ? 'bg-emerald-50/40 dark:bg-emerald-950/20 hover:bg-emerald-50/70 dark:hover:bg-emerald-950/35'
-                                : 'bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/50'
-                            }`}
-                          >
-                            <span
-                              className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${
-                                !item.read
-                                  ? 'bg-emerald-600'
-                                  : 'bg-slate-300 dark:bg-slate-700'
-                              }`}
-                            />
-
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center justify-between gap-2">
-                                <span
-                                  className={`text-xs truncate ${
-                                    !item.read
-                                      ? 'font-bold text-slate-900 dark:text-slate-100'
-                                      : 'font-semibold text-slate-800 dark:text-slate-200'
-                                  }`}
-                                >
-                                  {item.title}
-                                </span>
-                                <span className="font-mono text-[11px] text-slate-400 whitespace-nowrap tabular-nums shrink-0">
-                                  {item.time}
-                                </span>
-                              </div>
-
-                              <p className="text-xs text-slate-600 dark:text-slate-400 truncate mt-0.5">
-                                {refCode && (
-                                  <span className="font-mono font-semibold text-slate-700 dark:text-slate-300 tabular-nums">
-                                    {refCode} ·{' '}
-                                  </span>
-                                )}
-                                {item.message}
-                              </p>
-                            </div>
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-
-                  <div className="px-3.5 py-2 border-t border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/50 flex items-center justify-between text-[11px] text-slate-500">
-                    <span>Showing latest 7 notifications</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setNotifOpen(false);
-                        setActiveTab('deliveries');
-                      }}
-                      className="font-semibold text-slate-700 dark:text-slate-300 hover:text-emerald-600 cursor-pointer"
-                    >
-                      Orders →
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+          <AdminNotificationsPanel
+            adminNotifications={adminNotifications}
+            deliveries={deliveries}
+            commitNotifications={commitNotifications}
+            commitDeliveries={commitDeliveries}
+            commitTickets={commitTickets}
+            setActiveTab={setActiveTab}
+            handleSelectTicket={handleSelectTicket}
+            handleSelectChatDelivery={handleSelectChatDelivery}
+          >
+            <button
+              type="button"
+              onClick={() => setCommandOpen(true)}
+              aria-label="Search (Ctrl K)"
+              title="Search (Ctrl K)"
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 text-slate-600 hover:border-emerald-500 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 cursor-pointer sm:min-w-[13rem]"
+            >
+              <Search className="h-4 w-4 shrink-0" aria-hidden />
+              <span className="hidden flex-1 text-left text-sm text-slate-500 sm:inline">Search…</span>
+              <kbd className="hidden rounded border border-slate-200 px-1.5 font-mono text-xs text-slate-500 sm:inline dark:border-slate-700">Ctrl K</kbd>
+            </button>
+          </AdminNotificationsPanel>
         </header>
 
         <main className="flex-1 p-4 sm:p-6 lg:p-7 pb-22 md:pb-8 max-w-[1440px] w-full mx-auto">
-          {!catalogHydrated ? null : (
+          {!catalogHydrated && workspaceError ? (
+            <div className="flex items-center gap-3 py-10 text-sm" role="alert">
+              <span className="text-rose-600">Could not load data.</span>
+              <button
+                type="button"
+                onClick={() => void reloadWorkspace()}
+                className="h-9 rounded-md border border-slate-200 px-3 font-medium hover:border-emerald-600 dark:border-slate-700 cursor-pointer"
+              >
+                Retry
+              </button>
+            </div>
+          ) : !catalogHydrated ? (
+            <div className="flex items-center gap-3 py-10 text-sm text-slate-500" role="status">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-emerald-600" />
+              Loading…
+            </div>
+          ) : (
           <AdminViewRouter
             activeTab={activeTab}
             searchParams={searchParams}
@@ -2109,7 +1735,6 @@ export default function AdminDashboard() {
             subscribers={subscribers}
             payments={payments}
             coupons={coupons}
-            features={features}
             mediaAssets={mediaAssets}
             selectedChatDeliveryId={selectedChatDeliveryId}
             selectedTicketId={selectedTicketId}
@@ -2130,15 +1755,14 @@ export default function AdminDashboard() {
             openVaultEditPage={openVaultEditPage}
             handleSelectChatDelivery={handleSelectChatDelivery}
             handleSendOrderChatMessage={handleSendOrderChatMessage}
-            handleSimulateBuyerMessage={handleSimulateBuyerMessage}
             handleFulfillDelivery={handleFulfillDelivery}
+            handleUpdateDeliveryVpn={handleUpdateDeliveryVpn}
             handleTogglePinOrder={handleTogglePinOrder}
             handleSelectTicket={handleSelectTicket}
             handleReplyTicket={handleReplyTicket}
             handleUpdateTicketStatus={handleUpdateTicketStatus}
             handleUpdateTicketPriority={handleUpdateTicketPriority}
             handleCreateTicket={handleCreateTicket}
-            handleSimulateBuyerTicketReply={handleSimulateBuyerTicketReply}
             handleOpenOrderChatFromTicket={handleOpenOrderChatFromTicket}
             handleAddCustomer={handleAddCustomer}
             handleRenewSubscription={handleRenewSubscription}
@@ -2150,108 +1774,75 @@ export default function AdminDashboard() {
             handleRejectOrRefundPayment={handleRejectOrRefundPayment}
             handleAddCoupon={handleAddCoupon}
             handleToggleCoupon={handleToggleCoupon}
-            handleToggleFeature={handleToggleFeature}
+            reloadWorkspace={reloadWorkspace}
+            handleRefundOrder={handleRefundOrder}
+            handleMarkOrderChatRead={handleMarkOrderChatRead}
+            handleSetWarrantyStart={handleSetWarrantyStart}
+            showToast={showToast}
           />
           )}
         </main>
 
-        <nav
-          aria-label="Mobile quick navigation"
-          className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs border-t border-slate-200 dark:border-slate-800 grid grid-cols-5 h-15 px-1"
-        >
-          {[
-            mainMenuItems[0],
-            mainMenuItems[1],
-            mainMenuItems[3],
-            mainMenuItems[4],
-            mainMenuItems[5],
-          ].map((item) => {
-            const Icon = item.icon;
-            const active = isGroupActive(item);
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setActiveTab(item.id)}
-                className={`flex flex-col items-center justify-center gap-0.5 text-[11px] font-medium cursor-pointer ${
-                  active
-                    ? 'text-emerald-600 dark:text-emerald-400 font-semibold'
-                    : 'text-slate-500 dark:text-slate-400'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                <span className="truncate max-w-full px-1">{item.shortLabel}</span>
-              </button>
-            );
-          })}
-        </nav>
+        <AdminMobileBottomNav
+          visibleMainMenu={visibleMainMenu}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+        />
       </div>
 
-      <ModalShell
+      <CommandPalette
         open={commandOpen}
         onClose={() => setCommandOpen(false)}
-        title="Quick Command (⌘K)"
-        maxWidth="max-w-lg"
-      >
-        <div className="space-y-4 text-xs">
-          <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              autoFocus
-              value={commandQuery}
-              onChange={(e) => setCommandQuery(e.target.value)}
-              placeholder="Jump to page or action..."
-              className="w-full h-9 pl-9 pr-3 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:border-emerald-600"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 px-2">
-              Pages
-            </div>
-            {[
-              { id: 'overview' as AdminTab, label: 'Dashboard' },
-              { id: 'products' as AdminTab, label: 'Product — All Products' },
-              { id: 'product-add' as AdminTab, label: 'Product — Add Product' },
-              { id: 'product-option' as AdminTab, label: 'Product — Add / Edit Option' },
-              { id: 'warranties' as AdminTab, label: 'Product — Warranties' },
-              {
-                id: 'credential-types' as AdminTab,
-                label: 'Product — Credential Types',
-              },
-              { id: 'categories' as AdminTab, label: 'Product — Categories' },
-              { id: 'vault' as AdminTab, label: 'Credentials — Inventory' },
-              { id: 'vault-manual' as AdminTab, label: 'Credentials — Manual Add' },
-              { id: 'vault-bulk' as AdminTab, label: 'Credentials — Bulk Import' },
-              { id: 'vault-view' as AdminTab, label: 'Credentials — View' },
-              { id: 'vault-edit' as AdminTab, label: 'Credentials — Edit' },
-              { id: 'deliveries' as AdminTab, label: 'Orders & Order Chat' },
-              { id: 'tickets' as AdminTab, label: 'Support Tickets' },
-              { id: 'users' as AdminTab, label: 'Customer — All Customers' },
-              { id: 'user-add' as AdminTab, label: 'Customer — Add Customer' },
-              { id: 'media' as AdminTab, label: 'Media Library' },
-              { id: 'payments' as AdminTab, label: 'Payments' },
-              { id: 'features' as AdminTab, label: 'Settings' },
-            ]
-              .filter((i) => i.label.toLowerCase().includes(commandQuery.toLowerCase()))
-              .map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    setActiveTab(item.id);
-                    setCommandOpen(false);
-                  }}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 font-medium cursor-pointer"
-                >
-                  <span>{item.label}</span>
-                  <ArrowUpRight className="w-3.5 h-3.5 text-slate-400" />
-                </button>
-              ))}
-          </div>
-        </div>
-      </ModalShell>
+        pages={[
+          { id: 'overview' as AdminTab, label: 'Dashboard' },
+          { id: 'deliveries' as AdminTab, label: 'Orders' },
+          { id: 'order-add' as AdminTab, label: 'Add order' },
+          { id: 'orders-renewals' as AdminTab, label: 'Renewals' },
+          { id: 'warranty-claims' as AdminTab, label: 'Warranty claims' },
+          { id: 'payments' as AdminTab, label: 'Payments' },
+          { id: 'coupons' as AdminTab, label: 'Coupons' },
+          { id: 'users' as AdminTab, label: 'Customers' },
+          { id: 'user-add' as AdminTab, label: 'Add customer' },
+          { id: 'products' as AdminTab, label: 'Products' },
+          { id: 'product-add' as AdminTab, label: 'Add product' },
+          { id: 'vault' as AdminTab, label: 'Credentials inventory' },
+          { id: 'vault-manual' as AdminTab, label: 'Add credentials' },
+          { id: 'vault-bulk' as AdminTab, label: 'Bulk import credentials' },
+          { id: 'tickets' as AdminTab, label: 'Support tickets' },
+          { id: 'warranties' as AdminTab, label: 'Warranties' },
+          { id: 'credential-types' as AdminTab, label: 'Credential types' },
+          { id: 'categories' as AdminTab, label: 'Categories' },
+          { id: 'media' as AdminTab, label: 'Media library' },
+          { id: 'features' as AdminTab, label: 'Settings' },
+          { id: 'email' as AdminTab, label: 'Email' },
+          { id: 'contact' as AdminTab, label: 'Contact' },
+          { id: 'storefront' as AdminTab, label: 'Storefront (site title, homepage banners)' },
+          ...(consoleUser?.isFullAdmin
+            ? [
+                { id: 'staff' as AdminTab, label: 'Staff' },
+                { id: 'staff-add' as AdminTab, label: 'Add staff' },
+              ]
+            : []),
+        ].filter((p) => canOpenTab(p.id))}
+        deliveries={deliveries}
+        subscribers={subscribers}
+        products={products}
+        payments={payments}
+        tickets={tickets}
+        vault={vault}
+        goTab={setActiveTab}
+        openOrder={(id) => handleSelectChatDelivery(id)}
+        openCustomer={(id) => {
+          setSelectedCustomerId(id);
+          setActiveTab('user-detail');
+        }}
+        openProduct={(id) => openProductEditPage(id)}
+        openTicket={(id) => {
+          setActiveTab('tickets');
+          handleSelectTicket(id);
+        }}
+        openCredential={(id) => openVaultViewPage(id)}
+      />
 
       {toastMessage && (
         <div

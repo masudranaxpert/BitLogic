@@ -24,11 +24,16 @@ import {
   formatBDT,
 } from '@/components/admin/ui/primitives';
 import type { DeliveriesViewState } from './useDeliveriesViewState';
+import { OrderNotesPanel } from './OrderNotesPanel';
 
-type DetailTab = 'profile' | 'order' | 'credential' | 'payments';
+type DetailTab = 'profile' | 'order' | 'credential' | 'payments' | 'notes';
 
 type DeliveryChatPanelProps = {
   delivery: DigitalDelivery;
+  /** All units of the same order (any product). */
+  siblings?: DigitalDelivery[];
+  /** Render only the chat card (used by the order page). */
+  chatOnly?: boolean;
   payments?: PaymentTransaction[];
   onSelectChatDelivery?: (deliveryId: string | null) => void;
   onTogglePinOrder?: (deliveryId: string) => void;
@@ -37,6 +42,8 @@ type DeliveryChatPanelProps = {
 
 export function DeliveryChatPanel({
   delivery,
+  siblings = [],
+  chatOnly = false,
   payments = [],
   onSelectChatDelivery,
   onTogglePinOrder,
@@ -518,7 +525,16 @@ export function DeliveryChatPanel({
         ? orderTab
         : detailTab === 'credential'
           ? credentialTab
-          : paymentsTab;
+          : detailTab === 'notes'
+            ? (
+                <OrderNotesPanel
+                  key={delivery.id}
+                  orderId={delivery.orderId}
+                  deliveryId={delivery.id}
+                  canDeliverWithoutCredential={delivery.status === 'pending_dispatch'}
+                />
+              )
+            : paymentsTab;
 
   const chatCard = (
     <Card className="flex flex-col overflow-hidden h-full">
@@ -544,9 +560,6 @@ export function DeliveryChatPanel({
               </span>
               <span className="rounded bg-slate-200/70 px-1.5 py-0.5 font-mono text-[11px] text-slate-600 dark:bg-slate-800 dark:text-slate-400">
                 {delivery.orderId}
-                {(delivery.orderQuantity ?? 1) > 1
-                  ? ` · ${delivery.unitIndex ?? 1}/${delivery.orderQuantity}`
-                  : ''}
               </span>
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
@@ -784,6 +797,8 @@ export function DeliveryChatPanel({
     </Card>
   );
 
+  if (chatOnly) return chatCard;
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -839,6 +854,34 @@ export function DeliveryChatPanel({
         </button>
       </div>
 
+      {siblings.length > 1 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
+            Items in this order
+          </span>
+          {siblings.map((u, i) => {
+            const ready = u.status === 'delivered' && Boolean(u.credentialPayload.secretValue?.trim());
+            const active = u.id === delivery.id;
+            return (
+              <button
+                key={u.id}
+                type="button"
+                onClick={() => onSelectChatDelivery?.(u.id)}
+                title={u.productName + ' — ' + u.variantName}
+                className={`inline-flex items-center gap-1.5 h-9 px-3 rounded-md border text-sm cursor-pointer ${
+                  active
+                    ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300'
+                    : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950'
+                }`}
+              >
+                <span className={`h-2 w-2 rounded-full ${ready ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                <span>{i + 1}. {u.productName}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
       {/* Tabs sit under order title — control left content only; chat stays */}
       <SegmentedTabs
         options={[
@@ -846,6 +889,7 @@ export function DeliveryChatPanel({
           { value: 'order', label: 'Order' },
           { value: 'credential', label: 'Credential' },
           { value: 'payments', label: 'Payments', count: payments.length },
+          { value: 'notes', label: 'Notes' },
         ]}
         value={detailTab}
         onChange={setDetailTab}

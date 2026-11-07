@@ -43,13 +43,38 @@ export async function loadAdminCatalog() {
 
 export async function saveDigitalProduct(product: DigitalProduct) {
   const payload = digitalProductToDbPayload(product);
-  const existing = await db.product.findUnique({
-    where: { slug: product.id },
+
+  let categoryId = payload.categoryId;
+  if (!categoryId && payload.category) {
+    const matchedCategory = await db.catalogCategory.findFirst({
+      where: {
+        OR: [
+          { name: payload.category },
+          { id: payload.category },
+          { code: payload.category },
+        ],
+      },
+      select: { id: true },
+    });
+    if (matchedCategory) {
+      categoryId = matchedCategory.id;
+    }
+  }
+
+  const lookupSlug = product.id || (product as { slug?: string }).slug;
+  const lookupId = (product as { id?: string }).id;
+
+  const existing = await db.product.findFirst({
+    where: {
+      OR: [
+        ...(lookupSlug ? [{ slug: lookupSlug }] : []),
+        ...(lookupId ? [{ id: lookupId }] : []),
+      ],
+    },
     select: { id: true },
   });
 
   if (existing) {
-    await db.productPlan.deleteMany({ where: { productId: existing.id } });
     await db.product.update({
       where: { id: existing.id },
       data: {
@@ -57,7 +82,7 @@ export async function saveDigitalProduct(product: DigitalProduct) {
         description: payload.description,
         tagline: payload.tagline,
         category: payload.category,
-        categoryId: payload.categoryId,
+        categoryId,
         platform: payload.platform,
         imageUrl: payload.imageUrl,
         galleryJson: payload.galleryJson,
@@ -65,11 +90,72 @@ export async function saveDigitalProduct(product: DigitalProduct) {
         isActive: payload.isActive,
         sku: payload.sku,
         status: payload.status,
-        totalSales: payload.totalSales,
-        monthlyRevenueBdt: payload.monthlyRevenueBdt,
-        plans: { create: payload.plans },
+        renewable: payload.renewable,
+        allowOrderWhenOutOfStock: payload.allowOrderWhenOutOfStock,
+        availableFrom: payload.availableFrom,
+        availableUntil: payload.availableUntil,
       },
     });
+
+    const incomingCodes = payload.plans.map((p) => p.code);
+
+    for (const planData of payload.plans) {
+      await db.productPlan.upsert({
+        where: {
+          productId_code: {
+            productId: existing.id,
+            code: planData.code,
+          },
+        },
+        create: {
+          productId: existing.id,
+          ...planData,
+        },
+        update: {
+          label: planData.label,
+          durationLabel: planData.durationLabel,
+          durationDays: planData.durationDays,
+          priceBdt: planData.priceBdt,
+          warrantyBadge: planData.warrantyBadge,
+          warrantyType: planData.warrantyType,
+          warrantyHeadline: planData.warrantyHeadline,
+          detailsJson: planData.detailsJson,
+          isActive: planData.isActive,
+          isDefault: planData.isDefault,
+          credentialSchemeId: planData.credentialSchemeId,
+          credentialType: planData.credentialType,
+          deliveryMode: planData.deliveryMode,
+          stockDisplayMode: planData.stockDisplayMode,
+          vpnRequired: planData.vpnRequired,
+          vpnRegionNote: planData.vpnRegionNote,
+          hasWarranty: planData.hasWarranty,
+          warrantyDays: planData.warrantyDays,
+          deviceLimit: planData.deviceLimit,
+          importantNote: planData.importantNote,
+          warningNote: planData.warningNote,
+          optionDescription: planData.optionDescription,
+          specificationsJson: planData.specificationsJson,
+        },
+      });
+    }
+
+    const removedPlans = await db.productPlan.findMany({
+      where: {
+        productId: existing.id,
+        code: { notIn: incomingCodes },
+      },
+    });
+
+    for (const rp of removedPlans) {
+      try {
+        await db.productPlan.delete({ where: { id: rp.id } });
+      } catch {
+        await db.productPlan.update({
+          where: { id: rp.id },
+          data: { isActive: false },
+        });
+      }
+    }
     return;
   }
 
@@ -80,7 +166,7 @@ export async function saveDigitalProduct(product: DigitalProduct) {
       description: payload.description,
       tagline: payload.tagline,
       category: payload.category,
-      categoryId: payload.categoryId,
+      categoryId,
       platform: payload.platform,
       imageUrl: payload.imageUrl,
       galleryJson: payload.galleryJson,
@@ -88,8 +174,10 @@ export async function saveDigitalProduct(product: DigitalProduct) {
       isActive: payload.isActive,
       sku: payload.sku,
       status: payload.status,
-      totalSales: payload.totalSales,
-      monthlyRevenueBdt: payload.monthlyRevenueBdt,
+      renewable: payload.renewable,
+      allowOrderWhenOutOfStock: payload.allowOrderWhenOutOfStock,
+      availableFrom: payload.availableFrom,
+      availableUntil: payload.availableUntil,
       plans: { create: payload.plans },
     },
   });

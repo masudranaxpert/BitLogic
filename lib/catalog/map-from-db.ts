@@ -19,6 +19,19 @@ function parseStringArray(raw: string): string[] {
   }
 }
 
+const CATEGORY_NAME_TO_CODE: Record<string, Category> = {
+  'AI & LLM Tools': 'AI',
+  'Streaming & OTT': 'STREAM',
+  'Creative & Design': 'CREATE',
+  'Developer & Cloud': 'WORK',
+  'VPN & Security': 'WORK',
+  'OS & Office Keys': 'WORK',
+  AI: 'AI',
+  STREAM: 'STREAM',
+  WORK: 'WORK',
+  CREATE: 'CREATE',
+};
+
 function resolveCategoryCode(product: DbProductWithPlans): Category {
   const fromRelation = product.catalogCategory?.code;
   if (
@@ -29,13 +42,8 @@ function resolveCategoryCode(product: DbProductWithPlans): Category {
   ) {
     return fromRelation;
   }
-  if (
-    product.category === 'AI' ||
-    product.category === 'STREAM' ||
-    product.category === 'WORK' ||
-    product.category === 'CREATE'
-  ) {
-    return product.category;
+  if (product.category && CATEGORY_NAME_TO_CODE[product.category]) {
+    return CATEGORY_NAME_TO_CODE[product.category];
   }
   return 'AI';
 }
@@ -57,9 +65,22 @@ function mapPlan(plan: DbPlan): Plan {
   };
 }
 
-export function mapDbProductToCatalog(product: DbProductWithPlans): Product {
+/**
+ * Storefront OOS is vault-driven, not product.status.
+ * Manual-dispatch plans never count as vault-empty.
+ */
+export function mapDbProductToCatalog(
+  product: DbProductWithPlans,
+  availableVaultCount = 0,
+): Product {
   const gallery = parseStringArray(product.galleryJson);
   const image = product.imageUrl || gallery[0] || '/products/chatgpt.jpg';
+  const activePlans = product.plans.filter((plan) => plan.isActive);
+  const hasManualPlan = activePlans.some(
+    (p) => p.deliveryMode === 'manual_dispatch',
+  );
+  const needsVault = activePlans.some((p) => p.deliveryMode !== 'manual_dispatch');
+  const outOfStock = needsVault && !hasManualPlan && availableVaultCount <= 0;
 
   return {
     id: product.slug,
@@ -73,9 +94,11 @@ export function mapDbProductToCatalog(product: DbProductWithPlans): Product {
     gallery: gallery.length > 0 ? gallery : [image],
     platform: product.platform,
     featured: product.featured || undefined,
+    availability: outOfStock ? 'out_of_stock' : 'available',
+    acceptOrdersWhenOutOfStock: Boolean(product.allowOrderWhenOutOfStock),
+    availableFrom: product.availableFrom ? product.availableFrom.toISOString() : undefined,
+    availableUntil: product.availableUntil ? product.availableUntil.toISOString() : undefined,
     features: parseStringArray(product.featuresJson),
-    plans: product.plans
-      .filter((plan) => plan.isActive)
-      .map(mapPlan),
+    plans: activePlans.map(mapPlan),
   };
 }

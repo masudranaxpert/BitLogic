@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { SubscriberUser } from '@/lib/admin-data';
 import {
@@ -14,6 +14,7 @@ import {
   PaginationFooter,
   EmptyTableState,
 } from '@/components/admin/ui/primitives';
+import { EmailVerifiedBadge } from './EmailVerifiedBadge';
 
 type CustomerFilter = 'all' | 'active' | 'suspended' | 'reseller';
 
@@ -52,6 +53,10 @@ export function CustomersList({
   onOpenAddCustomer,
   onResetFilters,
 }: CustomersListProps) {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  useEffect(() => setPage(1), [filteredUsers.length]);
+  const paged = filteredUsers.slice((page - 1) * pageSize, page * pageSize);
   return (
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -157,7 +162,7 @@ export function CustomersList({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800">
-                {filteredUsers.map((user) => {
+                {paged.map((user) => {
                   const checked = selectedUserIds.includes(user.id);
                   return (
                     <tr
@@ -197,12 +202,30 @@ export function CustomersList({
                         </div>
                       </td>
 
-                      <td className="py-3 px-3 font-mono text-xs text-slate-600 dark:text-slate-400">
-                        {user.email}
+                      <td className="py-3 px-3">
+                        <div className="flex min-w-0 flex-col gap-1">
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <span
+                              className={`truncate font-mono text-xs ${
+                                user.emailVerified === true
+                                  ? 'font-medium text-emerald-700 dark:text-emerald-300'
+                                  : 'text-slate-700 dark:text-slate-300'
+                              }`}
+                            >
+                              {user.email}
+                            </span>
+                            {user.emailVerified === true ? (
+                              <EmailVerifiedBadge verified compact />
+                            ) : null}
+                          </div>
+                          {user.emailVerified !== true ? (
+                            <EmailVerifiedBadge verified={user.emailVerified} />
+                          ) : null}
+                        </div>
                       </td>
 
                       <td className="py-3 px-3 font-mono text-xs text-slate-500">
-                        {user.phone}
+                        {user.phone?.trim() ? user.phone : '—'}
                       </td>
 
                       <td className="py-3 px-3">
@@ -264,7 +287,13 @@ export function CustomersList({
           </div>
         )}
 
-        <PaginationFooter totalItems={filteredUsers.length} pageSize={10} currentPage={1} />
+        <PaginationFooter
+          totalItems={filteredUsers.length}
+          pageSize={pageSize}
+          currentPage={page}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
       </Card>
     </div>
   );

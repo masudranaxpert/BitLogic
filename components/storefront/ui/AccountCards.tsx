@@ -49,6 +49,33 @@ export interface OrderChatMessage {
   attachment?: ChatAttachment;
 }
 
+export interface CustomerOrderUnit {
+  deliveryId: string;
+  orderId: string;
+  unitIndex: number;
+  orderQuantity: number;
+  productName: string;
+  variantName: string;
+  /** product|plan — one line of the order (its own end date, warranty, renewal). */
+  lineKey?: string;
+  orderExpiresAt?: string | null;
+  warranty?: import('@/lib/warranty').WarrantyState;
+  credentialType?: string;
+  status: string;
+  secretValue: string;
+  email?: string;
+  password?: string;
+  profilePin?: string;
+  vpnRequired?: boolean;
+  vpnRegionNote?: string;
+  hasWarranty?: boolean;
+  warrantyDays?: number;
+  warrantyRemainingDays?: number;
+  warrantyTerms?: string;
+  credentialExpiresAt?: string;
+  deliveredAt?: string | null;
+}
+
 export interface CustomerOrderItem {
   id: string;
   productName: string;
@@ -61,7 +88,7 @@ export interface CustomerOrderItem {
   price: number;
   paymentMethod: 'bkash' | 'nagad';
   trxId: string;
-  status: 'Active' | 'Pending (10–24h)' | 'Delivered' | 'Expired' | 'Refunded';
+  status: 'Active' | 'Pending (10–24h)' | 'Delivered' | 'Expired' | 'Refunded' | 'Warranty Claim';
   warrantyLabel: string;
   warrantyDaysLeft?: number;
   deliveryEta?: string;
@@ -75,6 +102,8 @@ export interface CustomerOrderItem {
   usageRules?: string[];
   chatMessages?: OrderChatMessage[];
   unreadChatCount?: number;
+  quantity?: number;
+  units?: CustomerOrderUnit[];
 }
 
 type CredentialItemCardProps = {
@@ -187,6 +216,11 @@ export function OrderRowCard({
           <h3 className="text-sm font-bold text-slate-900 m-0">
             {order.productName}
           </h3>
+          {(order.quantity ?? 1) > 1 && (
+            <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-[11px] font-bold border border-slate-200/80">
+              Qty: {order.quantity}
+            </span>
+          )}
           <StatusBadge tone={statusTone}>{order.status}</StatusBadge>
 
           {unreadCount > 0 && (
@@ -209,10 +243,14 @@ export function OrderRowCard({
             ·
           </span>
           <span className="font-semibold text-slate-700">{order.planName}</span>
-          <span className="text-slate-300" aria-hidden="true">
-            ·
-          </span>
-          <span>{order.duration}</span>
+          {order.duration && order.duration !== order.planName ? (
+            <>
+              <span className="text-slate-300" aria-hidden="true">
+                ·
+              </span>
+              <span>{order.duration}</span>
+            </>
+          ) : null}
           <span className="text-slate-300" aria-hidden="true">
             ·
           </span>

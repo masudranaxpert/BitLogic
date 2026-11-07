@@ -111,15 +111,19 @@ export function processCredentialWindows(
     const windowEnded =
       isCredentialExpired(d.credentialExpiresAt, asOf) || stockDead;
     const hasSecret = Boolean(d.credentialPayload?.secretValue?.trim());
+    // Delivered without a credential (set up on the buyer's device) still counts as served.
+    const servedWithoutSecret =
+      !hasSecret && d.status === 'delivered' && Boolean(d.deliveredAt) && !d.credentialClearedAt;
+    const active = hasSecret || servedWithoutSecret;
 
     // Still inside assignment window (and stock alive) — renew only flags
-    if (hasSecret && !windowEnded) {
+    if (active && !windowEnded) {
       return d;
     }
 
     // No window / no secret — if renew pending, try to fulfill now
     const needsRenewFulfill =
-      d.renewalPending && (!hasSecret || windowEnded);
+      d.renewalPending && (!active || windowEnded);
 
     if (!needsRenewFulfill && !windowEnded) {
       return d;

@@ -88,11 +88,23 @@ function mapDbPlan(plan: DbPlan, productId: string): ProductVariant {
   };
 }
 
+/** Visibility only: listed vs hidden. Legacy out_of_stock → active; suspended → draft. */
+function normalizeAvailabilityStatus(
+  raw: string | null | undefined,
+): 'active' | 'draft' {
+  if (raw === 'draft' || raw === 'suspended') return 'draft';
+  return 'active';
+}
+
+/** ISO string → Date, or null when empty/invalid (clears the column). */
+function toDate(iso?: string | null): Date | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 export function mapDbProduct(row: DbProductWithPlans): DigitalProduct {
-  const status =
-    row.status === 'draft' || row.status === 'out_of_stock'
-      ? row.status
-      : 'active';
+  const status = normalizeAvailabilityStatus(row.status);
   const gallery = parseJsonArray<string>(row.galleryJson, []);
   return {
     id: row.slug,
@@ -103,20 +115,19 @@ export function mapDbProduct(row: DbProductWithPlans): DigitalProduct {
     imageUrl: row.imageUrl || gallery[0] || undefined,
     galleryUrls: gallery.length ? gallery : undefined,
     status,
+    renewable: row.renewable,
+    allowOrderWhenOutOfStock: row.allowOrderWhenOutOfStock,
+    availableFrom: row.availableFrom ? row.availableFrom.toISOString() : undefined,
+    availableUntil: row.availableUntil ? row.availableUntil.toISOString() : undefined,
     shortDescription: row.tagline || '',
     description: row.description || undefined,
     descriptionMode: 'global',
-    totalSales: row.totalSales,
-    monthlyRevenueBDT: row.monthlyRevenueBdt,
     variants: row.plans.map((p) => mapDbPlan(p, row.slug)),
   };
 }
 
 export function digitalProductToDbPayload(product: DigitalProduct) {
-  const status =
-    product.status === 'draft' || product.status === 'out_of_stock'
-      ? product.status
-      : 'active';
+  const status = normalizeAvailabilityStatus(product.status);
   const gallery = product.galleryUrls?.length
     ? product.galleryUrls
     : product.imageUrl
@@ -124,7 +135,7 @@ export function digitalProductToDbPayload(product: DigitalProduct) {
       : [];
 
   return {
-    slug: product.id,
+    slug: product.id || (product as { slug?: string }).slug || '',
     name: product.name,
     description: product.description || '',
     tagline: product.shortDescription || '',
@@ -137,33 +148,39 @@ export function digitalProductToDbPayload(product: DigitalProduct) {
     isActive: status === 'active',
     sku: product.sku || '',
     status,
-    totalSales: product.totalSales || 0,
-    monthlyRevenueBdt: product.monthlyRevenueBDT || 0,
-    plans: product.variants.map((v, index) => ({
-      code: v.id,
-      label: v.name,
+    renewable: product.renewable !== false,
+    allowOrderWhenOutOfStock: Boolean(product.allowOrderWhenOutOfStock),
+    availableFrom: toDate(product.availableFrom),
+    availableUntil: toDate(product.availableUntil),
+    plans: ((product.variants || (product as { plans?: any[] }).plans || []) as any[]).map((v, index) => ({
+      code: v.id || v.code,
+      label: v.name || v.label,
       durationLabel: v.durationLabel,
       durationDays: v.durationDays,
-      priceBdt: v.priceBDT,
-      warrantyBadge: v.importantNote || null,
-      warrantyType: v.hasWarranty ? 'warranty' : 'login-only',
-      warrantyHeadline: v.warrantyTerms || null,
-      detailsJson: JSON.stringify(v.loginInstructions || []),
-      isActive: true,
+      priceBdt: v.priceBDT ?? v.priceBdt ?? 0,
+      warrantyBadge: v.importantNote || v.warrantyBadge || null,
+      warrantyType: v.hasWarranty ? 'warranty' : (v.warrantyType || 'login-only'),
+      warrantyHeadline: v.warrantyTerms || v.warrantyHeadline || null,
+      detailsJson: typeof v.loginInstructions === 'string'
+        ? v.loginInstructions
+        : JSON.stringify(v.loginInstructions || []),
+      isActive: v.isActive !== false,
       isDefault: Boolean(v.isDefault) || index === 0,
       credentialSchemeId: v.credentialSchemeId || null,
-      credentialType: v.credentialType,
-      deliveryMode: v.deliveryMode,
-      stockDisplayMode: v.stockDisplayMode,
-      vpnRequired: v.vpnRequired,
+      credentialType: v.credentialType || 'email_login',
+      deliveryMode: v.deliveryMode || 'auto_vault',
+      stockDisplayMode: v.stockDisplayMode || 'exact_count',
+      vpnRequired: Boolean(v.vpnRequired),
       vpnRegionNote: v.vpnRegionNote || '',
-      hasWarranty: v.hasWarranty,
-      warrantyDays: v.warrantyDays,
+      hasWarranty: Boolean(v.hasWarranty),
+      warrantyDays: v.warrantyDays || 0,
       deviceLimit: v.deviceLimit || '',
       importantNote: v.importantNote || '',
       warningNote: v.warningNote || '',
       optionDescription: v.optionDescription || '',
-      specificationsJson: JSON.stringify(v.specifications || []),
+      specificationsJson: typeof v.specifications === 'string'
+        ? v.specifications
+        : JSON.stringify(v.specifications || []),
     })),
   };
 }

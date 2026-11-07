@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import {
   AdminTab,
@@ -16,6 +16,7 @@ import {
   StatusIndicator,
   ShadcnCheckbox,
   EmptyTableState,
+  GatewayBadge,
 } from '@/components/admin/ui/primitives';
 
 interface OverviewActivitySectionProps {
@@ -42,12 +43,31 @@ export function OverviewActivitySection({
   const [txSearch, setTxSearch] = useState('');
   const [selectedDeliveryIds, setSelectedDeliveryIds] = useState<string[]>([]);
 
-  const filteredRecentDeliveries = deliveries.filter(
-    (d) =>
-      d.orderId.toLowerCase().includes(txSearch.toLowerCase()) ||
-      d.productName.toLowerCase().includes(txSearch.toLowerCase()) ||
-      d.buyerName.toLowerCase().includes(txSearch.toLowerCase())
-  );
+  const recentGroupedOrders = useMemo(() => {
+    const map = new Map<string, DigitalDelivery[]>();
+    for (const del of deliveries) {
+      const list = map.get(del.orderId) || [];
+      list.push(del);
+      map.set(del.orderId, list);
+    }
+    const q = txSearch.trim().toLowerCase();
+    const list = Array.from(map.entries()).map(([orderId, units]) => ({
+      orderId,
+      primary: units[0],
+      units,
+      totalUnits: units.length,
+      allDelivered: units.every((u) => u.status === 'delivered'),
+      anyClaim: units.some((u) => u.status === 'warranty_claim'),
+      anyPending: units.some((u) => u.status === 'pending_dispatch'),
+    }));
+    if (!q) return list;
+    return list.filter(
+      (grp) =>
+        grp.orderId.toLowerCase().includes(q) ||
+        grp.primary.productName.toLowerCase().includes(q) ||
+        grp.primary.buyerName.toLowerCase().includes(q),
+    );
+  }, [deliveries, txSearch]);
 
   const toggleRowSelect = (id: string) => {
     setSelectedDeliveryIds((prev) =>
@@ -89,7 +109,7 @@ export function OverviewActivitySection({
 
           {deliveries.length === 0 ? (
             <EmptyTableState title="No deliveries" />
-          ) : filteredRecentDeliveries.length === 0 ? (
+          ) : recentGroupedOrders.length === 0 ? (
             <EmptyTableState
               title="No matches"
               onReset={() => setTxSearch('')}
@@ -103,12 +123,12 @@ export function OverviewActivitySection({
                     <th className="py-3 px-4 w-8">
                       <ShadcnCheckbox
                         checked={
-                          filteredRecentDeliveries.length > 0 &&
-                          selectedDeliveryIds.length === filteredRecentDeliveries.length
+                          recentGroupedOrders.length > 0 &&
+                          selectedDeliveryIds.length === recentGroupedOrders.length
                         }
                         onChange={(checked) =>
                           setSelectedDeliveryIds(
-                            checked ? filteredRecentDeliveries.map((d) => d.id) : []
+                            checked ? recentGroupedOrders.map((g) => g.primary.id) : []
                           )
                         }
                       />
@@ -122,11 +142,12 @@ export function OverviewActivitySection({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200/60 dark:divide-slate-800/70">
-                  {filteredRecentDeliveries.slice(0, 6).map((del) => {
-                    const checked = selectedDeliveryIds.includes(del.id);
+                  {recentGroupedOrders.slice(0, 6).map((grp) => {
+                    const checked = selectedDeliveryIds.includes(grp.primary.id);
+                    const del = grp.primary;
                     return (
                       <tr
-                        key={del.id}
+                        key={grp.orderId}
                         className={`transition-colors whitespace-nowrap ${
                           checked
                             ? 'bg-emerald-50/40 dark:bg-emerald-950/25'
@@ -140,10 +161,16 @@ export function OverviewActivitySection({
                           />
                         </td>
                         <td className="py-3 px-3 font-mono text-xs tabular-nums font-medium text-slate-700 dark:text-slate-300">
-                          {del.orderId}
+                          {grp.orderId}
                         </td>
                         <td className="py-3 px-3 font-medium text-slate-900 dark:text-slate-100">
-                          {del.productName} <span className="text-slate-400 font-normal">· {del.variantName}</span>
+                          {del.productName}{' '}
+                          <span className="text-slate-400 font-normal">· {del.variantName}</span>
+                          {grp.totalUnits > 1 ? (
+                            <span className="ml-1.5 font-sans text-xs font-bold text-slate-500 dark:text-slate-400">
+                              × {grp.totalUnits}
+                            </span>
+                          ) : null}
                         </td>
                         <td className="py-3 px-3 text-slate-600 dark:text-slate-400">
                           {getCredentialTypeLabel(del.credentialType)}
@@ -152,17 +179,18 @@ export function OverviewActivitySection({
                           {del.hasWarranty ? `${del.warrantyRemainingDays}d` : '—'}
                         </td>
                         <td className="py-3 px-3">
-                          {del.status === 'delivered' && (
-                            <StatusIndicator tone="emerald" label="Delivered" />
-                          )}
-                          {del.status === 'pending_dispatch' && (
-                            <StatusIndicator tone="amber" label="Pending" />
-                          )}
-                          {del.status === 'warranty_claim' && (
+                          {grp.anyClaim ? (
                             <StatusIndicator tone="red" label="Claim" />
-                          )}
-                          {del.status === 'replaced' && (
-                            <StatusIndicator tone="blue" label="Replaced" />
+                          ) : grp.allDelivered ? (
+                            <StatusIndicator
+                              tone="emerald"
+                              label={grp.totalUnits > 1 ? `Delivered (${grp.totalUnits}/${grp.totalUnits})` : 'Delivered'}
+                            />
+                          ) : (
+                            <StatusIndicator
+                              tone="amber"
+                              label={grp.totalUnits > 1 ? `Pending (${grp.units.filter(u => u.status === 'delivered').length}/${grp.totalUnits})` : 'Pending'}
+                            />
                           )}
                         </td>
                         <td className="py-3 px-4 text-right">
@@ -171,9 +199,9 @@ export function OverviewActivitySection({
                             onClick={() => onNavigate('deliveries')}
                             className="px-2.5 py-1 text-xs font-medium rounded-md border border-slate-200 dark:border-slate-700 hover:border-emerald-600 text-slate-700 dark:text-slate-200 cursor-pointer"
                           >
-                            {del.status === 'pending_dispatch'
+                            {grp.anyPending
                               ? 'Dispatch'
-                              : del.status === 'warranty_claim'
+                              : grp.anyClaim
                               ? 'Swap'
                               : 'View'}
                           </button>
@@ -188,98 +216,107 @@ export function OverviewActivitySection({
         </div>
       </Card>
 
-      <Card className="lg:col-span-4 p-5 flex flex-col justify-between">
-        <div>
-          <div className="pb-3 border-b border-slate-200/80 dark:border-slate-800">
-            <h2 className="font-display text-base font-bold text-slate-900 dark:text-slate-100">
-              Action Queue
-            </h2>
-          </div>
+      <Card className="lg:col-span-4 p-5 space-y-5">
+        <h2>Needs attention</h2>
 
-          <div className="divide-y divide-slate-200/70 dark:divide-slate-800 text-xs mt-1">
-            {warrantyClaims.map((claim) => (
-              <div key={claim.id} className="py-3 flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="font-semibold text-[13px] text-slate-900 dark:text-slate-100 truncate">
-                    {claim.productName} · {claim.variantName}
+        {(() => {
+          const claimOrders = Array.from(
+            new Map(warrantyClaims.map((c) => [c.orderId, c])).values(),
+          );
+          const lowStock = products
+            .flatMap((prod) =>
+              prod.variants
+                .filter((v) => v.deliveryMode === 'auto_vault')
+                .map((v) => ({
+                  prod,
+                  v,
+                  stock: vault.filter(
+                    (x) => x.productId === prod.id && x.variantId === v.id && x.status === 'available',
+                  ).length,
+                })),
+            )
+            .filter((r) => r.stock <= 2)
+            .sort((x, y) => x.stock - y.stock);
+          const empty = claimOrders.length === 0 && pendingPayments.length === 0 && lowStock.length === 0;
+          if (empty) return <p className="text-sm text-slate-500">All clear.</p>;
+          return (
+            <>
+              {pendingPayments.length > 0 ? (
+                <section className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h3>Payments to check <span className="font-normal text-slate-500">({pendingPayments.length})</span></h3>
+                    <button type="button" onClick={() => onNavigate('payments')} className="text-sm font-medium text-emerald-700 hover:underline dark:text-emerald-400 cursor-pointer">View all</button>
                   </div>
-                  <div className="text-xs text-rose-600 dark:text-rose-400 mt-0.5">
-                    Warranty Claim · {claim.buyerName}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onNavigate('deliveries')}
-                  className="px-2.5 py-1 bg-emerald-600 text-white font-semibold rounded-md hover:bg-emerald-700 cursor-pointer whitespace-nowrap shrink-0"
-                >
-                  Swap
-                </button>
-              </div>
-            ))}
+                  <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {pendingPayments.slice(0, 4).map((pay) => (
+                      <li key={pay.id} className="flex items-center justify-between gap-3 py-2.5">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <GatewayBadge gateway={pay.gateway} size="sm" />
+                            <span className="admin-price text-sm">{formatBDT(pay.amountBDT)}</span>
+                          </div>
+                          <div className="mt-1 truncate text-xs text-slate-500">{pay.buyerName} · {pay.orderId}</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => onVerifyPayment(pay.id)}
+                          className="h-8 shrink-0 rounded-md border border-slate-200 px-3 text-sm font-medium hover:border-emerald-600 dark:border-slate-700 cursor-pointer"
+                        >
+                          Verify
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
 
-            {pendingPayments.map((pay) => (
-              <div key={pay.id} className="py-3 flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="font-semibold text-[13px] text-slate-900 dark:text-slate-100 truncate">
-                    {pay.gateway} · {formatBDT(pay.amountBDT)}
+              {claimOrders.length > 0 ? (
+                <section className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h3>Warranty claims <span className="font-normal text-slate-500">({claimOrders.length})</span></h3>
+                    <button type="button" onClick={() => onNavigate('warranty-claims')} className="text-sm font-medium text-emerald-700 hover:underline dark:text-emerald-400 cursor-pointer">View all</button>
                   </div>
-                  <div className="font-mono text-xs text-slate-500 mt-0.5 truncate">
-                    {pay.trxId} · {pay.buyerName}
+                  <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {claimOrders.slice(0, 4).map((claim) => (
+                      <li key={claim.orderId} className="py-2.5">
+                        <div className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                          {claim.productName} · {claim.variantName}
+                        </div>
+                        <div className="truncate text-xs text-slate-500">{claim.buyerName} · {claim.orderId}</div>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+
+              {lowStock.length > 0 ? (
+                <section className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h3>Low stock <span className="font-normal text-slate-500">({lowStock.length})</span></h3>
+                    <button type="button" onClick={() => onNavigate('vault')} className="text-sm font-medium text-emerald-700 hover:underline dark:text-emerald-400 cursor-pointer">Inventory</button>
                   </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onVerifyPayment(pay.id)}
-                  className="px-2.5 py-1 border border-slate-200 dark:border-slate-700 hover:border-emerald-600 text-slate-800 dark:text-slate-200 font-semibold rounded-md shrink-0 cursor-pointer whitespace-nowrap"
-                >
-                  Approve
-                </button>
-              </div>
-            ))}
-
-            <div className="pt-3 space-y-2">
-              <div className="text-xs font-medium text-slate-400">
-                Credentials
-              </div>
-              {products.slice(0, 3).map((prod) => {
-                const firstVar = prod.variants[0];
-                if (!firstVar) return null;
-                const vStock = vault.filter(
-                  (v) =>
-                    v.productId === prod.id &&
-                    v.variantId === firstVar.id &&
-                    v.status === 'available'
-                ).length;
-
-                return (
-                  <div
-                    key={firstVar.id}
-                    className="flex items-center justify-between py-1 text-xs"
-                  >
-                    <span className="font-medium text-[13px] text-slate-800 dark:text-slate-200 truncate pr-2">
-                      {prod.name} <span className="text-slate-400 font-normal">· {firstVar.name}</span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => onOpenQuickRestock(prod.id, firstVar.id)}
-                      className="px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 hover:border-emerald-600 text-slate-700 dark:text-slate-300 font-mono text-[11px] shrink-0 cursor-pointer whitespace-nowrap"
-                    >
-                      {vStock} · +Add
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => onNavigate('products')}
-          className="w-full mt-4 py-2 text-xs font-semibold border border-slate-200 dark:border-slate-700 hover:border-emerald-600 text-slate-700 dark:text-slate-200 rounded-lg cursor-pointer whitespace-nowrap"
-        >
-          All Products
-        </button>
+                  <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {lowStock.slice(0, 4).map(({ prod, v, stock }) => (
+                      <li key={prod.id + v.id} className="flex items-center justify-between gap-3 py-2.5">
+                        <div className="min-w-0 truncate text-sm">
+                          <span className="font-medium text-slate-900 dark:text-slate-100">{prod.name}</span>
+                          <span className="text-slate-500"> · {v.name}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => onOpenQuickRestock(prod.id, v.id)}
+                          className={`h-8 shrink-0 rounded-md border px-3 text-sm font-medium cursor-pointer ${stock === 0 ? 'border-rose-200 text-rose-700 hover:border-rose-400 dark:border-rose-900 dark:text-rose-400' : 'border-slate-200 hover:border-emerald-600 dark:border-slate-700'}`}
+                        >
+                          {stock === 0 ? 'Empty · Add' : `${stock} left · Add`}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+            </>
+          );
+        })()}
       </Card>
     </div>
   );

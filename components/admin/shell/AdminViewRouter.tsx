@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import type { AdminTab } from '@/lib/admin/types';
 import type {
   DigitalProduct,
@@ -9,7 +10,6 @@ import type {
   SubscriberUser,
   PaymentTransaction,
   CouponCode,
-  SystemFeatureFlag,
   MediaAsset,
   ProductVariant,
   WarrantyPlan,
@@ -24,6 +24,8 @@ import CredentialSchemesView from '@/components/admin/views/CredentialSchemesVie
 import CategoriesView from '@/components/admin/views/CategoriesView';
 import VaultView from '@/components/admin/views/VaultView';
 import { useEffect } from 'react';
+import AddOrderView from '@/components/admin/views/orders/AddOrderView';
+import CouponsView from '@/components/admin/views/CouponsView';
 import VaultManualAddView from '@/components/admin/views/VaultManualAddView';
 import VaultBulkImportView from '@/components/admin/views/VaultBulkImportView';
 import VaultCredentialView from '@/components/admin/views/VaultCredentialView';
@@ -34,6 +36,11 @@ import UsersSubscriptionsView from '@/components/admin/views/UsersSubscriptionsV
 import MediaManagerView from '@/components/admin/views/MediaManagerView';
 import PaymentsView from '@/components/admin/views/PaymentsView';
 import FeatureControlView from '@/components/admin/views/FeatureControlView';
+import EmailSettingsView from '@/components/admin/views/settings/EmailSettingsView';
+import ContactInfoView from '@/components/admin/views/settings/ContactInfoView';
+import StorefrontView from '@/components/admin/views/settings/StorefrontView';
+import StaffView from '@/components/admin/views/StaffView';
+import StaffFormView from '@/components/admin/views/StaffFormView';
 
 function ProductOptionRedirect({
   productId,
@@ -85,7 +92,6 @@ export type AdminViewRouterProps = {
   subscribers: SubscriberUser[];
   payments: PaymentTransaction[];
   coupons: CouponCode[];
-  features: SystemFeatureFlag[];
   mediaAssets: MediaAsset[];
   selectedChatDeliveryId: string | null;
   selectedTicketId: string | null;
@@ -114,19 +120,26 @@ export type AdminViewRouterProps = {
   openVaultEditPage: (id: string) => void;
   handleSelectChatDelivery: (id: string | null) => void;
   handleSendOrderChatMessage: (...args: any[]) => void;
-  handleSimulateBuyerMessage: (deliveryId: string) => void;
   handleFulfillDelivery: (...args: any[]) => void;
+  handleUpdateDeliveryVpn: (
+    deliveryIds: string[],
+    patch: { vpnRequired: boolean; vpnRegionNote: string },
+  ) => void;
   handleTogglePinOrder: (deliveryId: string) => void;
   handleSelectTicket: (id: string | null) => void;
   handleReplyTicket: (...args: any[]) => void;
   handleUpdateTicketStatus: (...args: any[]) => void;
   handleUpdateTicketPriority: (...args: any[]) => void;
   handleCreateTicket: (...args: any[]) => void;
-  handleSimulateBuyerTicketReply: (ticketId: string) => void;
   handleOpenOrderChatFromTicket: (orderId: string, deliveryId?: string) => void;
   handleAddCustomer: (customer: SubscriberUser) => void;
   handleRenewSubscription: (...args: any[]) => void;
   handleAssignSubscription: (...args: any[]) => void;
+  reloadWorkspace: () => Promise<void>;
+  handleMarkOrderChatRead: (orderId: string) => void;
+  handleSetWarrantyStart: (deliveryIds: string[], startsAt: string) => void;
+  handleRefundOrder: (req: import('@/components/admin/views/deliveries/OrderDetailView').RefundRequest) => void;
+  showToast: (message: string) => void;
   handleToggleUserStatus: (userId: string) => void;
   handleUpdateCustomer: (...args: any[]) => void;
   handleAddMediaAsset: (asset: MediaAsset) => void;
@@ -134,10 +147,22 @@ export type AdminViewRouterProps = {
   handleRejectOrRefundPayment: (...args: any[]) => void;
   handleAddCoupon: (coupon: CouponCode) => void;
   handleToggleCoupon: (couponId: string) => void;
-  handleToggleFeature: (id: string) => void;
 };
 
 export function AdminViewRouter(props: AdminViewRouterProps) {
+  const router = useRouter();
+  const openOrder = (orderId: string) => {
+    const first = props.deliveries
+      .filter((d) => d.orderId === orderId)
+      .sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }))[0];
+    if (first) router.push('/admin/orders?id=' + encodeURIComponent(first.id));
+  };
+  const openCustomerByEmail = (email: string) => {
+    const sub = props.subscribers.find((s) => s.email.toLowerCase() === email.toLowerCase());
+    if (!sub) return;
+    props.setSelectedCustomerId(sub.id);
+    props.setActiveTab('user-detail');
+  };
   const {
     activeTab,
     searchParams,
@@ -157,7 +182,6 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
     subscribers,
     payments,
     coupons,
-    features,
     mediaAssets,
     selectedChatDeliveryId,
     selectedTicketId,
@@ -178,19 +202,23 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
     openVaultEditPage,
     handleSelectChatDelivery,
     handleSendOrderChatMessage,
-    handleSimulateBuyerMessage,
     handleFulfillDelivery,
+    handleUpdateDeliveryVpn,
     handleTogglePinOrder,
     handleSelectTicket,
     handleReplyTicket,
     handleUpdateTicketStatus,
     handleUpdateTicketPriority,
     handleCreateTicket,
-    handleSimulateBuyerTicketReply,
     handleOpenOrderChatFromTicket,
     handleAddCustomer,
     handleRenewSubscription,
     handleAssignSubscription,
+    reloadWorkspace,
+    showToast,
+    handleRefundOrder,
+    handleMarkOrderChatRead,
+    handleSetWarrantyStart,
     handleToggleUserStatus,
     handleUpdateCustomer,
     handleAddMediaAsset,
@@ -198,7 +226,6 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
     handleRejectOrRefundPayment,
     handleAddCoupon,
     handleToggleCoupon,
-    handleToggleFeature,
   } = props;
 
   return (
@@ -219,6 +246,8 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
             <ProductsView
               products={products}
               vault={vault}
+              deliveries={deliveries}
+              payments={payments}
               onOpenAddProductPage={() => setActiveTab('product-add')}
               onOpenAddOptionPage={(productId) => {
                 if (productId) openProductEditPage(productId);
@@ -357,9 +386,14 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
               selectedChatDeliveryId={selectedChatDeliveryId}
               onSelectChatDelivery={handleSelectChatDelivery}
               onSendOrderChatMessage={handleSendOrderChatMessage}
-              onSimulateBuyerMessage={handleSimulateBuyerMessage}
               onFulfillDelivery={handleFulfillDelivery}
+              onUpdateDeliveryVpn={handleUpdateDeliveryVpn}
               onTogglePinOrder={handleTogglePinOrder}
+              onVerifyPayment={handleVerifyPayment}
+              onRejectPayment={(id: string) => handleRejectOrRefundPayment(id, 'rejected')}
+              onRefundOrder={handleRefundOrder}
+              onMarkOrderChatRead={handleMarkOrderChatRead}
+              onSetWarrantyStart={handleSetWarrantyStart}
               pageMode={
                 activeTab === 'orders-pinned'
                   ? 'pinned'
@@ -381,6 +415,25 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
             />
           )}
 
+          {activeTab === 'order-add' && (
+            <AddOrderView
+              products={products}
+              subscribers={subscribers}
+              vault={vault}
+              initialCustomerId={searchParams.get('customerId')}
+              onBack={() => setActiveTab('deliveries')}
+              onCreated={async ({ orderId, firstDeliveryId }) => {
+                await reloadWorkspace();
+                showToast('Order ' + orderId + ' created.');
+                router.push(
+                  firstDeliveryId
+                    ? '/admin/orders?id=' + encodeURIComponent(firstDeliveryId)
+                    : '/admin/orders',
+                );
+              }}
+            />
+          )}
+
           {activeTab === 'tickets' && (
             <TicketsView
               tickets={tickets}
@@ -391,7 +444,6 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
               onUpdateTicketStatus={handleUpdateTicketStatus}
               onUpdateTicketPriority={handleUpdateTicketPriority}
               onCreateTicket={handleCreateTicket}
-              onSimulateBuyerTicketReply={handleSimulateBuyerTicketReply}
               onOpenOrderChat={handleOpenOrderChatFromTicket}
             />
           )}
@@ -435,18 +487,46 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
           {activeTab === 'payments' && (
             <PaymentsView
               payments={payments}
-              coupons={coupons}
+              deliveries={deliveries}
+              subscribers={subscribers}
               onVerifyPayment={handleVerifyPayment}
               onRejectOrRefundPayment={handleRejectOrRefundPayment}
+              onOpenOrder={openOrder}
+              onOpenCustomer={openCustomerByEmail}
+            />
+          )}
+
+          {activeTab === 'coupons' && (
+            <CouponsView
+              coupons={coupons}
               onAddCoupon={handleAddCoupon}
               onToggleCoupon={handleToggleCoupon}
             />
           )}
 
-          {activeTab === 'features' && (
-            <FeatureControlView
-              features={features}
-              onToggleFeature={handleToggleFeature}
+          {activeTab === 'features' && <FeatureControlView />}
+
+          {activeTab === 'email' && <EmailSettingsView />}
+
+          {activeTab === 'contact' && <ContactInfoView />}
+
+          {activeTab === 'storefront' && <StorefrontView products={products} />}
+
+          {activeTab === 'staff' && (
+            <StaffView
+              onOpenAdd={() => setActiveTab('staff-add')}
+              onOpenEdit={(id) =>
+                router.push(`/admin/staff/add?id=${encodeURIComponent(id)}`)
+              }
+            />
+          )}
+
+          {activeTab === 'staff-add' && (
+            <StaffFormView
+              key={searchParams.get('id') ?? 'staff-new'}
+              editId={searchParams.get('id')}
+              onCancel={() => setActiveTab('staff')}
+              onSaved={() => setActiveTab('staff')}
             />
           )}
     </>

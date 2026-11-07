@@ -9,7 +9,6 @@ import type {
   PaymentTransaction,
   ProductCategory,
   SubscriberUser,
-  SystemFeatureFlag,
   VaultCredential,
   WarrantyPlan,
 } from '@/lib/admin/types';
@@ -30,17 +29,20 @@ export type AdminWorkspacePayload = {
   subscribers: SubscriberUser[];
   payments: PaymentTransaction[];
   coupons: CouponCode[];
-  features: SystemFeatureFlag[];
   mediaAssets: MediaAsset[];
 };
 
 export async function fetchAdminWorkspace(): Promise<AdminWorkspacePayload | null> {
-  const res = await fetch('/api/admin/workspace', { cache: 'no-store' });
-  if (!res.ok) return null;
-  return (await res.json()) as AdminWorkspacePayload;
+  try {
+    const res = await fetch('/api/admin/workspace', { cache: 'no-store' });
+    if (!res.ok) return null;
+    return (await res.json()) as AdminWorkspacePayload;
+  } catch {
+    return null;
+  }
 }
 
-export async function persistAdminWorkspace(patch: {
+type WorkspacePatchBody = {
   vault?: VaultCredential[];
   deliveries?: DigitalDelivery[];
   tickets?: AdminSupportTicket[];
@@ -48,15 +50,54 @@ export async function persistAdminWorkspace(patch: {
   subscribers?: SubscriberUser[];
   payments?: PaymentTransaction[];
   coupons?: CouponCode[];
-  features?: SystemFeatureFlag[];
   mediaAssets?: MediaAsset[];
-}): Promise<boolean> {
-  const res = await fetch('/api/admin/workspace', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(patch),
+};
+
+// Saves are coalesced (latest array per key wins) and sent strictly one at a
+// time, so several quick edits can never land out of order and overwrite each other.
+let pendingPatch: WorkspacePatchBody = {};
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
+let waiters: Array<(ok: boolean) => void> = [];
+let inflight: Promise<unknown> = Promise.resolve();
+
+/** True while any save is queued or in flight. */
+export function hasPendingAdminSaves(): boolean {
+  return flushTimer !== null || savesInFlight > 0;
+}
+
+let savesInFlight = 0;
+
+export function persistAdminWorkspace(
+  patch: WorkspacePatchBody,
+): Promise<boolean> {
+  pendingPatch = { ...pendingPatch, ...patch };
+  return new Promise<boolean>((resolve) => {
+    waiters.push(resolve);
+    if (flushTimer) return;
+    flushTimer = setTimeout(() => {
+      flushTimer = null;
+      const body = pendingPatch;
+      const done = waiters;
+      pendingPatch = {};
+      waiters = [];
+      savesInFlight += 1;
+      inflight = inflight.then(async () => {
+        let ok = false;
+        try {
+          const res = await fetch('/api/admin/workspace', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          ok = res.ok;
+        } catch {
+          ok = false;
+        }
+        savesInFlight -= 1;
+        done.forEach((r) => r(ok));
+      });
+    }, 0);
   });
-  return res.ok;
 }
 
 export { persistAdminProduct, persistAdminTaxonomies };

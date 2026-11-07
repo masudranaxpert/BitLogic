@@ -22,3 +22,6 @@ export { FloatingBulkActionBar } from '@/components/admin/ui/FloatingBulkActionB
 export { ModalShell } from '@/components/admin/ui/ModalShell';
 export { SearchableSelect } from '@/components/admin/ui/SearchableSelect';
 export { PlanRadioGroup } from '@/components/admin/ui/PlanRadioGroup';
+export { GatewayBadge } from '@/components/admin/ui/GatewayBadge';
+export { RowMenu } from '@/components/admin/ui/RowMenu';
+export type { RowMenuItem } from '@/components/admin/ui/RowMenu';

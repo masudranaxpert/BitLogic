@@ -9,7 +9,7 @@ export function pathToStoreView(pathname: string): StoreView {
   if (pathname.startsWith('/how')) return 'how';
   if (pathname.startsWith('/faq')) return 'faq';
   if (pathname.startsWith('/contact')) return 'contact';
-  if (pathname.startsWith('/login')) return 'login';
+  if (pathname.startsWith('/login') || pathname.startsWith('/reset-password')) return 'login';
   if (pathname.startsWith('/account')) return 'account';
   if (pathname.startsWith('/admin')) return 'admin';
   return 'home';
@@ -53,12 +53,16 @@ export function storeViewToPath(
       return qs ? `/login?${qs}` : '/login';
     }
     case 'account': {
-      const params = new URLSearchParams();
-      if (options?.accountTab && options.accountTab !== 'overview') {
-        params.set('tab', options.accountTab);
+      const tab = options?.accountTab;
+      if (
+        !tab ||
+        tab === 'overview' ||
+        tab === 'credentials' ||
+        tab === 'library'
+      ) {
+        return '/account';
       }
-      const qs = params.toString();
-      return qs ? `/account?${qs}` : '/account';
+      return `/account/${tab}`;
     }
     case 'admin':
       return '/admin';
@@ -66,6 +70,16 @@ export function storeViewToPath(
     default:
       return '/';
   }
+}
+
+/** `/account`, `/account/orders`, or legacy `?tab=`. */
+export function accountTabFromPath(
+  pathname: string,
+  tabQuery: string | null,
+): AccountTab {
+  const match = pathname.replace(/\/$/, '').match(/^\/account(?:\/([^/]+))?$/);
+  if (match) return parseAccountTab(match[1] || tabQuery);
+  return parseAccountTab(tabQuery);
 }
 
 export function parseAccountTab(value: string | null): AccountTab {

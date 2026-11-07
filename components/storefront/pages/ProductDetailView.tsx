@@ -18,7 +18,13 @@ import { formatPrice } from '@/lib/products';
 import { useCart } from '@/context/CartContext';
 import { useQuickOrder } from '@/context/QuickOrderContext';
 import { ProductCard } from '@/components/storefront/features/ProductCard';
-import { DurationBadge, PlanWarrantyCard, WarrantyBadge } from '@/components/storefront/ui';
+import {
+  DurationBadge,
+  PlanWarrantyCard,
+  SaleCountdown,
+  WarrantyBadge,
+  useProductWindow,
+} from '@/components/storefront/ui';
 import { useStoreNav } from '@/context/StoreNavContext';
 import { useCatalog } from '@/context/CatalogContext';
 
@@ -58,6 +64,7 @@ export function ProductDetailView({ productId }: { productId: string }) {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
 
+  const win = useProductWindow(product ?? {});
   const currentPlanId = product ? selectedPlanMap[product.id] ?? '' : '';
   const selectedPlan = product?.plans.find((p) => p.id === currentPlanId) ?? null;
 
@@ -239,14 +246,21 @@ export function ProductDetailView({ productId }: { productId: string }) {
               <div className="flex items-center gap-2 text-xs font-bold text-[#FF5E5B]">
                 <span>{product.platform}</span>
                 <span className="text-slate-300">·</span>
-                <span className="text-emerald-600">In stock</span>
+                {win.state === 'upcoming' ? (
+                  <span className="text-sky-600">Coming soon</span>
+                ) : win.state === 'ended' ? (
+                  <span className="text-slate-500">Offer ended</span>
+                ) : (
+                  <span className="text-emerald-600">In stock</span>
+                )}
               </div>
 
               <h1 className="font-display text-xl sm:text-2xl font-extrabold text-[#0F172A] tracking-tight mt-0.5">
                 {product.name}
               </h1>
 
-              {/* Default 5 Star (0 Reviews) clickable to scroll to Reviews (No tagline text) */}
+              {/* Rating only once real reviews exist — never a fake 5 stars. */}
+              {reviews.length > 0 ? (
               <div className="mt-1.5">
                 <button
                   type="button"
@@ -263,7 +277,10 @@ export function ProductDetailView({ productId }: { productId: string }) {
                   </span>
                 </button>
               </div>
+              ) : null}
             </div>
+
+            <SaleCountdown product={product} />
 
             {/* Select Option Dropdown (Full Text Priority + Highlighted Duration Tag + Red Clear Button) */}
             <div className="space-y-2 pt-2.5 border-t border-slate-100" ref={dropdownRef}>
@@ -434,6 +451,23 @@ export function ProductDetailView({ productId }: { productId: string }) {
                 </button>
               </div>
 
+              {!win.canOrder ? (
+                <div className="w-full h-10 px-4 rounded-md bg-slate-100 text-slate-500 font-extrabold text-xs inline-flex items-center justify-center border border-slate-200">
+                  {win.state === 'upcoming' ? 'Not on sale yet — check the countdown above' : 'This offer has ended'}
+                </div>
+              ) : product.availability === 'out_of_stock' &&
+              !product.acceptOrdersWhenOutOfStock ? (
+                <div className="w-full h-10 px-4 rounded-md bg-slate-100 text-slate-500 font-extrabold text-xs inline-flex items-center justify-center border border-slate-200">
+                  Out of stock — check back soon
+                </div>
+              ) : (
+              <>
+              {product.availability === 'out_of_stock' &&
+              product.acceptOrdersWhenOutOfStock ? (
+                <p className="w-full text-[11px] font-semibold text-amber-700 m-0">
+                  Out of stock — order queues as pending assign
+                </p>
+              ) : null}
               <button
                 type="button"
                 onClick={handleAddToCart}
@@ -456,6 +490,8 @@ export function ProductDetailView({ productId }: { productId: string }) {
                 <Zap size={14} strokeWidth={2.3} />
                 <span>Quick order</span>
               </button>
+              </>
+              )}
             </div>
           </div>
         </div>
@@ -473,7 +509,9 @@ export function ProductDetailView({ productId }: { productId: string }) {
               { id: 'specification', label: 'Specification' },
               { id: 'review', label: `Reviews (${reviews.length})` },
             ] as const
-          ).map((t) => {
+          )
+            .filter((t) => t.id !== 'review' || reviews.length > 0)
+            .map((t) => {
             const active = activeTab === t.id;
             return (
               <button

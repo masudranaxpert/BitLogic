@@ -7,9 +7,16 @@ import Youtube from '@thesvg/react/youtube';
 import Whatsapp from '@thesvg/react/whatsapp';
 import Telegram from '@thesvg/react/telegram';
 import { useStoreNav } from '@/context/StoreNavContext';
+import { useStoreSettings } from '@/context/StoreSettingsContext';
+import { whatsappHref } from '@/lib/whatsapp';
 
 export function StoreFooter() {
   const { navigateTo } = useStoreNav();
+  const contact = useStoreSettings();
+  const wa = whatsappHref(contact.whatsappNumber);
+  const facebook = contact.facebookUrl.trim();
+  const youtube = contact.youtubeUrl.trim();
+  const telegram = contact.telegramHandle.trim().replace(/^@/, '');
 
   return (
     <footer className="mt-14 px-4 sm:px-6 pb-20 md:pb-8">
@@ -41,8 +48,9 @@ export function StoreFooter() {
                 Follow & Connect
               </p>
               <div className="flex items-center gap-2.5">
+                {facebook ? (
                 <a
-                  href="https://facebook.com"
+                  href={facebook}
                   target="_blank"
                   rel="noreferrer"
                   aria-label="Facebook"
@@ -51,8 +59,10 @@ export function StoreFooter() {
                 >
                   <Facebook className="w-4.5 h-4.5" />
                 </a>
+                ) : null}
+                {youtube ? (
                 <a
-                  href="https://youtube.com"
+                  href={youtube}
                   target="_blank"
                   rel="noreferrer"
                   aria-label="YouTube"
@@ -61,8 +71,10 @@ export function StoreFooter() {
                 >
                   <Youtube className="w-4.5 h-4.5" />
                 </a>
+                ) : null}
+                {wa ? (
                 <a
-                  href="https://wa.me/"
+                  href={wa}
                   target="_blank"
                   rel="noreferrer"
                   aria-label="WhatsApp"
@@ -71,8 +83,10 @@ export function StoreFooter() {
                 >
                   <Whatsapp className="w-4.5 h-4.5" />
                 </a>
+                ) : null}
+                {telegram ? (
                 <a
-                  href="https://t.me/"
+                  href={`https://t.me/${telegram}`}
                   target="_blank"
                   rel="noreferrer"
                   aria-label="Telegram"
@@ -81,6 +95,7 @@ export function StoreFooter() {
                 >
                   <Telegram className="w-4.5 h-4.5" />
                 </a>
+                ) : null}
               </div>
             </div>
           </div>
@@ -92,18 +107,28 @@ export function StoreFooter() {
             </h3>
 
             <div className="space-y-2 text-xs text-slate-600 font-medium">
+              {contact.supportHours.trim() ? (
               <div className="flex items-center gap-2">
                 <Clock size={14} className="text-[#FF5E5B] shrink-0" />
-                <span>Support: 10:00 AM – 2:00 AM (BDT)</span>
+                <span>{contact.supportHours.trim()}</span>
               </div>
+              ) : null}
+              {wa ? (
               <div className="flex items-center gap-2">
                 <PhoneCall size={14} className="text-[#FF5E5B] shrink-0" />
-                <span>WhatsApp Live Chat Available</span>
+                <a href={wa} target="_blank" rel="noreferrer" className="text-slate-600 hover:text-[#0F172A]">
+                  WhatsApp {contact.whatsappNumber.trim()}
+                </a>
               </div>
+              ) : null}
+              {contact.supportEmail.trim() ? (
               <div className="flex items-center gap-2">
                 <Mail size={14} className="text-[#FF5E5B] shrink-0" />
-                <span>support@bitlogic.com.bd</span>
+                <a href={`mailto:${contact.supportEmail.trim()}`} className="text-slate-600 hover:text-[#0F172A]">
+                  {contact.supportEmail.trim()}
+                </a>
               </div>
+              ) : null}
             </div>
 
             <div className="pt-2">
@@ -130,7 +155,7 @@ export function StoreFooter() {
           </div>
         </div>
 
-        {/* Clean Bottom Bar: Left Privacy Policy + Admin Access, Right Copyright */}
+        {/* Clean Bottom Bar: Left Privacy Policy, Right Copyright */}
         <div className="px-6 sm:px-8 py-3.5 bg-slate-50 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500 font-semibold">
           <div className="flex items-center gap-4">
             <button

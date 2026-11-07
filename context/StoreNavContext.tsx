@@ -4,6 +4,7 @@ import React, {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -11,7 +12,7 @@ import React, {
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { Category } from '@/lib/products';
 import {
-  parseAccountTab,
+  accountTabFromPath,
   pathToStoreView,
   productIdFromPath,
   storeViewToPath,
@@ -55,7 +56,17 @@ export function StoreNavProvider({ children }: { children: ReactNode }) {
   const searchQuery = searchParams.get('q') || '';
   const loginMode: 'login' | 'register' =
     searchParams.get('mode') === 'register' ? 'register' : 'login';
-  const accountTab = parseAccountTab(searchParams.get('tab'));
+  const accountTab = accountTabFromPath(pathname, searchParams.get('tab'));
+
+  // /account?tab=orders and unknown /account/foo → canonical path.
+  useEffect(() => {
+    if (!pathname.startsWith('/account')) return;
+    const expected = storeViewToPath('account', { accountTab });
+    const here = pathname.replace(/\/$/, '') || '/account';
+    if (searchParams.get('tab') || here !== expected) {
+      router.replace(expected);
+    }
+  }, [accountTab, pathname, router, searchParams]);
 
   const navigateTo = useCallback(
     (nextView: StoreView, options?: StoreNavigateOptions) => {

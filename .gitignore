@@ -69,3 +69,4 @@ Thumbs.db
 next-env.d.ts.bak
 coverage/
 .nyc_output/
+.next-test/

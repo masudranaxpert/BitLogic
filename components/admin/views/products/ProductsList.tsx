@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import {
   Plus,
@@ -24,6 +24,24 @@ import {
   FloatingBulkActionBar,
   EmptyTableState,
 } from '@/components/admin/ui/primitives';
+import { scheduleState, shortDuration } from '@/lib/catalog/schedule';
+
+/** Small status chip for products with an order window. */
+function ScheduleChip({ product }: { product: DigitalProduct }) {
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    setNow(Date.now());
+    const id = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+  if (now === null || (!product.availableFrom && !product.availableUntil)) return null;
+  const s = scheduleState(product, now);
+  if (s.state === 'upcoming') return <StatusIndicator tone="blue" label="Opens in" detail={shortDuration(s.msLeft ?? 0)} />;
+  if (s.state === 'ended') return <StatusIndicator tone="zinc" label="Order window closed" />;
+  return s.msLeft !== null ? (
+    <StatusIndicator tone={s.msLeft < 86_400_000 ? 'amber' : 'emerald'} label="Closes in" detail={shortDuration(s.msLeft)} />
+  ) : null;
+}
 
 const iconBtnClass =
   'inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:border-emerald-600 hover:text-emerald-700 dark:hover:text-emerald-400 cursor-pointer transition-colors';
@@ -83,6 +101,10 @@ export function ProductsList({
   onOpenQuickRestock,
   onResetFilters,
 }: ProductsListProps) {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  useEffect(() => setPage(1), [filteredRows.length]);
+  const paged = filteredRows.slice((page - 1) * pageSize, page * pageSize);
   const getVaultStock = (productId: string, variantId: string) =>
     vault.filter(
       (v) => v.productId === productId && v.variantId === variantId && v.status === 'available'
@@ -235,7 +257,7 @@ export function ProductsList({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800">
-                  {filteredRows.map(({ product, variant, stockCount }) => {
+                  {paged.map(({ product, variant, stockCount }) => {
                     const isSelected = selectedVariantIds.includes(variant.id);
                     return (
                       <tr
@@ -279,6 +301,7 @@ export function ProductsList({
                                 Default
                               </span>
                             )}
+                            <ScheduleChip product={product} />
                           </button>
                         </td>
 
@@ -367,7 +390,13 @@ export function ProductsList({
             </div>
           )}
 
-          <PaginationFooter totalItems={filteredRows.length} pageSize={10} currentPage={1} />
+          <PaginationFooter
+          totalItems={filteredRows.length}
+          pageSize={pageSize}
+          currentPage={page}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
         </Card>
       ) : products.length === 0 ? (
         <Card className="overflow-hidden">
@@ -405,6 +434,7 @@ export function ProductsList({
                       {product.name}
                     </button>
                     <span className="text-xs font-mono text-slate-400">{product.sku}</span>
+                    <ScheduleChip product={product} />
                   </div>
                   <div className="flex items-center gap-2">
                     <button

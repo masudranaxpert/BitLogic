@@ -106,6 +106,8 @@ export function getOrderStatusTone(status: string): StatusBadgeTone {
       return 'rose';
     case 'Refunded':
       return 'violet';
+    case 'Warranty Claim':
+      return 'rose';
     default:
       return 'slate';
   }

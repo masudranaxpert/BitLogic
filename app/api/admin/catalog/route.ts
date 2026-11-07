@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/auth/require-admin';
+import { requirePermission } from '@/lib/auth/require-admin';
 import { loadAdminCatalog } from '@/lib/admin/catalog-repo';
 
 export async function GET() {
-  const { error } = await requireAdmin();
+  const { error } = await requirePermission('products');
   if (error) return error;
 
   try {

@@ -60,11 +60,12 @@ export function AddCustomerForm({
     const created: SubscriberUser = {
       id: `usr-${Date.now()}`,
       name: newName.trim(),
-      email: newEmail.trim(),
+      email: newEmail.trim().toLowerCase(),
       phone: newPhone.trim() || '+880 1700-000000',
       joinedAt: '2026-10-30',
       status: newStatus,
       role: newRole,
+      emailVerified: null,
       activeSubscriptions: initialSubs,
       totalSpentBDT: initialSpend,
       ordersCount: initialSubs.length,

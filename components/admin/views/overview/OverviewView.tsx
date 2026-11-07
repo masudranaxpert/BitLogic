@@ -1,11 +1,7 @@
 'use client';
 
 import React from 'react';
-import {
-  Calendar,
-  Plus,
-  Send,
-} from 'lucide-react';
+import { Plus, Send } from 'lucide-react';
 import {
   AdminTab,
   DigitalProduct,
@@ -40,27 +36,32 @@ export default function OverviewView({
   onOpenQuickRestock,
   onVerifyPayment,
 }: OverviewViewProps) {
-  const totalMonthlyRevenue = products.reduce((sum, p) => sum + p.monthlyRevenueBDT, 0);
-  const totalSalesCount = products.reduce((sum, p) => sum + p.totalSales, 0);
-  const totalVariantsCount = products.reduce((sum, p) => sum + p.variants.length, 0);
-  const availableVaultCount = vault.filter((v) => v.status === 'available').length;
-  const pendingDeliveries = deliveries.filter((d) => d.status === 'pending_dispatch');
+  const month = new Date().toISOString().slice(0, 7);
+  const monthRevenue = payments
+    .filter((p) => p.status === 'verified' && p.createdAt.startsWith(month))
+    .reduce((n, p) => n + p.amountBDT, 0);
+  const monthOrders = new Set(
+    deliveries.filter((d) => d.createdAt.startsWith(month)).map((d) => d.orderId),
+  ).size;
+  const unitsToDeliver = deliveries.filter((d) => d.status === 'pending_dispatch').length;
+  const pendingOrdersCount = new Set(
+    deliveries.filter((d) => d.status === 'pending_dispatch').map((d) => d.orderId),
+  ).size;
+  const warrantyClaimsCount = new Set(
+    deliveries.filter((d) => d.status === 'warranty_claim').map((d) => d.orderId),
+  ).size;
   const warrantyClaims = deliveries.filter((d) => d.status === 'warranty_claim');
   const pendingPayments = payments.filter((p) => p.status === 'pending_verification');
-  const queueTotal = pendingDeliveries.length + warrantyClaims.length;
+  const queueTotal = pendingOrdersCount + warrantyClaimsCount;
 
   return (
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
+        <h1>
           Dashboard
         </h1>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-white dark:bg-slate-900 shadow-[0_0_0_1px_rgba(15,23,42,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1)] rounded-lg text-slate-700 dark:text-slate-200 whitespace-nowrap shrink-0">
-            <Calendar className="w-3.5 h-3.5 text-slate-500" aria-hidden />
-            <span className="tabular-nums">This month</span>
-          </div>
 
           <button
             type="button"
@@ -85,25 +86,27 @@ export default function OverviewView({
         </div>
       </div>
 
-      <Card className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-200/80 dark:divide-slate-800 overflow-hidden">
+      <Card className="grid grid-cols-2 xl:grid-cols-4 divide-x divide-y xl:divide-y-0 divide-slate-200/80 dark:divide-slate-800 overflow-hidden">
+        <StatMetric label="Revenue this month" value={formatBDT(monthRevenue)} />
+        <StatMetric label="Orders this month" value={monthOrders} />
         <StatMetric
-          label="Total Options"
-          value={totalVariantsCount}
-          hint={`${products.length} products`}
+          label="To deliver"
+          value={unitsToDeliver}
+          hint={`${pendingOrdersCount} orders`}
+          badge={unitsToDeliver > 0 ? 'Queue' : undefined}
+          tone="amber"
         />
         <StatMetric
-          label="Product Revenue"
-          value={formatBDT(totalMonthlyRevenue)}
+          label="Payments to check"
+          value={pendingPayments.length}
+          badge={pendingPayments.length > 0 ? 'Review' : undefined}
+          tone="amber"
         />
-        <StatMetric
-          label="Product Sold"
-          value={totalSalesCount.toLocaleString()}
-        />
-        <StatMetric label="Credentials" value={availableVaultCount} />
       </Card>
 
       <OverviewChartsSection
-        totalMonthlyRevenue={totalMonthlyRevenue}
+        payments={payments}
+        deliveries={deliveries}
         pendingPaymentsCount={pendingPayments.length}
         onNavigate={onNavigate}
       />

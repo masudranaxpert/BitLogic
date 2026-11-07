@@ -16,12 +16,36 @@ model User {
   email        String   @unique
   name         String?
   phone        String?
-  /// CUSTOMER | ADMIN
+  /// CUSTOMER | ADMIN | STAFF
   role         String   @default("CUSTOMER")
+  /// JSON string[] of StaffPermissionKey — ignored for ADMIN (full access)
+  permissionsJson String @default("[]")
   passwordHash String
+  /// Set when the buyer clicks the verification link (or when no email provider is configured).
+  emailVerifiedAt DateTime?
+  /// Bumped on password change/reset: every older session token stops working.
+  sessionVersion  Int      @default(0)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   orders       Order[]
+  authTokens   AuthToken[]
+
+  @@index([role])
+}
+
+/// One-time links: email verification and password reset. Only a SHA-256 hash is stored.
+model AuthToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// verify_email | reset_password
+  type      String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, type])
 }
 
 /// Product → Categories taxonomy
@@ -76,10 +100,15 @@ model Product {
   isActive         Boolean          @default(true)
   /// Admin SKU
   sku              String           @default("")
-  /// active | draft | out_of_stock
+  /// active = listed on storefront; draft = hidden (legacy out_of_stock/suspended → normalized in code)
   status           String           @default("active")
-  totalSales       Int              @default(0)
-  monthlyRevenueBdt Int             @default(0)
+  /// false = one-time product (no renewals after the first purchase)
+  renewable        Boolean          @default(true)
+  /// Vault empty: still accept purchase/renew → pending assign (not tied to status)
+  allowOrderWhenOutOfStock Boolean  @default(false)
+  /// Optional order window (UTC). Before availableFrom / after availableUntil new orders are refused; renewals are not.
+  availableFrom    DateTime?
+  availableUntil   DateTime?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
   plans            ProductPlan[]
@@ -87,6 +116,27 @@ model Product {
 
   @@index([categoryId])
   @@index([status])
+}
+
+/// Homepage hero: up to 5 'main' slides and 2 'side' banners. Click target is none | product | category | url.
+model HomeBanner {
+  id        String   @id @default(cuid())
+  /// main | side
+  slot      String
+  position  Int      @default(0)
+  imageUrl  String
+  width     Int      @default(0)
+  height    Int      @default(0)
+  alt       String   @default("")
+  /// none | product | category | url
+  linkType  String   @default("none")
+  /// product slug, category code (AI | STREAM | WORK | CREATE) or URL/path
+  linkValue String   @default("")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slot, position])
 }
 
 model ProductPlan {
@@ -134,12 +184,21 @@ model Order {
   user      User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
   status    String      @default("PENDING")
   totalBdt  Decimal     @default(0)
+  /// Amount actually received so far (manual orders can be partial)
+  paidBdt   Decimal     @default(0)
+  /// unpaid | partial | paid
+  paymentStatus String  @default("unpaid")
+  /// storefront | admin
+  source    String      @default("storefront")
+  /// Guest proof returned at checkout (unguessable). Not a session cookie.
+  accessToken String?
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
   items     OrderItem[]
 
   @@index([userId])
   @@index([status])
+  @@index([accessToken])
 }
 
 model OrderItem {
@@ -157,6 +216,24 @@ model OrderItem {
   @@index([orderId])
   @@index([productId])
   @@index([planId])
+}
+
+/// Internal order notes: editable/deletable for 24h, then immutable history.
+model OrderNote {
+  id         String    @id @default(cuid())
+  /// Order id (no FK: seeded/legacy orders may only exist as deliveries)
+  orderId    String
+  /// Optional: note applies to one delivery unit only
+  deliveryId String?
+  text       String
+  authorName String    @default("Admin")
+  /// note | no_credential (delivered without credential)
+  kind       String    @default("note")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  editedAt   DateTime?
+
+  @@index([orderId, createdAt])
 }
 
 /// Credential Vault inventory
@@ -207,15 +284,21 @@ model DigitalDelivery {
   deliveryMode            String
   /// delivered | pending_dispatch | warranty_claim | replaced | revoked
   status                  String
-  /// Deprecated blob — kept empty; secret lives in Vault + CredentialAudit
-  payloadJson             String   @default("{}")
   /// Current Vault row linked to this delivery (source of truth for secret)
   vaultCredentialId       String?
+  /// Snapshot from ProductPlan at order time (not set when assigning credentials)
   vpnRequired             Boolean  @default(false)
   vpnRegionNote           String   @default("")
   hasWarranty             Boolean  @default(false)
+  /// Snapshot from ProductPlan at order time
   warrantyDays            Int      @default(0)
   warrantyRemainingDays   Int      @default(0)
+  /// Warranty clock for the current paid period ('YYYY-MM-DD HH:mm'). Starts at delivery, not at order.
+  warrantyStartsAt        String?
+  warrantyEndsAt          String?
+  /// Early renewal: the next period's warranty, which takes over when it starts (never stacks).
+  nextWarrantyStartsAt    String?
+  nextWarrantyEndsAt      String?
   warrantyTerms           String   @default("")
   warrantyClaimReason     String?
   replacementHistoryCount Int      @default(0)
@@ -338,6 +421,13 @@ model PaymentTransaction {
   /// purchase | renewal | manual
   kind             String   @default("purchase")
   deliveryId       String?
+  /// Renewal only: comma-separated delivery ids this payment extends (empty = whole order)
+  renewDeliveryIds String   @default("")
+  /// Renewal only: the access period this payment paid for (YYYY-MM-DD), set when verified
+  periodFrom       String?
+  periodTo         String?
+  /// When an admin verified it (local stamp)
+  verifiedAtLabel  String?
   createdAtLabel   String
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -362,16 +452,11 @@ model CouponCode {
   updatedAt     DateTime @updatedAt
 }
 
-model SystemFeatureFlag {
-  id          String   @id
-  category    String
-  name        String
-  key         String   @unique
-  description String   @default("")
-  enabled     Boolean  @default(false)
-  impactNote  String   @default("")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+/// Store-wide switches edited from Admin → Settings (maintenance, pause orders, announcement).
+model StoreSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }
 
 model MediaAsset {

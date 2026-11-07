@@ -1,5 +1,6 @@
 'use client';
 
+import type { DigitalDelivery, PaymentTransaction } from '@/lib/admin/types';
 import React, { useState } from 'react';
 import {
   DigitalProduct,
@@ -10,6 +11,8 @@ import { ProductsList } from './ProductsList';
 interface ProductsViewProps {
   products: DigitalProduct[];
   vault: VaultCredential[];
+  deliveries: DigitalDelivery[];
+  payments: PaymentTransaction[];
   onOpenAddProductPage: () => void;
   onOpenAddOptionPage: (productId?: string) => void;
   onOpenEditOptionPage: (productId: string, variantId: string) => void;
@@ -18,6 +21,8 @@ interface ProductsViewProps {
 
 export default function ProductsView({
   products,
+  deliveries,
+  payments,
   vault,
   onOpenAddProductPage,
   onOpenAddOptionPage,
@@ -56,8 +61,11 @@ export default function ProductsView({
     return true;
   });
 
-  const totalRevenue = products.reduce((sum, p) => sum + p.monthlyRevenueBDT, 0);
-  const totalSold = products.reduce((sum, p) => sum + p.totalSales, 0);
+  const month = new Date().toISOString().slice(0, 7);
+  const totalRevenue = payments
+    .filter((p) => p.status === 'verified' && p.createdAt.startsWith(month))
+    .reduce((sum, p) => sum + p.amountBDT, 0);
+  const totalSold = deliveries.filter((d) => d.status !== 'refunded' && d.status !== 'revoked').length;
   const totalAvailableVault = vault.filter((v) => v.status === 'available').length;
 
   return (
