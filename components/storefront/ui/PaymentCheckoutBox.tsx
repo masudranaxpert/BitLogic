@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Check } from 'lucide-react';
 import { useStoreSettings } from '@/context/StoreSettingsContext';
 
@@ -18,14 +18,29 @@ export function PaymentMethodSelector({
 }: PaymentMethodSelectorProps) {
   const settings = useStoreSettings();
 
-  const methods: Array<{ id: StorePaymentMethodId; label: string; icon: string }> = [
-    { id: 'bkash', label: 'bKash', icon: '/payments/bkash-icon.svg' },
-    { id: 'nagad', label: 'Nagad', icon: '/payments/nagad.svg' },
-  ];
+  const methods: Array<{ id: StorePaymentMethodId; label: string; icon: string }> = [];
 
-  if (settings.rocketEnabled) {
+  if (settings.bkashEnabled !== false) {
+    methods.push({ id: 'bkash', label: 'bKash', icon: '/payments/bkash-icon.svg' });
+  }
+  if (settings.nagadEnabled !== false) {
+    methods.push({ id: 'nagad', label: 'Nagad', icon: '/payments/nagad.svg' });
+  }
+  if (settings.rocketEnabled === true) {
     methods.push({ id: 'rocket', label: 'Rocket', icon: '/payments/rocket.png' });
   }
+
+  // Fallback if admin accidentally disabled all
+  if (methods.length === 0) {
+    methods.push({ id: 'bkash', label: 'bKash', icon: '/payments/bkash-icon.svg' });
+  }
+
+  // Auto-switch if current selection is not in enabled list
+  useEffect(() => {
+    if (!methods.some((m) => m.id === selectedMethod) && methods[0]) {
+      onSelectMethod(methods[0].id);
+    }
+  }, [methods, selectedMethod, onSelectMethod]);
 
   return (
     <div className="space-y-2 pt-1">

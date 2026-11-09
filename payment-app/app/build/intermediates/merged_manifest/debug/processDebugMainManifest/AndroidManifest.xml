@@ -33,14 +33,15 @@
         android:appComponentFactory="androidx.core.app.CoreComponentFactory"
         android:debuggable="true"
         android:extractNativeLibs="false"
-        android:icon="@android:drawable/ic_dialog_info"
+        android:icon="@drawable/ic_launcher"
         android:label="Blumart Sync"
-        android:roundIcon="@android:drawable/ic_dialog_info"
+        android:roundIcon="@drawable/ic_launcher"
         android:supportsRtl="true"
-        android:theme="@android:style/Theme.DeviceDefault.Light" >
+        android:theme="@style/Theme.BlumartSync" >
         <activity
             android:name="com.blumart.sync.MainActivity"
-            android:exported="true" >
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -65,11 +66,12 @@
             android:exported="true" >
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
             </intent-filter>
         </receiver>
 
-        <!-- Sticky Foreground Sync Service with WakeLock -->
+        <!-- Foreground Service -->
         <service
             android:name="com.blumart.sync.service.PaymentSyncService"
             android:enabled="true"

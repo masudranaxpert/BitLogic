@@ -2,6 +2,7 @@
 
 import { useStoreSettings } from '@/context/StoreSettingsContext';
 import React, { useState, type FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, Mail, Phone, User, AlertCircle, Loader2 } from 'lucide-react';
 import type { Plan, Product } from '@/lib/products';
 import { formatPrice } from '@/lib/products';
@@ -32,11 +33,10 @@ export function QoCheckoutStep({
   qty,
   onChangeQty,
   onBack,
-  onPlaced,
 }: QoCheckoutStepProps) {
+  const router = useRouter();
   const session = useCustomerSession();
   const [selectedMethod, setSelectedMethod] = useState<StorePaymentMethodId>('bkash');
-  const [trxId, setTrxId] = useState('');
   const [coupon, setCoupon] = useState('');
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponNote, setCouponNote] = useState('');
@@ -68,6 +68,10 @@ export function QoCheckoutStep({
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!navigator.onLine) {
+      setErrorMessage('ইন্টারনেট সংযোগ নেই। সংযোগ চেক করে আবার চেষ্টা করুন।');
+      return;
+    }
     setErrorMessage('');
     setIsSubmitting(true);
 
@@ -80,7 +84,7 @@ export function QoCheckoutStep({
           customerEmail: email.trim(),
           customerPhone: phone.trim(),
           gateway: selectedMethod === 'nagad' ? 'Nagad' : selectedMethod === 'rocket' ? 'Rocket' : 'bKash',
-          trxId: trxId.trim(),
+          trxId: '',
           couponCode: couponDiscount > 0 ? coupon.trim() : undefined,
           items: [
             {
@@ -106,10 +110,14 @@ export function QoCheckoutStep({
       rememberOrderId(data.orderId, data.accessToken);
       setPlacedOrderId(data.orderId);
 
-      // Redirect directly to the seamless Payment Gateway screen
-      window.location.href = `/payment/${data.orderId}?method=${selectedMethod}`;
+      // Smooth SPA redirect directly to the Payment Gateway screen
+      router.push(`/payment/${data.orderId}?method=${selectedMethod}`);
     } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : 'Checkout failed');
+      setErrorMessage(
+        err instanceof Error
+          ? err.message
+          : 'নেটওয়ার্ক সমস্যার কারণে অর্ডার সম্পন্ন হয়নি। আবার চেষ্টা করুন।'
+      );
       setIsSubmitting(false);
     }
   };
@@ -239,18 +247,14 @@ export function QoCheckoutStep({
           role="status"
         >
           <CheckCircle2 size={15} className="shrink-0 text-emerald-600" />
-          <span>Order placed! ID: <strong className="font-mono">{placedOrderId}</strong></span>
+          <span>Redirecting to payment gateway... (<strong className="font-mono">{placedOrderId}</strong>)</span>
         </div>
       )}
 
       {ordersPaused ? (
-
         <p role="status" className="rounded-md border border-amber-200 bg-amber-50 p-2.5 text-xs font-bold text-amber-900">
-
           {ordersPausedMessage}
-
         </p>
-
       ) : null}
 
       <button
@@ -258,17 +262,15 @@ export function QoCheckoutStep({
         disabled={isSubmitting || Boolean(placedOrderId) || ordersPaused}
         className="w-full h-11 px-4 rounded-md bg-[#FF5E5B] hover:bg-[#e04845] text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer border-0 disabled:opacity-50"
       >
-        {isSubmitting ? (
+        {isSubmitting || placedOrderId ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            <span>Placing order...</span>
+            <span>Opening payment gateway...</span>
           </>
-        ) : placedOrderId ? (
-          'Order confirmed'
         ) : ordersPaused ? (
           'Ordering is paused'
         ) : (
-          `Place order — ${formatPrice(finalTotal)}`
+          `Proceed to Pay — ${formatPrice(finalTotal)}`
         )}
       </button>
     </form>

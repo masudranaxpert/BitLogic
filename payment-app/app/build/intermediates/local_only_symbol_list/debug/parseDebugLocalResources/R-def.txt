@@ -1,9 +1,21 @@
 R_DEF: Internal format may change without notice
 local
+drawable bg_card
+drawable bg_input
+drawable bg_status_badge
+drawable ic_launcher
 id btnBatterySettings
+id btnClearLogs
 id btnSave
-id btnStartService
+id btnTestPing
+id btnToggleService
 id editApiKey
 id editServerUrl
+id imgBrandLogo
 id tvBatteryStatus
+id tvLogsConsole
+id tvServiceStatusPill
 layout activity_main
+mipmap ic_launcher
+string app_name
+style Theme.BlumartSync

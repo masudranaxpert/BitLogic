@@ -2898,6 +2898,9 @@ drawable abc_textfield_search_material
 drawable abc_vector_test
 drawable avd_hide_password
 drawable avd_show_password
+drawable bg_card
+drawable bg_input
+drawable bg_status_badge
 drawable btn_checkbox_checked_mtrl
 drawable btn_checkbox_checked_to_unchecked_mtrl_animation
 drawable btn_checkbox_unchecked_mtrl
@@ -2921,6 +2924,7 @@ drawable ic_call_decline_low
 drawable ic_clear_black_24
 drawable ic_clock_black_24dp
 drawable ic_keyboard_black_24dp
+drawable ic_launcher
 drawable ic_m3_chip_check
 drawable ic_m3_chip_checked_circle
 drawable ic_m3_chip_close
@@ -3094,8 +3098,10 @@ id blocking
 id bottom
 id bounce
 id btnBatterySettings
+id btnClearLogs
 id btnSave
-id btnStartService
+id btnTestPing
+id btnToggleService
 id buttonPanel
 id cancel_button
 id center
@@ -3205,6 +3211,7 @@ id ifRoom
 id ignore
 id ignoreRequest
 id image
+id imgBrandLogo
 id indeterminate
 id info
 id invisible
@@ -3447,6 +3454,8 @@ id transition_scene_layoutid_cache
 id transition_transform
 id triangle
 id tvBatteryStatus
+id tvLogsConsole
+id tvServiceStatusPill
 id unchecked
 id uniform
 id unlabeled
@@ -3658,6 +3667,7 @@ layout select_dialog_item_material
 layout select_dialog_multichoice_material
 layout select_dialog_singlechoice_material
 layout support_simple_spinner_dropdown_item
+mipmap ic_launcher
 plurals mtrl_badge_content_description
 string abc_action_bar_home_description
 string abc_action_bar_up_description
@@ -3687,6 +3697,7 @@ string abc_shareactionprovider_share_with
 string abc_shareactionprovider_share_with_application
 string abc_toolbar_collapse_description
 string androidx_startup
+string app_name
 string appbar_scrolling_view_behavior
 string bottom_sheet_behavior
 string bottomsheet_action_collapse
@@ -4370,6 +4381,7 @@ style Theme_AppCompat_Light_Dialog_MinWidth
 style Theme_AppCompat_Light_DialogWhenLarge
 style Theme_AppCompat_Light_NoActionBar
 style Theme_AppCompat_NoActionBar
+style Theme_BlumartSync
 style Theme_Design
 style Theme_Design_BottomSheetDialog
 style Theme_Design_Light

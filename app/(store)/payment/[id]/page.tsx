@@ -4,6 +4,8 @@ import { db } from '@/lib/db';
 import { GatewayCheckoutView } from '@/components/gateway/GatewayCheckoutView';
 import { getStoreSettings } from '@/lib/store-settings';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'Secure Payment Gateway | Blumartbd',
   description: 'Complete your instant MFS payment securely on Blumartbd.',
@@ -31,24 +33,42 @@ export default async function PaymentGatewayPage({
     notFound();
   }
 
+  const latestTxn = await db.paymentTransaction.findFirst({
+    where: { orderId: order.id },
+    orderBy: { createdAt: 'desc' },
+  });
+
   const settings = await getStoreSettings();
 
   return (
     <GatewayCheckoutView
       orderId={order.id}
-      initialMethod={(method as any) || 'bkash'}
+      initialMethod={
+        (method?.toLowerCase() as 'bkash' | 'nagad' | 'rocket') ||
+        (latestTxn?.gateway?.toLowerCase() as 'bkash' | 'nagad' | 'rocket') ||
+        'bkash'
+      }
       totalBdt={Number(order.totalBdt)}
       itemsSummary={order.items.map((i) => `${i.product.name} (${i.plan.label})`).join(', ')}
       paymentStatus={order.paymentStatus}
+      customerName={order.user?.name || 'Customer'}
       customerEmail={order.user?.email || ''}
       customerPhone={order.user?.phone || ''}
+      registeredSenderNumber={latestTxn?.senderNumberOrRef || ''}
       settings={{
+        bkashEnabled: settings.bkashEnabled !== false,
         bkashNumber: settings.bkashNumber || '01700-123456',
         bkashType: settings.bkashType || 'Personal',
+        nagadEnabled: settings.nagadEnabled !== false,
         nagadNumber: settings.nagadNumber || '01700-123456',
         nagadType: settings.nagadType || 'Personal',
+        rocketEnabled: Boolean(settings.rocketEnabled),
         rocketNumber: settings.rocketNumber || '01700-123456',
         rocketType: settings.rocketType || 'Personal',
+        verifyModeTrxId: settings.verifyModeTrxId !== false,
+        verifyModeSenderFifo: settings.verifyModeSenderFifo !== false,
+        verifyModeReference: settings.verifyModeReference !== false,
+        verifyModeUniqueAmount: settings.verifyModeUniqueAmount !== false,
       }}
     />
   );

@@ -2,11 +2,14 @@
 
 import { OrderLinesCard, groupLines } from './OrderLinesCard';
 import React, { useRef, useState } from 'react';
+import Link from 'next/link';
 import {
   AlertTriangle,
   ArrowLeft,
+  ArrowUpRight,
   Check,
   Copy,
+  CreditCard,
   ExternalLink,
   Eye,
   EyeOff,
@@ -246,6 +249,16 @@ export function OrderAccessDetailView({
         </div>
 
         <div className="flex items-center gap-2">
+          {isPendingVerification && order.status !== 'Payment Rejected' && (
+            <Link
+              href={`/payment/${order.id}${order.paymentMethod ? `?method=${order.paymentMethod.toLowerCase()}` : ''}`}
+              className="h-8 px-3.5 rounded-md bg-[#FF5E5B] hover:bg-[#DE524F] text-white text-xs font-bold inline-flex items-center gap-1.5 transition-colors no-underline shadow-xs"
+            >
+              <CreditCard size={13} />
+              <span>Pay Now ({formatPrice(order.price)})</span>
+              <ArrowUpRight size={13} />
+            </Link>
+          )}
           {(order.warrantyDaysLeft ?? 0) > 0 && (
             <StoreButton
               variant="outline"
@@ -259,6 +272,28 @@ export function OrderAccessDetailView({
 
         </div>
       </div>
+
+      {/* Prominent Unpaid Payment Banner */}
+      {isPendingVerification && order.status !== 'Payment Rejected' && (
+        <div className="p-4 rounded-lg bg-amber-50 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-0.5">
+            <div className="text-xs font-extrabold text-amber-950 flex items-center gap-1.5">
+              <CreditCard size={14} className="text-amber-700" />
+              <span>Payment Pending — Complete Your Order</span>
+            </div>
+            <p className="text-xs text-amber-800 m-0">
+              Complete your <strong>{formatPrice(order.price)}</strong> payment via the automated MFS gateway to unlock instant delivery.
+            </p>
+          </div>
+          <Link
+            href={`/payment/${order.id}${order.paymentMethod ? `?method=${order.paymentMethod.toLowerCase()}` : ''}`}
+            className="h-9 px-4 rounded-md bg-[#FF5E5B] hover:bg-[#DE524F] text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition-colors no-underline shrink-0 shadow-xs"
+          >
+            <span>Complete Payment Now</span>
+            <ArrowUpRight size={14} />
+          </Link>
+        </div>
+      )}
 
       {/* 2-Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">

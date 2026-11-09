@@ -2,6 +2,7 @@
 
 import { useStoreSettings } from '@/context/StoreSettingsContext';
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ShoppingBag, ArrowRight, Trash2, CheckCircle2, ArrowLeft, Minus, Plus, AlertCircle, Loader2 } from 'lucide-react';
 import { formatPrice, getProduct } from '@/lib/products';
 import { useCatalog } from '@/context/CatalogContext';
@@ -18,6 +19,7 @@ import {
 import { useStoreNav } from '@/context/StoreNavContext';
 
 export function CartPageView() {
+  const router = useRouter();
   const { items, total, count, remove, updateQty, clear } = useCart();
   const { products } = useCatalog();
   const { navigateTo } = useStoreNav();
@@ -30,7 +32,6 @@ export function CartPageView() {
   const [customerName, setCustomerName] = useState(session?.name || '');
   const [customerPhone, setCustomerPhone] = useState(session?.phone || '');
   const [customerEmail, setCustomerEmail] = useState(session?.email || '');
-  const [trxId, setTrxId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { ordersPaused, ordersPausedMessage } = useStoreSettings();
   const [errorMessage, setErrorMessage] = useState('');
@@ -53,8 +54,8 @@ export function CartPageView() {
 
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!trxId.trim()) {
-      setErrorMessage('Please enter the transaction ID');
+    if (!navigator.onLine) {
+      setErrorMessage('ইন্টারনেট সংযোগ নেই। সংযোগ চেক করে আবার চেষ্টা করুন।');
       return;
     }
     setErrorMessage('');
@@ -69,7 +70,7 @@ export function CartPageView() {
           customerEmail: customerEmail.trim(),
           customerPhone: customerPhone.trim(),
           gateway: selectedMethod === 'nagad' ? 'Nagad' : selectedMethod === 'rocket' ? 'Rocket' : 'bKash',
-          trxId: trxId.trim(),
+          trxId: '',
           couponCode: couponDiscount > 0 ? coupon.trim() : undefined,
           items: items.map((i) => ({
             productId: i.productId,
@@ -93,9 +94,13 @@ export function CartPageView() {
       rememberOrderId(data.orderId, data.accessToken);
       setPlacedOrderId(data.orderId);
       clear();
-      window.location.href = `/payment/${data.orderId}?method=${selectedMethod}`;
+      router.push(`/payment/${data.orderId}?method=${selectedMethod}`);
     } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : 'Checkout failed');
+      setErrorMessage(
+        err instanceof Error
+          ? err.message
+          : 'নেটওয়ার্ক সমস্যার কারণে অর্ডার সম্পন্ন হয়নি। আবার চেষ্টা করুন।'
+      );
       setIsSubmitting(false);
     }
   };
@@ -132,9 +137,9 @@ export function CartPageView() {
             <CheckCircle2 size={20} strokeWidth={2.2} />
           </div>
           <h2 className="font-display text-base font-extrabold text-[#0F172A] m-0">
-            Order placed — <span className="font-mono">{placedOrderId}</span>
+            Order created — <span className="font-mono">{placedOrderId}</span>
           </h2>
-          <p className="mt-1.5 text-xs font-semibold text-slate-600">Taking you to your orders…</p>
+          <p className="mt-1.5 text-xs font-semibold text-slate-600">Opening secure payment gateway…</p>
         </div>
       ) : empty ? (
         <div className="text-center py-12 px-5 bg-white rounded-lg border border-slate-200/90">
@@ -354,18 +359,14 @@ export function CartPageView() {
                   role="status"
                 >
                   <CheckCircle2 size={15} className="shrink-0 text-emerald-600" />
-                  <span>Order placed! ID: <strong className="font-mono">{placedOrderId}</strong></span>
+                  <span>Redirecting to payment gateway... (<strong className="font-mono">{placedOrderId}</strong>)</span>
                 </div>
               )}
 
               {ordersPaused ? (
-
                 <p role="status" className="rounded-md border border-amber-200 bg-amber-50 p-2.5 text-xs font-bold text-amber-900">
-
                   {ordersPausedMessage}
-
                 </p>
-
               ) : null}
 
               <button
@@ -373,17 +374,15 @@ export function CartPageView() {
                 disabled={isSubmitting || Boolean(placedOrderId) || ordersPaused}
                 className="w-full h-10.5 rounded-md bg-[#FF5E5B] hover:bg-[#e04845] text-white font-extrabold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer border-0 disabled:opacity-50"
               >
-                {isSubmitting ? (
+                {isSubmitting || placedOrderId ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                    <span>Placing order...</span>
+                    <span>Opening payment gateway...</span>
                   </>
-                ) : placedOrderId ? (
-                  'Order confirmed'
                 ) : ordersPaused ? (
                   'Ordering is paused'
                 ) : (
-                  `Place order — ${formatPrice(finalTotal)}`
+                  `Proceed to Pay — ${formatPrice(finalTotal)}`
                 )}
               </button>
             </form>

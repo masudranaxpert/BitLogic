@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getStoreSettings } from '@/lib/store-settings';
 import crypto from 'crypto';
 
 export async function GET(req: NextRequest) {
@@ -22,17 +23,32 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { deviceName, phoneNumber, gateway = 'all', simSlot = 'SIM 1' } = body;
 
-    if (!deviceName || !phoneNumber) {
-      return NextResponse.json({ success: false, message: 'Device name and phone number required' }, { status: 400 });
+    if (!deviceName) {
+      return NextResponse.json({ success: false, message: 'Device name is required' }, { status: 400 });
     }
 
-    // Generate secure 32-char hex API Key
+    // Automatically resolve phone number from configured payment methods if not explicitly passed
+    let resolvedPhone = (phoneNumber || '').trim();
+    if (!resolvedPhone) {
+      const settings = await getStoreSettings();
+      if (gateway === 'bkash') {
+        resolvedPhone = settings.bkashNumber || 'Linked bKash SIM';
+      } else if (gateway === 'nagad') {
+        resolvedPhone = settings.nagadNumber || 'Linked Nagad SIM';
+      } else if (gateway === 'rocket') {
+        resolvedPhone = settings.rocketNumber || 'Linked Rocket SIM';
+      } else {
+        const numbers = [settings.bkashNumber, settings.nagadNumber].filter(Boolean);
+        resolvedPhone = numbers[0] || 'Multi-Gateway SIM';
+      }
+    }
+
     const apiKey = 'mfs_' + crypto.randomBytes(16).toString('hex');
 
     const device = await db.mfsDevice.create({
       data: {
         deviceName: deviceName.trim(),
-        phoneNumber: phoneNumber.trim(),
+        phoneNumber: resolvedPhone,
         gateway,
         simSlot,
         apiKey,

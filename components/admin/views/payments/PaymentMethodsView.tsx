@@ -37,6 +37,10 @@ function pick(s: StoreSettings): PaymentConfigDraft {
     rocketNumber: s.rocketNumber ?? DEFAULT_STORE_SETTINGS.rocketNumber,
     rocketType: s.rocketType ?? DEFAULT_STORE_SETTINGS.rocketType,
     rocketInstructions: s.rocketInstructions ?? DEFAULT_STORE_SETTINGS.rocketInstructions,
+    verifyModeTrxId: s.verifyModeTrxId ?? DEFAULT_STORE_SETTINGS.verifyModeTrxId,
+    verifyModeSenderFifo: s.verifyModeSenderFifo ?? DEFAULT_STORE_SETTINGS.verifyModeSenderFifo,
+    verifyModeReference: s.verifyModeReference ?? DEFAULT_STORE_SETTINGS.verifyModeReference,
+    verifyModeUniqueAmount: s.verifyModeUniqueAmount ?? DEFAULT_STORE_SETTINGS.verifyModeUniqueAmount,
   };
 }
 
@@ -54,11 +58,9 @@ export default function PaymentMethodsView() {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<'idle' | 'saved' | 'error'>('idle');
 
-  // Device management state
   const [devices, setDevices] = useState<MfsDevice[]>([]);
   const [loadingDevices, setLoadingDevices] = useState(false);
 
-  // Live SMS logs state with server-side pagination
   const [smsLogs, setSmsLogs] = useState<MfsSmsLog[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [logPage, setLogPage] = useState(1);
@@ -94,7 +96,7 @@ export default function PaymentMethodsView() {
         setDevices(data.devices || []);
       }
     } catch {
-      // silently handle
+      // ignore
     } finally {
       setLoadingDevices(false);
     }
@@ -114,7 +116,7 @@ export default function PaymentMethodsView() {
         }
       }
     } catch {
-      // silently handle
+      // ignore
     } finally {
       setLoadingLogs(false);
     }
@@ -176,10 +178,10 @@ export default function PaymentMethodsView() {
         <div>
           <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <CreditCard className="w-5 h-5 text-emerald-600" />
-            Payment Methods
+            Payment Methods &amp; Verification
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            MFS numbers, companion Android sync devices, and live incoming logs.
+            Configure MFS receiving numbers, 4-mode auto-verification rules, and Android sync devices.
           </p>
         </div>
 
@@ -188,7 +190,7 @@ export default function PaymentMethodsView() {
             <button
               onClick={saveSettings}
               disabled={busy || !dirty}
-              className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md shadow-sm transition ${
+              className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md shadow-sm transition cursor-pointer ${
                 dirty
                   ? 'bg-emerald-600 text-white hover:bg-emerald-700'
                   : 'bg-slate-100 text-slate-400 dark:bg-slate-800 cursor-not-allowed'
@@ -208,7 +210,7 @@ export default function PaymentMethodsView() {
           <a
             href="/blumart-sync.apk"
             download="blumart-sync.apk"
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white shadow-sm transition no-underline"
           >
             <Download className="w-3.5 h-3.5" />
             Download Sync APK
@@ -223,18 +225,18 @@ export default function PaymentMethodsView() {
         </div>
       )}
 
-      {/* Tabs Navigation (Consistent Emerald Theme) */}
+      {/* Tabs Navigation */}
       <div className="flex border-b border-slate-200 dark:border-slate-800 gap-4">
         <button
           onClick={() => handleTabChange('methods')}
-          className={`pb-2.5 text-xs font-semibold flex items-center gap-1.5 border-b-2 transition ${
+          className={`pb-2.5 text-xs font-semibold flex items-center gap-1.5 border-b-2 transition cursor-pointer ${
             activeTab === 'methods'
               ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
               : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'
           }`}
         >
           <CreditCard className="w-4 h-4" />
-          Payment Numbers
+          Methods &amp; Verification Modes
         </button>
 
         <button
@@ -242,7 +244,7 @@ export default function PaymentMethodsView() {
             handleTabChange('devices');
             loadDevices();
           }}
-          className={`pb-2.5 text-xs font-semibold flex items-center gap-1.5 border-b-2 transition ${
+          className={`pb-2.5 text-xs font-semibold flex items-center gap-1.5 border-b-2 transition cursor-pointer ${
             activeTab === 'devices'
               ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
               : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'
@@ -262,7 +264,7 @@ export default function PaymentMethodsView() {
             handleTabChange('logs');
             loadLogs(1);
           }}
-          className={`pb-2.5 text-xs font-semibold flex items-center gap-1.5 border-b-2 transition ${
+          className={`pb-2.5 text-xs font-semibold flex items-center gap-1.5 border-b-2 transition cursor-pointer ${
             activeTab === 'logs'
               ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
               : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'
@@ -293,6 +295,11 @@ export default function PaymentMethodsView() {
           devices={devices}
           loading={loadingDevices}
           onRefresh={loadDevices}
+          configuredNumbers={{
+            bkash: draft.bkashNumber,
+            nagad: draft.nagadNumber,
+            rocket: draft.rocketNumber,
+          }}
         />
       )}
 

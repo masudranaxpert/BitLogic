@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { ArrowUpRight, MessageSquare } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowUpRight, CreditCard, MessageSquare } from 'lucide-react';
 import { formatPrice } from '@/lib/products';
 import {
   DurationBadge,
@@ -296,15 +297,20 @@ export function OrderRowCard({
           </div>
         </div>
 
-        {order.status === 'Pending (10–24h)' && (
-          <a
-            href={`/payment/${order.id}`}
-            className="h-8 px-3 rounded-md bg-[#FF5E5B] hover:bg-[#DE524F] text-white text-xs font-bold inline-flex items-center gap-1.5 transition-colors no-underline shadow-xs"
-          >
-            <span>Pay Now</span>
-            <ArrowUpRight size={13} />
-          </a>
-        )}
+        {(order.status === 'Pending Verification' ||
+          order.isPaymentVerified === false ||
+          order.paymentStatus === 'pending' ||
+          order.paymentStatus === 'unpaid') &&
+          order.status !== 'Payment Rejected' &&
+          order.status !== 'Refunded' && (
+            <Link
+              href={`/payment/${order.id}${order.paymentMethod ? `?method=${order.paymentMethod.toLowerCase()}` : ''}`}
+              className="h-8 px-3 rounded-md bg-[#FF5E5B] hover:bg-[#DE524F] text-white text-xs font-bold inline-flex items-center gap-1.5 transition-colors no-underline shadow-xs"
+            >
+              <CreditCard size={13} />
+              <span>Pay Now</span>
+            </Link>
+          )}
 
         <StoreButton variant={buttonVariant} size="sm" onClick={handleAccess}>
           <span>Access</span>

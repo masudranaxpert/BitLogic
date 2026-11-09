@@ -50,6 +50,11 @@ export type StoreSettings = {
   rocketNumber: string;
   rocketType: string;
   rocketInstructions: string;
+  /** Autonomous 4-Mode Verification Toggles */
+  verifyModeTrxId: boolean;
+  verifyModeSenderFifo: boolean;
+  verifyModeReference: boolean;
+  verifyModeUniqueAmount: boolean;
 };
 
 export const DEFAULT_STORE_SETTINGS: StoreSettings = {
@@ -88,6 +93,10 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   rocketNumber: '',
   rocketType: 'Personal',
   rocketInstructions: 'Send Money to our Rocket number and enter the Transaction ID (TrxID) below.',
+  verifyModeTrxId: true,
+  verifyModeSenderFifo: true,
+  verifyModeReference: true,
+  verifyModeUniqueAmount: true,
 };
 
 const KEYS = Object.keys(DEFAULT_STORE_SETTINGS) as Array<keyof StoreSettings>;
