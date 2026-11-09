@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   DEFAULT_STORE_SETTINGS,
   type StoreSettings,
@@ -40,7 +41,14 @@ function pick(s: StoreSettings): PaymentConfigDraft {
 }
 
 export default function PaymentMethodsView() {
-  const [activeTab, setActiveTab] = useState<'methods' | 'devices' | 'logs'>('methods');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get('tab') as 'methods' | 'devices' | 'logs' | null;
+
+  const [activeTab, setActiveTab] = useState<'methods' | 'devices' | 'logs'>(
+    tabParam && ['methods', 'devices', 'logs'].includes(tabParam) ? tabParam : 'methods'
+  );
+
   const [saved, setSaved] = useState<PaymentConfigDraft | null>(null);
   const [draft, setDraft] = useState<PaymentConfigDraft | null>(null);
   const [busy, setBusy] = useState(false);
@@ -50,9 +58,17 @@ export default function PaymentMethodsView() {
   const [devices, setDevices] = useState<MfsDevice[]>([]);
   const [loadingDevices, setLoadingDevices] = useState(false);
 
-  // Live SMS logs state
+  // Live SMS logs state with server-side pagination
   const [smsLogs, setSmsLogs] = useState<MfsSmsLog[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const [logPage, setLogPage] = useState(1);
+  const [logTotalPages, setLogTotalPages] = useState(1);
+  const [logTotalCount, setLogTotalCount] = useState(0);
+
+  const handleTabChange = (tab: 'methods' | 'devices' | 'logs') => {
+    setActiveTab(tab);
+    router.replace(`/admin/payments/methods?tab=${tab}`, { scroll: false });
+  };
 
   const loadSettings = () => {
     fetch('/api/admin/settings', { cache: 'no-store' })
@@ -84,13 +100,18 @@ export default function PaymentMethodsView() {
     }
   };
 
-  const loadLogs = async () => {
+  const loadLogs = async (page = 1) => {
     setLoadingLogs(true);
     try {
-      const res = await fetch('/api/admin/payments/sms-logs?limit=40');
+      const res = await fetch(`/api/admin/payments/sms-logs?page=${page}&limit=15`);
       const data = await res.json();
       if (data.success) {
         setSmsLogs(data.logs || []);
+        if (data.pagination) {
+          setLogPage(data.pagination.page);
+          setLogTotalPages(data.pagination.totalPages);
+          setLogTotalCount(data.pagination.total);
+        }
       }
     } catch {
       // silently handle
@@ -102,7 +123,7 @@ export default function PaymentMethodsView() {
   useEffect(() => {
     loadSettings();
     loadDevices();
-    loadLogs();
+    loadLogs(1);
   }, []);
 
   const dirty = Boolean(
@@ -150,15 +171,15 @@ export default function PaymentMethodsView() {
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-12">
-      {/* Header with Title and Global Action */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <CreditCard className="w-5 h-5 text-emerald-600" />
-            Payment Gateway &amp; Sync Manager
+            Payment Methods
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Configure mobile financial services, monitor Android SMS Sync companion devices, and inspect live ingestion.
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            MFS numbers, companion Android sync devices, and live incoming logs.
           </p>
         </div>
 
@@ -187,10 +208,10 @@ export default function PaymentMethodsView() {
           <a
             href="/blumart-sync.apk"
             download="blumart-sync.apk"
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition"
           >
             <Download className="w-3.5 h-3.5" />
-            Download Sync APK (v1.0)
+            Download Sync APK
           </a>
         </div>
       </div>
@@ -202,10 +223,10 @@ export default function PaymentMethodsView() {
         </div>
       )}
 
-      {/* Modern Tabs Navigation */}
+      {/* Tabs Navigation (Consistent Emerald Theme) */}
       <div className="flex border-b border-slate-200 dark:border-slate-800 gap-4">
         <button
-          onClick={() => setActiveTab('methods')}
+          onClick={() => handleTabChange('methods')}
           className={`pb-2.5 text-xs font-semibold flex items-center gap-1.5 border-b-2 transition ${
             activeTab === 'methods'
               ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
@@ -213,24 +234,24 @@ export default function PaymentMethodsView() {
           }`}
         >
           <CreditCard className="w-4 h-4" />
-          Payment Numbers &amp; Methods
+          Payment Numbers
         </button>
 
         <button
           onClick={() => {
-            setActiveTab('devices');
+            handleTabChange('devices');
             loadDevices();
           }}
           className={`pb-2.5 text-xs font-semibold flex items-center gap-1.5 border-b-2 transition ${
             activeTab === 'devices'
-              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+              ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
               : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'
           }`}
         >
           <Smartphone className="w-4 h-4" />
-          Android Sync Devices
+          Sync Devices
           {devices.length > 0 && (
-            <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+            <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
               {devices.length}
             </span>
           )}
@@ -238,20 +259,20 @@ export default function PaymentMethodsView() {
 
         <button
           onClick={() => {
-            setActiveTab('logs');
-            loadLogs();
+            handleTabChange('logs');
+            loadLogs(1);
           }}
           className={`pb-2.5 text-xs font-semibold flex items-center gap-1.5 border-b-2 transition ${
             activeTab === 'logs'
-              ? 'border-violet-600 text-violet-600 dark:text-violet-400'
+              ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
               : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'
           }`}
         >
           <Activity className="w-4 h-4" />
-          Live Ingestion Logs
-          {smsLogs.length > 0 && (
+          SMS Logs
+          {logTotalCount > 0 && (
             <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-              {smsLogs.length}
+              {logTotalCount}
             </span>
           )}
         </button>
@@ -262,7 +283,7 @@ export default function PaymentMethodsView() {
         <PaymentMethodConfigTab
           draft={draft}
           setField={setField}
-          onNavigateToDevices={() => setActiveTab('devices')}
+          onNavigateToDevices={() => handleTabChange('devices')}
           devicesCount={devices.length}
         />
       )}
@@ -279,7 +300,11 @@ export default function PaymentMethodsView() {
         <PaymentSmsLogsTab
           logs={smsLogs}
           loading={loadingLogs}
-          onRefresh={loadLogs}
+          onRefresh={() => loadLogs(logPage)}
+          page={logPage}
+          totalPages={logTotalPages}
+          totalCount={logTotalCount}
+          onPageChange={(p) => loadLogs(p)}
         />
       )}
     </div>

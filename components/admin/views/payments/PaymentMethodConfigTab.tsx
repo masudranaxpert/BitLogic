@@ -3,6 +3,7 @@
 import React from 'react';
 import { Card } from '@/components/admin/ui/primitives';
 import { DEFAULT_STORE_SETTINGS, type StoreSettings } from '@/lib/store-settings';
+import { Smartphone } from 'lucide-react';
 
 export type PaymentConfigDraft = Pick<
   StoreSettings,
@@ -38,29 +39,27 @@ export function PaymentMethodConfigTab({
 }: MethodTabProps) {
   return (
     <div className="space-y-6">
-      {/* Autonomous Sync Quick Info Banner */}
-      <div className="bg-gradient-to-r from-indigo-50 via-purple-50 to-emerald-50 dark:from-indigo-950/20 dark:via-purple-950/20 dark:to-emerald-950/20 p-4 rounded-xl border border-indigo-100 dark:border-indigo-900/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 text-[10px] font-bold uppercase rounded bg-indigo-600 text-white tracking-wider">
-              Automated Autonomous Verification
-            </span>
-            <span className="text-xs text-slate-500 font-medium">4 Detection Modes Active</span>
-          </div>
-          <p className="text-xs text-slate-600 dark:text-slate-300">
-            Customers pay via the <strong>/payment/[id]</strong> gateway screen. When your phone receives an SMS from <strong>bKash (16216)</strong> or <strong>Nagad (16167)</strong>, the Blumart Sync APK automatically verifies and completes the order in real-time.
+      {/* Clean Quick Status */}
+      <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+        <div className="space-y-0.5">
+          <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100">
+            Automated SMS Sync Available
+          </h3>
+          <p className="text-xs text-slate-500">
+            Received customer transactions are matched automatically via companion app.
           </p>
         </div>
         <button
           onClick={onNavigateToDevices}
-          className="shrink-0 px-3 py-1.5 rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-50 shadow-sm flex items-center gap-1.5"
+          className="shrink-0 px-3 py-1.5 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 flex items-center gap-1.5"
         >
-          Manage Sync Devices ({devicesCount})
+          <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
+          Devices ({devicesCount})
         </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* bKash Configuration Card */}
+        {/* bKash */}
         <Card className="p-5 border border-slate-200 dark:border-slate-800 flex flex-col justify-between space-y-4">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -70,7 +69,7 @@ export function PaymentMethodConfigTab({
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">bKash</h3>
-                  <p className="text-[11px] text-slate-500">Auto-sync with 16216</p>
+                  <p className="text-[11px] text-slate-500">Sender: 16216</p>
                 </div>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -127,12 +126,12 @@ export function PaymentMethodConfigTab({
             </div>
           </div>
 
-          <div className="pt-2 text-[11px] text-slate-500 border-t border-slate-100 dark:border-slate-800">
-            Visible on checkout when active.
+          <div className="pt-2 text-[11px] text-slate-400 border-t border-slate-100 dark:border-slate-800">
+            Shown in checkout when enabled.
           </div>
         </Card>
 
-        {/* Nagad Configuration Card */}
+        {/* Nagad */}
         <Card className="p-5 border border-slate-200 dark:border-slate-800 flex flex-col justify-between space-y-4">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -142,7 +141,7 @@ export function PaymentMethodConfigTab({
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Nagad</h3>
-                  <p className="text-[11px] text-slate-500">Auto-sync with 16167</p>
+                  <p className="text-[11px] text-slate-500">Sender: 16167</p>
                 </div>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -199,12 +198,12 @@ export function PaymentMethodConfigTab({
             </div>
           </div>
 
-          <div className="pt-2 text-[11px] text-slate-500 border-t border-slate-100 dark:border-slate-800">
-            Visible on checkout when active.
+          <div className="pt-2 text-[11px] text-slate-400 border-t border-slate-100 dark:border-slate-800">
+            Shown in checkout when enabled.
           </div>
         </Card>
 
-        {/* Rocket Configuration Card */}
+        {/* Rocket */}
         <Card className="p-5 border border-slate-200 dark:border-slate-800 flex flex-col justify-between space-y-4">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -214,7 +213,7 @@ export function PaymentMethodConfigTab({
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Rocket</h3>
-                  <p className="text-[11px] text-slate-500">Auto-sync with 16221</p>
+                  <p className="text-[11px] text-slate-500">Sender: 16221</p>
                 </div>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -271,58 +270,11 @@ export function PaymentMethodConfigTab({
             </div>
           </div>
 
-          <div className="pt-2 text-[11px] text-slate-500 border-t border-slate-100 dark:border-slate-800">
-            Visible on checkout when active.
+          <div className="pt-2 text-[11px] text-slate-400 border-t border-slate-100 dark:border-slate-800">
+            Shown in checkout when enabled.
           </div>
         </Card>
       </div>
-
-      {/* Customer Checkout Preview Box */}
-      <Card className="p-5 border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 space-y-3">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-          Storefront Customer View Preview
-        </h3>
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          When customers check out, they are redirected to the branded payment gateway:
-        </p>
-
-        <div className="p-4 rounded-md bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 max-w-md space-y-3">
-          <div className="flex gap-2">
-            {draft.bkashEnabled && (
-              <div className="flex-1 p-2 rounded border border-slate-900 bg-slate-900 text-white text-xs font-bold flex items-center justify-center gap-1.5">
-                <span className="w-4 h-4 rounded bg-white p-0.5 inline-flex items-center justify-center shrink-0">
-                  <img src="/payments/bkash-icon.svg" alt="bKash" className="w-full h-full object-contain" />
-                </span>
-                <span>bKash ({draft.bkashType})</span>
-              </div>
-            )}
-            {draft.nagadEnabled && (
-              <div className="flex-1 p-2 rounded border border-slate-200 bg-white text-slate-900 text-xs font-bold flex items-center justify-center gap-1.5">
-                <span className="w-4 h-4 rounded bg-white p-0.5 inline-flex items-center justify-center shrink-0">
-                  <img src="/payments/nagad.svg" alt="Nagad" className="w-full h-full object-contain" />
-                </span>
-                <span>Nagad ({draft.nagadType})</span>
-              </div>
-            )}
-            {draft.rocketEnabled && (
-              <div className="flex-1 p-2 rounded border border-slate-200 bg-white text-slate-900 text-xs font-bold flex items-center justify-center gap-1.5">
-                <span className="w-4 h-4 rounded bg-white p-0.5 inline-flex items-center justify-center shrink-0">
-                  <img src="/payments/rocket.png" alt="Rocket" className="w-full h-full object-contain" />
-                </span>
-                <span>Rocket ({draft.rocketType})</span>
-              </div>
-            )}
-          </div>
-
-          {draft.bkashEnabled && (
-            <div className="text-[11px] text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-900 p-2.5 rounded border border-slate-200/70">
-              Send <strong className="text-slate-900 dark:text-white">BDT Amount</strong> to{' '}
-              <span className="font-mono font-bold text-slate-900 dark:text-white">{draft.bkashNumber || '(not set)'}</span>{' '}
-              ({draft.bkashType}). Auto-verification triggers on incoming SMS.
-            </div>
-          )}
-        </div>
-      </Card>
     </div>
   );
 }
