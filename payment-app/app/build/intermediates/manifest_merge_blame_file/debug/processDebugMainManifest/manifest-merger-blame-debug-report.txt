@@ -1,0 +1,209 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.blumart.sync"
+4    android:versionCode="1"
+5    android:versionName="1.0.0" >
+6
+7    <uses-sdk
+8        android:minSdkVersion="24"
+9        android:targetSdkVersion="34" />
+10
+11    <!-- SMS Interception & Network Permissions -->
+12    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+12-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:6:5-70
+12-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:6:22-67
+13    <uses-permission android:name="android.permission.READ_SMS" />
+13-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:7:5-67
+13-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:7:22-64
+14    <uses-permission android:name="android.permission.INTERNET" />
+14-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:8:5-67
+14-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:8:22-64
+15    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+15-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:9:5-79
+15-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:9:22-76
+16    <uses-permission android:name="android.permission.WAKE_LOCK" />
+16-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:10:5-68
+16-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:10:22-65
+17
+18    <!-- Samsung / Honor / Xiaomi Aggressive Task-Killer Protections -->
+19    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+19-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:13:5-95
+19-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:13:22-92
+20    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+20-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:14:5-77
+20-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:14:22-74
+21    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+21-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:15:5-87
+21-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:15:22-84
+22    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+22-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:16:5-77
+22-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:16:22-74
+23    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+23-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:17:5-81
+23-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:17:22-78
+24
+25    <permission
+25-->[androidx.core:core:1.13.1] C:\Users\asus\.gradle\caches\8.9\transforms\75ea9556da06a2ddba1460016a6e4412\transformed\core-1.13.1\AndroidManifest.xml:22:5-24:47
+26        android:name="com.blumart.sync.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+26-->[androidx.core:core:1.13.1] C:\Users\asus\.gradle\caches\8.9\transforms\75ea9556da06a2ddba1460016a6e4412\transformed\core-1.13.1\AndroidManifest.xml:23:9-81
+27        android:protectionLevel="signature" />
+27-->[androidx.core:core:1.13.1] C:\Users\asus\.gradle\caches\8.9\transforms\75ea9556da06a2ddba1460016a6e4412\transformed\core-1.13.1\AndroidManifest.xml:24:9-44
+28
+29    <uses-permission android:name="com.blumart.sync.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+29-->[androidx.core:core:1.13.1] C:\Users\asus\.gradle\caches\8.9\transforms\75ea9556da06a2ddba1460016a6e4412\transformed\core-1.13.1\AndroidManifest.xml:26:5-97
+29-->[androidx.core:core:1.13.1] C:\Users\asus\.gradle\caches\8.9\transforms\75ea9556da06a2ddba1460016a6e4412\transformed\core-1.13.1\AndroidManifest.xml:26:22-94
+30
+31    <application
+31-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:19:5-64:19
+32        android:allowBackup="true"
+32-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:20:9-35
+33        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+33-->[androidx.core:core:1.13.1] C:\Users\asus\.gradle\caches\8.9\transforms\75ea9556da06a2ddba1460016a6e4412\transformed\core-1.13.1\AndroidManifest.xml:28:18-86
+34        android:debuggable="true"
+35        android:extractNativeLibs="false"
+36        android:icon="@android:drawable/ic_dialog_info"
+36-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:21:9-56
+37        android:label="Blumart Sync"
+37-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:22:9-37
+38        android:roundIcon="@android:drawable/ic_dialog_info"
+38-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:23:9-61
+39        android:supportsRtl="true"
+39-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:24:9-35
+40        android:theme="@android:style/Theme.DeviceDefault.Light" >
+40-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:25:9-65
+41        <activity
+41-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:27:9-34:20
+42            android:name="com.blumart.sync.MainActivity"
+42-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:28:13-41
+43            android:exported="true" >
+43-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:29:13-36
+44            <intent-filter>
+44-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:30:13-33:29
+45                <action android:name="android.intent.action.MAIN" />
+45-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:31:17-69
+45-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:31:25-66
+46
+47                <category android:name="android.intent.category.LAUNCHER" />
+47-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:32:17-77
+47-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:32:27-74
+48            </intent-filter>
+49        </activity>
+50
+51        <!-- High Priority (999) SMS BroadcastReceiver -->
+52        <receiver
+52-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:37:9-44:20
+53            android:name="com.blumart.sync.receiver.MfsSmsReceiver"
+53-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:38:13-52
+54            android:exported="true"
+54-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:40:13-36
+55            android:permission="android.permission.BROADCAST_SMS" >
+55-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:39:13-66
+56            <intent-filter android:priority="999" >
+56-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:41:13-43:29
+56-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:41:28-50
+57                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+57-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:42:17-82
+57-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:42:25-79
+58            </intent-filter>
+59        </receiver>
+60
+61        <!-- Auto-Start upon phone boot / restart -->
+62        <receiver
+62-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:47:9-55:20
+63            android:name="com.blumart.sync.receiver.BootReceiver"
+63-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:48:13-50
+64            android:enabled="true"
+64-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:49:13-35
+65            android:exported="true" >
+65-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:50:13-36
+66            <intent-filter>
+66-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:51:13-54:29
+67                <action android:name="android.intent.action.BOOT_COMPLETED" />
+67-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:52:17-79
+67-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:52:25-76
+68                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+68-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:53:17-84
+68-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:53:25-81
+69            </intent-filter>
+70        </receiver>
+71
+72        <!-- Sticky Foreground Sync Service with WakeLock -->
+73        <service
+73-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:58:9-62:56
+74            android:name="com.blumart.sync.service.PaymentSyncService"
+74-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:59:13-55
+75            android:enabled="true"
+75-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:60:13-35
+76            android:exported="false"
+76-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:61:13-37
+77            android:foregroundServiceType="dataSync" />
+77-->D:\Project\BitLogic\payment-app\app\src\main\AndroidManifest.xml:62:13-53
+78
+79        <provider
+79-->[androidx.emoji2:emoji2:1.3.0] C:\Users\asus\.gradle\caches\8.9\transforms\fd5ff02451adeefa6e15b19aec017db3\transformed\jetified-emoji2-1.3.0\AndroidManifest.xml:24:9-32:20
+80            android:name="androidx.startup.InitializationProvider"
+80-->[androidx.emoji2:emoji2:1.3.0] C:\Users\asus\.gradle\caches\8.9\transforms\fd5ff02451adeefa6e15b19aec017db3\transformed\jetified-emoji2-1.3.0\AndroidManifest.xml:25:13-67
+81            android:authorities="com.blumart.sync.androidx-startup"
+81-->[androidx.emoji2:emoji2:1.3.0] C:\Users\asus\.gradle\caches\8.9\transforms\fd5ff02451adeefa6e15b19aec017db3\transformed\jetified-emoji2-1.3.0\AndroidManifest.xml:26:13-68
+82            android:exported="false" >
+82-->[androidx.emoji2:emoji2:1.3.0] C:\Users\asus\.gradle\caches\8.9\transforms\fd5ff02451adeefa6e15b19aec017db3\transformed\jetified-emoji2-1.3.0\AndroidManifest.xml:27:13-37
+83            <meta-data
+83-->[androidx.emoji2:emoji2:1.3.0] C:\Users\asus\.gradle\caches\8.9\transforms\fd5ff02451adeefa6e15b19aec017db3\transformed\jetified-emoji2-1.3.0\AndroidManifest.xml:29:13-31:52
+84                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+84-->[androidx.emoji2:emoji2:1.3.0] C:\Users\asus\.gradle\caches\8.9\transforms\fd5ff02451adeefa6e15b19aec017db3\transformed\jetified-emoji2-1.3.0\AndroidManifest.xml:30:17-75
+85                android:value="androidx.startup" />
+85-->[androidx.emoji2:emoji2:1.3.0] C:\Users\asus\.gradle\caches\8.9\transforms\fd5ff02451adeefa6e15b19aec017db3\transformed\jetified-emoji2-1.3.0\AndroidManifest.xml:31:17-49
+86            <meta-data
+86-->[androidx.lifecycle:lifecycle-process:2.6.2] C:\Users\asus\.gradle\caches\8.9\transforms\e38926a3f4b54703d74b6ecdac8da6b6\transformed\jetified-lifecycle-process-2.6.2\AndroidManifest.xml:29:13-31:52
+87                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+87-->[androidx.lifecycle:lifecycle-process:2.6.2] C:\Users\asus\.gradle\caches\8.9\transforms\e38926a3f4b54703d74b6ecdac8da6b6\transformed\jetified-lifecycle-process-2.6.2\AndroidManifest.xml:30:17-78
+88                android:value="androidx.startup" />
+88-->[androidx.lifecycle:lifecycle-process:2.6.2] C:\Users\asus\.gradle\caches\8.9\transforms\e38926a3f4b54703d74b6ecdac8da6b6\transformed\jetified-lifecycle-process-2.6.2\AndroidManifest.xml:31:17-49
+89            <meta-data
+89-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\asus\.gradle\caches\8.9\transforms\998a72cf1f4692e5baefe1eb236e8ec8\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:29:13-31:52
+90                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+90-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\asus\.gradle\caches\8.9\transforms\998a72cf1f4692e5baefe1eb236e8ec8\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:30:17-85
+91                android:value="androidx.startup" />
+91-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\asus\.gradle\caches\8.9\transforms\998a72cf1f4692e5baefe1eb236e8ec8\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:31:17-49
+92        </provider>
+93
+94        <receiver
+94-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\asus\.gradle\caches\8.9\transforms\998a72cf1f4692e5baefe1eb236e8ec8\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:34:9-52:20
+95            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+95-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\asus\.gradle\caches\8.9\transforms\998a72cf1f4692e5baefe1eb236e8ec8\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:35:13-76
+96            android:directBootAware="false"
+96-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\asus\.gradle\caches\8.9\transforms\998a72cf1f4692e5baefe1eb236e8ec8\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:36:13-44
+97            android:enabled="true"
+97-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\asus\.gradle\caches\8.9\transforms\998a72cf1f4692e5baefe1eb236e8ec8\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:37:13-35
+98            android:exported="true"
+98-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\asus\.gradle\caches\8.9\transforms\998a72cf1f4692e5baefe1eb236e8ec8\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:38:13-36
+99            android:permission="android.permission.DUMP" >
+99-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\asus\.gradle\caches\8.9\transforms\998a72cf1f4692e5baefe1eb236e8ec8\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:39:13-57
+100            <intent-filter>
+100-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\asus\.gradle\caches\8.9\transforms\998a72cf1f4692e5baefe1eb236e8ec8\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:40:13-42:29
+101                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+101-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\asus\.gradle\caches\8.9\transforms\998a72cf1f4692e5baefe1eb236e8ec8\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:41:17-91
+101-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\asus\.gradle\caches\8.9\transforms\998a72cf1f4692e5baefe1eb236e8ec8\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:41:25-88
+102            </intent-filter>
+103            <intent-filter>
+103-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\asus\.gradle\caches\8.9\transforms\998a72cf1f4692e5baefe1eb236e8ec8\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:43:13-45:29
+104                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+104-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\asus\.gradle\caches\8.9\transforms\998a72cf1f4692e5baefe1eb236e8ec8\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:44:17-85
+104-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\asus\.gradle\caches\8.9\transforms\998a72cf1f4692e5baefe1eb236e8ec8\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:44:25-82
+105            </intent-filter>
+106            <intent-filter>
+106-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\asus\.gradle\caches\8.9\transforms\998a72cf1f4692e5baefe1eb236e8ec8\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:46:13-48:29
+107                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+107-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\asus\.gradle\caches\8.9\transforms\998a72cf1f4692e5baefe1eb236e8ec8\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:47:17-88
+107-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\asus\.gradle\caches\8.9\transforms\998a72cf1f4692e5baefe1eb236e8ec8\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:47:25-85
+108            </intent-filter>
+109            <intent-filter>
+109-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\asus\.gradle\caches\8.9\transforms\998a72cf1f4692e5baefe1eb236e8ec8\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:49:13-51:29
+110                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+110-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\asus\.gradle\caches\8.9\transforms\998a72cf1f4692e5baefe1eb236e8ec8\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:50:17-95
+110-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\asus\.gradle\caches\8.9\transforms\998a72cf1f4692e5baefe1eb236e8ec8\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:50:25-92
+111            </intent-filter>
+112        </receiver>
+113    </application>
+114
+115</manifest>

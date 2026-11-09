@@ -296,6 +296,16 @@ export function OrderRowCard({
           </div>
         </div>
 
+        {order.status === 'Pending (10–24h)' && (
+          <a
+            href={`/payment/${order.id}`}
+            className="h-8 px-3 rounded-md bg-[#FF5E5B] hover:bg-[#DE524F] text-white text-xs font-bold inline-flex items-center gap-1.5 transition-colors no-underline shadow-xs"
+          >
+            <span>Pay Now</span>
+            <ArrowUpRight size={13} />
+          </a>
+        )}
+
         <StoreButton variant={buttonVariant} size="sm" onClick={handleAccess}>
           <span>Access</span>
           <ArrowUpRight size={13} />

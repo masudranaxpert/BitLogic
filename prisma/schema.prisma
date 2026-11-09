@@ -713,3 +713,48 @@ model SecurityEvent {
   @@index([createdAt])
 }
 
+model MfsDevice {
+  id          String      @id @default(cuid())
+  deviceName  String
+  phoneNumber String      @unique
+  apiKey      String      @unique
+  gateway     String      // all, bkash, nagad, rocket, upay
+  status      String      @default("active") // active, paused, offline
+  simSlot     String      @default("SIM 1")
+  batteryPct  Int?
+  isCharging  Boolean?
+  lastSeenAt  DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  smsLogs     MfsSmsLog[]
+
+  @@index([apiKey])
+  @@index([status])
+}
+
+model MfsSmsLog {
+  id               String      @id @default(cuid())
+  deviceId         String?
+  device           MfsDevice?  @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  gateway          String      // bkash, nagad, rocket, upay
+  senderAddress    String      // bkash, 16216, Nagad, etc.
+  senderNumber     String?     // customer mobile who sent money
+  amount           Decimal
+  balance          Decimal?
+  trxId            String      @unique
+  reference        String?
+  rawSms           String
+  receivedAt       DateTime    @default(now())
+  status           String      @default("unmatched") // unmatched, matched, ignored
+  matchedOrderId   String?
+  verificationMode String?     // fifo_time_window, ref_order_id, trx_id, unique_amount, manual
+  createdAt        DateTime    @default(now())
+
+  @@index([trxId])
+  @@index([status])
+  @@index([gateway])
+  @@index([senderNumber])
+  @@index([amount])
+  @@index([matchedOrderId])
+}
+

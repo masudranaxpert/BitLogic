@@ -141,27 +141,24 @@ export function PaymentMethodSelector({
         })}
       </div>
 
-      <div className="p-2.5 bg-slate-50 rounded-md border border-slate-200/80 text-xs text-slate-600 leading-relaxed">
-        Send <strong className="text-[#0F172A]">{formattedTotal}</strong> to{' '}
-        <span className="font-mono font-bold text-[#0F172A]">
-          {activeMethod.number || '(not configured)'}
-        </span>{' '}
-        ({activeMethod.label} - {activeMethod.type}) and enter the Transaction ID:
-        {activeMethod.instructions && (
-          <p className="mt-1 text-[11px] text-slate-500 m-0">
-            {activeMethod.instructions}
-          </p>
-        )}
+      <div className="p-3 bg-slate-50 rounded-lg border border-slate-200/80 text-xs text-slate-600 leading-relaxed flex items-center justify-between">
+        <div>
+          <span>Selected Gateway: </span>
+          <strong className="text-slate-900">{activeMethod.label}</strong>
+          <span className="text-[11px] text-slate-400 block mt-0.5">Instant automated payment verification</span>
+        </div>
+        <span className="font-mono text-sm font-black text-slate-900">{formattedTotal}</span>
       </div>
 
-      <input
-        type="text"
-        required
-        value={trxId}
-        onChange={(e) => onChangeTrxId(e.target.value)}
-        placeholder="Transaction ID (TrxID)"
-        className="w-full h-9.5 px-3 rounded-md border border-[#FF5E5B]/65 bg-white text-xs font-mono text-[#0F172A] placeholder:font-sans placeholder:text-slate-400 focus:outline-none focus:border-[#FF5E5B] focus:ring-2 focus:ring-[#FF5E5B]/15 transition-all"
-      />
+      <div className="relative">
+        <input
+          type="text"
+          value={trxId}
+          onChange={(e) => onChangeTrxId(e.target.value)}
+          placeholder="Optional: Enter TrxID if already paid (or leave empty to pay now)"
+          className="w-full h-9.5 px-3 rounded-md border border-slate-200 bg-white text-xs font-mono text-[#0F172A] placeholder:font-sans placeholder:text-slate-400 focus:outline-none focus:border-[#FF5E5B] focus:ring-2 focus:ring-[#FF5E5B]/15 transition-all"
+        />
+      </div>
     </div>
   );
 }

@@ -1,0 +1,9 @@
+R_DEF: Internal format may change without notice
+local
+id btnBatterySettings
+id btnSave
+id btnStartService
+id editApiKey
+id editServerUrl
+id tvBatteryStatus
+layout activity_main

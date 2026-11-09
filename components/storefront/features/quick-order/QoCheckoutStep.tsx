@@ -109,6 +109,13 @@ export function QoCheckoutStep({
 
       rememberOrderId(data.orderId, data.accessToken);
       setPlacedOrderId(data.orderId);
+
+      // If user hasn't provided a manual TrxID, direct them to our seamless Gateway Checkout screen
+      if (!trxId.trim()) {
+        window.location.href = `/payment/${data.orderId}?method=${selectedMethod}`;
+        return;
+      }
+
       window.setTimeout(() => onPlaced(), 1600);
     } catch (err: unknown) {
       setErrorMessage(err instanceof Error ? err.message : 'Checkout failed');
