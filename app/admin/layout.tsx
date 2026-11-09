@@ -12,7 +12,11 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
 };
 
-export default async function AdminLayout() {
+export default async function AdminLayout({
+  children,
+}: {
+  children?: React.ReactNode;
+}) {
   // Reconcile JWT against DB (sessionVersion / demotion) — middleware alone cannot.
   const session = await getSession();
   if (
@@ -26,6 +30,7 @@ export default async function AdminLayout() {
   return (
     <Suspense fallback={<AdminShellSkeleton />}>
       <AdminDashboard />
+      {children}
     </Suspense>
   );
 }
