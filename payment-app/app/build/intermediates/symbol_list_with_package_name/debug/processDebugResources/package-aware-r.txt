@@ -3099,8 +3099,15 @@ id bottom
 id bounce
 id btnBatterySettings
 id btnClearLogs
+id btnCopyLogs
+id btnFlushQueue
+id btnGrantPermissions
+id btnPasteKey
 id btnSave
+id btnScanInbox
+id btnSimulateSms
 id btnTestPing
+id btnToggleKeyMask
 id btnToggleService
 id buttonPanel
 id cancel_button
@@ -3455,7 +3462,11 @@ id transition_transform
 id triangle
 id tvBatteryStatus
 id tvLogsConsole
+id tvPermissionStatus
 id tvServiceStatusPill
+id tvStatLastSync
+id tvStatQueued
+id tvStatSynced
 id unchecked
 id uniform
 id unlabeled

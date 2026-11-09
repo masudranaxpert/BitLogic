@@ -3,7 +3,7 @@
 import React from 'react';
 import { Card } from '@/components/admin/ui/primitives';
 import { type StoreSettings } from '@/lib/store-settings';
-import { Smartphone, ShieldCheck, Check, SlidersHorizontal } from 'lucide-react';
+import { Smartphone, Check, SlidersHorizontal } from 'lucide-react';
 
 export type PaymentConfigDraft = Pick<
   StoreSettings,
@@ -22,7 +22,6 @@ export type PaymentConfigDraft = Pick<
   | 'verifyModeTrxId'
   | 'verifyModeSenderFifo'
   | 'verifyModeReference'
-  | 'verifyModeUniqueAmount'
 >;
 
 interface MethodTabProps {
@@ -44,32 +43,28 @@ export function PaymentMethodConfigTab({
   const isStrictTrxOnly =
     draft.verifyModeTrxId &&
     !draft.verifyModeSenderFifo &&
-    !draft.verifyModeReference &&
-    !draft.verifyModeUniqueAmount;
+    !draft.verifyModeReference;
 
   const isAllModesActive =
     draft.verifyModeTrxId &&
     draft.verifyModeSenderFifo &&
-    draft.verifyModeReference &&
-    draft.verifyModeUniqueAmount;
+    draft.verifyModeReference;
 
   const enableAllModes = () => {
     setField('verifyModeTrxId', true);
     setField('verifyModeSenderFifo', true);
     setField('verifyModeReference', true);
-    setField('verifyModeUniqueAmount', true);
   };
 
   const enableStrictTrxOnly = () => {
     setField('verifyModeTrxId', true);
     setField('verifyModeSenderFifo', false);
     setField('verifyModeReference', false);
-    setField('verifyModeUniqueAmount', false);
   };
 
   return (
     <div className="space-y-6">
-      {/* 4-Mode Autonomous Verification Rules Controller */}
+      {/* 3-Mode Autonomous Verification Rules Controller */}
       <Card className="p-5 border border-slate-200 dark:border-slate-800 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3.5">
           <div className="flex items-center gap-2.5">
@@ -96,7 +91,7 @@ export function PaymentMethodConfigTab({
                   : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300'
               }`}
             >
-              All 4 Modes (Default)
+              All 3 Modes (Default)
             </button>
             <button
               type="button"
@@ -120,10 +115,10 @@ export function PaymentMethodConfigTab({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {/* Mode 1 */}
           <label
-            className={`p-3 rounded-lg border cursor-pointer transition flex flex-col justify-between gap-2 ${
+            className={`p-3.5 rounded-lg border cursor-pointer transition flex flex-col justify-between gap-2 ${
               draft.verifyModeSenderFifo
                 ? 'border-emerald-500/60 bg-emerald-50/20 dark:bg-emerald-950/15'
                 : 'border-slate-200 dark:border-slate-800 opacity-75'
@@ -147,7 +142,7 @@ export function PaymentMethodConfigTab({
 
           {/* Mode 2 */}
           <label
-            className={`p-3 rounded-lg border cursor-pointer transition flex flex-col justify-between gap-2 ${
+            className={`p-3.5 rounded-lg border cursor-pointer transition flex flex-col justify-between gap-2 ${
               draft.verifyModeReference
                 ? 'border-emerald-500/60 bg-emerald-50/20 dark:bg-emerald-950/15'
                 : 'border-slate-200 dark:border-slate-800 opacity-75'
@@ -171,7 +166,7 @@ export function PaymentMethodConfigTab({
 
           {/* Mode 3 */}
           <label
-            className={`p-3 rounded-lg border cursor-pointer transition flex flex-col justify-between gap-2 ${
+            className={`p-3.5 rounded-lg border cursor-pointer transition flex flex-col justify-between gap-2 ${
               draft.verifyModeTrxId
                 ? 'border-emerald-500/60 bg-emerald-50/20 dark:bg-emerald-950/15'
                 : 'border-slate-200 dark:border-slate-800 opacity-75'
@@ -190,30 +185,6 @@ export function PaymentMethodConfigTab({
             </div>
             <p className="text-[11px] text-slate-500 leading-relaxed m-0">
               Verifies exact TrxID submitted by customer against received SMS log.
-            </p>
-          </label>
-
-          {/* Mode 4 */}
-          <label
-            className={`p-3 rounded-lg border cursor-pointer transition flex flex-col justify-between gap-2 ${
-              draft.verifyModeUniqueAmount
-                ? 'border-emerald-500/60 bg-emerald-50/20 dark:bg-emerald-950/15'
-                : 'border-slate-200 dark:border-slate-800 opacity-75'
-            }`}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                4. Unique Amount
-              </span>
-              <input
-                type="checkbox"
-                checked={draft.verifyModeUniqueAmount}
-                onChange={(e) => setField('verifyModeUniqueAmount', e.target.checked)}
-                className="accent-emerald-600 w-4 h-4 mt-0.5 cursor-pointer"
-              />
-            </div>
-            <p className="text-[11px] text-slate-500 leading-relaxed m-0">
-              Auto-matches when only 1 active order has that exact amount in 20 mins.
             </p>
           </label>
         </div>

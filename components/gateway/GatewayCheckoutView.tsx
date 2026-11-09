@@ -41,7 +41,6 @@ export type GatewayCheckoutProps = {
     verifyModeTrxId: boolean;
     verifyModeSenderFifo: boolean;
     verifyModeReference: boolean;
-    verifyModeUniqueAmount: boolean;
   };
 };
 
@@ -74,8 +73,7 @@ export function GatewayCheckoutView({
   const isStrictTrxOnly =
     settings.verifyModeTrxId &&
     !settings.verifyModeSenderFifo &&
-    !settings.verifyModeReference &&
-    !settings.verifyModeUniqueAmount;
+    !settings.verifyModeReference;
 
   const hasRegisteredValidSender = Boolean(
     registeredSenderNumber &&
@@ -809,9 +807,9 @@ export function GatewayCheckoutView({
               )}
             </div>
 
-            {/* Clean Structured White Action Footer (Less Rounded + Colored Cancel Button) */}
-            <div className="p-4 bg-white border-t border-slate-100 space-y-3">
-              {!isStrictTrxOnly && (
+            {/* Clean Structured White Action Footer */}
+            {!isStrictTrxOnly && (
+              <div className="p-4 bg-white border-t border-slate-100">
                 <div className="grid grid-cols-2 gap-2.5">
                   <button
                     type="button"
@@ -832,19 +830,8 @@ export function GatewayCheckoutView({
                     <span>TrxID দিয়ে ভেরিফাই</span>
                   </button>
                 </div>
-              )}
-
-              {/* Subtle Integrated Security & Brand Bar */}
-              <div className="pt-0.5 flex items-center justify-between text-[11px] text-slate-400">
-                <div className="flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  <span className="font-medium text-slate-500">Instant Auto-Verification</span>
-                </div>
-                <div className="scale-90 origin-right opacity-85">
-                  <BrandLogo size="sm" />
-                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>

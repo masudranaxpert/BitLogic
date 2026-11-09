@@ -40,7 +40,6 @@ function pick(s: StoreSettings): PaymentConfigDraft {
     verifyModeTrxId: s.verifyModeTrxId ?? DEFAULT_STORE_SETTINGS.verifyModeTrxId,
     verifyModeSenderFifo: s.verifyModeSenderFifo ?? DEFAULT_STORE_SETTINGS.verifyModeSenderFifo,
     verifyModeReference: s.verifyModeReference ?? DEFAULT_STORE_SETTINGS.verifyModeReference,
-    verifyModeUniqueAmount: s.verifyModeUniqueAmount ?? DEFAULT_STORE_SETTINGS.verifyModeUniqueAmount,
   };
 }
 
@@ -181,7 +180,7 @@ export default function PaymentMethodsView() {
             Payment Methods &amp; Verification
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Configure MFS receiving numbers, 4-mode auto-verification rules, and Android sync devices.
+            Configure MFS receiving numbers, 3-mode auto-verification rules, and Android sync devices.
           </p>
         </div>
 

@@ -6,17 +6,16 @@ import { getStoreSettings } from '@/lib/store-settings';
 export type VerificationResult = {
   success: boolean;
   orderId?: string;
-  matchedBy?: 'fifo_time_window' | 'ref_order_id' | 'trx_id' | 'unique_amount' | 'manual';
+  matchedBy?: 'fifo_time_window' | 'ref_order_id' | 'trx_id' | 'manual';
   message: string;
 };
 
 /**
- * 4-Mode Autonomous Payment Verification Engine for Blumartbd.
+ * 3-Mode Autonomous Payment Verification Engine for Blumartbd.
  * Respects Admin Toggles:
- * - verifyModeTrxId (Mode 3)
- * - verifyModeSenderFifo (Mode 1)
- * - verifyModeReference (Mode 2)
- * - verifyModeUniqueAmount (Mode 4)
+ * - verifyModeTrxId (Mode 3: Transaction ID Match)
+ * - verifyModeSenderFifo (Mode 1: Sender Number + Time Window FIFO)
+ * - verifyModeReference (Mode 2: Reference / Invoice ID + Amount)
  */
 export async function processIncomingMfsSms(
   rawSms: string,
@@ -154,18 +153,6 @@ export async function processIncomingMfsSms(
 
     if (matchingOrderByPhone) {
       return await completeOrderVerification(matchingOrderByPhone.id, smsRecord.id, parsed, 'fifo_time_window');
-    }
-  }
-
-  // MODE 4: Unique Amount Matching (Collision-free exact amount within active window)
-  // ---------------------------------------------------------------------------------
-  if (settings.verifyModeUniqueAmount !== false) {
-    const matchingAmountOrders = candidateOrders.filter(
-      (o) => Math.abs(Number(o.totalBdt) - parsed.amount) < 0.01
-    );
-
-    if (matchingAmountOrders.length === 1) {
-      return await completeOrderVerification(matchingAmountOrders[0].id, smsRecord.id, parsed, 'unique_amount');
     }
   }
 
@@ -381,7 +368,7 @@ async function completeOrderVerification(
   orderId: string,
   smsLogId: string,
   parsed: MfsParsedTransaction,
-  matchedBy: 'fifo_time_window' | 'ref_order_id' | 'trx_id' | 'unique_amount' | 'manual'
+  matchedBy: 'fifo_time_window' | 'ref_order_id' | 'trx_id' | 'manual'
 ): Promise<VerificationResult> {
   const order = await db.order.findUnique({
     where: { id: orderId },

@@ -68,7 +68,6 @@ export default async function PaymentGatewayPage({
         verifyModeTrxId: settings.verifyModeTrxId !== false,
         verifyModeSenderFifo: settings.verifyModeSenderFifo !== false,
         verifyModeReference: settings.verifyModeReference !== false,
-        verifyModeUniqueAmount: settings.verifyModeUniqueAmount !== false,
       }}
     />
   );

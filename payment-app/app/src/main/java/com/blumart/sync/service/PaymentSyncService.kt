@@ -17,6 +17,9 @@ class PaymentSyncService : Service() {
         private const val CHANNEL_ID = "blumart_mfs_sync_channel"
         private const val NOTIFICATION_ID = 101
 
+        @Volatile
+        var isRunning: Boolean = false
+
         fun start(context: Context) {
             val intent = Intent(context, PaymentSyncService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -25,30 +28,36 @@ class PaymentSyncService : Service() {
                 context.startService(intent)
             }
         }
+
+        fun stop(context: Context) {
+            val intent = Intent(context, PaymentSyncService::class.java)
+            context.stopService(intent)
+        }
     }
 
     private var wakeLock: PowerManager.WakeLock? = null
 
     override fun onCreate() {
         super.onCreate()
+        isRunning = true
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildForegroundNotification())
 
-        // Acquire partial WakeLock to keep CPU active across Samsung/Honor aggressive deep sleep
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "BlumartSync::CpuWakeLock").apply {
-            acquire(24 * 60 * 60 * 1000L) // 24 hours lock
+            acquire(24 * 60 * 60 * 1000L)
         }
         Log.i(TAG, "Foreground service started & WakeLock acquired")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Return START_STICKY to guarantee Android OS restarts service if killed due to memory pressure
+        isRunning = true
         return START_STICKY
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        isRunning = false
         try {
             if (wakeLock?.isHeld == true) {
                 wakeLock?.release()
@@ -78,16 +87,16 @@ class PaymentSyncService : Service() {
     private fun buildForegroundNotification(): Notification {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, CHANNEL_ID)
-                .setContentTitle("Blumart Payment Sync Active")
-                .setContentText("Listening for bKash, Nagad, Rocket, Upay SMS...")
+                .setContentTitle("Blumartbd Sync Active (24/7)")
+                .setContentText("Listening for bKash, Nagad & Rocket payment SMS...")
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setOngoing(true)
                 .build()
         } else {
             @Suppress("DEPRECATION")
             Notification.Builder(this)
-                .setContentTitle("Blumart Payment Sync Active")
-                .setContentText("Listening for bKash, Nagad, Rocket, Upay SMS...")
+                .setContentTitle("Blumartbd Sync Active (24/7)")
+                .setContentText("Listening for bKash, Nagad & Rocket payment SMS...")
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setOngoing(true)
                 .build()
