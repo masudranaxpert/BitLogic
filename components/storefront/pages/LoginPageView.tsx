@@ -7,6 +7,7 @@ import { writeCustomer } from '@/lib/customerSession';
 import { PasswordField } from '@/components/storefront/features/PasswordField';
 import { StoreButton, StoreInputField, StoreSurfaceCard } from '@/components/storefront/ui';
 import { useStoreNav } from '@/context/StoreNavContext';
+import { getSafeRedirectUrl } from '@/lib/auth/safe-redirect';
 
 type AuthUser = {
   id: string;
@@ -178,7 +179,7 @@ export function LoginPageView() {
   const goAfterSignIn = (user: AuthUser) => {
     if (user.role === 'ADMIN' || user.role === 'STAFF') {
       const next = searchParams.get('next');
-      window.location.href = next && next.startsWith('/admin') ? next : '/admin';
+      window.location.href = getSafeRedirectUrl(next, user.role);
       return;
     }
     writeCustomer({
@@ -186,7 +187,8 @@ export function LoginPageView() {
       email: user.email,
       phone: user.phone || '',
     });
-    navigateTo('account');
+    const target = getSafeRedirectUrl(searchParams.get('next'), user.role);
+    window.location.href = target;
   };
 
   const submitAuth = async () => {

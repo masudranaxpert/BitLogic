@@ -130,9 +130,34 @@ export default function FeatureControlView() {
       </header>
 
       {!draft ? (
-        <Card className="p-5 text-sm text-slate-500">
-          {status === 'error' ? 'Could not load settings.' : 'Loading…'}
-        </Card>
+        status === 'error' ? (
+          <Card className="p-6 text-sm text-center space-y-3">
+            <p className="text-rose-600 dark:text-rose-400 font-medium m-0">Could not load settings.</p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="h-9 px-4 rounded-md border border-slate-200 dark:border-slate-700 text-xs font-semibold hover:border-emerald-600 cursor-pointer"
+            >
+              Retry
+            </button>
+          </Card>
+        ) : (
+          <Card className="overflow-hidden divide-y divide-slate-200/80 dark:divide-slate-800" aria-busy="true">
+            <div className="border-b border-slate-200/80 px-5 py-3.5 dark:border-slate-800 space-y-1.5">
+              <div className="h-5 w-32 rounded bg-slate-200/80 dark:bg-slate-700 animate-pulse" />
+              <div className="h-4 w-72 rounded bg-slate-200/50 dark:bg-slate-800 animate-pulse" />
+            </div>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex items-center justify-between px-5 py-4 animate-pulse">
+                <div className="space-y-1.5 flex-1 pr-4">
+                  <div className="h-4 w-40 rounded bg-slate-200/80 dark:bg-slate-700" />
+                  <div className="h-3 w-64 rounded bg-slate-200/50 dark:bg-slate-800" />
+                </div>
+                <div className="h-6 w-11 rounded-full bg-slate-200/70 dark:bg-slate-800 shrink-0" />
+              </div>
+            ))}
+          </Card>
+        )
       ) : (
         <>
           <Card className="overflow-hidden divide-y divide-slate-200/80 dark:divide-slate-800">

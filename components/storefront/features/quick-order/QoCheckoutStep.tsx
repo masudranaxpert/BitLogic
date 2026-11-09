@@ -2,7 +2,7 @@
 
 import { useStoreSettings } from '@/context/StoreSettingsContext';
 import React, { useState, type FormEvent } from 'react';
-import { ArrowLeft, CheckCircle2, Mail, Phone, User, AlertCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Mail, Phone, User, AlertCircle, Loader2 } from 'lucide-react';
 import type { Plan, Product } from '@/lib/products';
 import { formatPrice } from '@/lib/products';
 import { useCustomerSession } from '@/hooks/use-customer-session';
@@ -83,7 +83,7 @@ export function QoCheckoutStep({
           customerName: name.trim(),
           customerEmail: email.trim(),
           customerPhone: phone.trim(),
-          gateway: selectedMethod === 'nagad' ? 'Nagad' : 'bKash',
+          gateway: selectedMethod === 'nagad' ? 'Nagad' : selectedMethod === 'rocket' ? 'Rocket' : 'bKash',
           trxId: trxId.trim(),
           couponCode: couponDiscount > 0 ? coupon.trim() : undefined,
           items: [
@@ -262,13 +262,18 @@ export function QoCheckoutStep({
         disabled={isSubmitting || Boolean(placedOrderId) || ordersPaused}
         className="w-full h-11 px-4 rounded-md bg-[#FF5E5B] hover:bg-[#e04845] text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer border-0 disabled:opacity-50"
       >
-        {isSubmitting
-          ? 'Placing order...'
-          : placedOrderId
-            ? 'Order confirmed'
-            : ordersPaused
-              ? 'Ordering is paused'
-              : `Place order — ${formatPrice(finalTotal)}`}
+        {isSubmitting ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            <span>Placing order...</span>
+          </>
+        ) : placedOrderId ? (
+          'Order confirmed'
+        ) : ordersPaused ? (
+          'Ordering is paused'
+        ) : (
+          `Place order — ${formatPrice(finalTotal)}`
+        )}
       </button>
     </form>
   );

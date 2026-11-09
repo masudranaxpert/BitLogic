@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, AlertCircle } from 'lucide-react';
 import type { Plan, Product } from '@/lib/products';
 import { formatPrice } from '@/lib/products';
 import { PlanWarrantyCard } from '@/components/storefront/ui';
@@ -102,12 +102,18 @@ export function QoPlanSelectStep({
         plans={product.plans}
         selectedId={plan?.id ?? ''}
         onSelect={handleSelectPlan}
+        hasError={showError && !plan}
       />
 
       {showError && !plan && (
-        <p className="text-xs font-bold text-[#FF5E5B] m-0">
-          Please select an option above to continue.
-        </p>
+        <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-red-50 border border-red-300 text-red-700 shadow-2xs transition-all animate-in fade-in slide-in-from-top-1">
+          <span className="w-5 h-5 rounded-full bg-red-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+            <AlertCircle size={12} strokeWidth={2.8} />
+          </span>
+          <p className="text-xs font-bold leading-tight m-0 text-red-700">
+            Please select an option above to continue.
+          </p>
+        </div>
       )}
 
       {/* Selected Plan Warranty & Instructions Card */}

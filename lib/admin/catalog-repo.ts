@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { recordPriceChange } from '@/lib/suppliers/core';
 import type {
   CredentialScheme,
   DigitalProduct,
@@ -41,7 +42,7 @@ export async function loadAdminCatalog() {
   };
 }
 
-export async function saveDigitalProduct(product: DigitalProduct) {
+export async function saveDigitalProduct(product: DigitalProduct, actor = '') {
   const payload = digitalProductToDbPayload(product);
 
   let categoryId = payload.categoryId;
@@ -90,16 +91,20 @@ export async function saveDigitalProduct(product: DigitalProduct) {
         isActive: payload.isActive,
         sku: payload.sku,
         status: payload.status,
-        renewable: payload.renewable,
-        allowOrderWhenOutOfStock: payload.allowOrderWhenOutOfStock,
-        availableFrom: payload.availableFrom,
-        availableUntil: payload.availableUntil,
       },
     });
 
     const incomingCodes = payload.plans.map((p) => p.code);
+    // Current prices, so every change can be recorded and auto-priced options keep the server's price.
+    const before = new Map(
+      (await db.productPlan.findMany({ where: { productId: existing.id }, select: { code: true, priceBdt: true, pricingMode: true } })).map(
+        (p) => [p.code, p],
+      ),
+    );
 
     for (const planData of payload.plans) {
+      const prev = before.get(planData.code);
+      const autoPriced = prev?.pricingMode === 'auto';
       await db.productPlan.upsert({
         where: {
           productId_code: {
@@ -115,7 +120,8 @@ export async function saveDigitalProduct(product: DigitalProduct) {
           label: planData.label,
           durationLabel: planData.durationLabel,
           durationDays: planData.durationDays,
-          priceBdt: planData.priceBdt,
+          // Auto-priced options follow the supplier; a stale form can't overwrite that price.
+          ...(autoPriced ? {} : { priceBdt: planData.priceBdt }),
           warrantyBadge: planData.warrantyBadge,
           warrantyType: planData.warrantyType,
           warrantyHeadline: planData.warrantyHeadline,
@@ -135,8 +141,25 @@ export async function saveDigitalProduct(product: DigitalProduct) {
           warningNote: planData.warningNote,
           optionDescription: planData.optionDescription,
           specificationsJson: planData.specificationsJson,
+          renewable: planData.renewable,
+          renewalPricing: planData.renewalPricing,
+          allowBackorder: planData.allowBackorder,
+          availableFrom: planData.availableFrom,
+          availableUntil: planData.availableUntil,
         },
       });
+      if (!autoPriced) {
+        await recordPriceChange({
+          productId: payload.slug,
+          planCode: planData.code,
+          planLabel: planData.label,
+          oldValue: prev ? Number(prev.priceBdt) : '—',
+          newValue: Number(planData.priceBdt),
+          source: 'admin',
+          actor,
+          note: prev ? '' : 'Option created',
+        });
+      }
     }
 
     const removedPlans = await db.productPlan.findMany({
@@ -174,13 +197,21 @@ export async function saveDigitalProduct(product: DigitalProduct) {
       isActive: payload.isActive,
       sku: payload.sku,
       status: payload.status,
-      renewable: payload.renewable,
-      allowOrderWhenOutOfStock: payload.allowOrderWhenOutOfStock,
-      availableFrom: payload.availableFrom,
-      availableUntil: payload.availableUntil,
       plans: { create: payload.plans },
     },
   });
+  for (const p of payload.plans) {
+    await recordPriceChange({
+      productId: payload.slug,
+      planCode: p.code,
+      planLabel: p.label,
+      oldValue: '—',
+      newValue: Number(p.priceBdt),
+      source: 'admin',
+      actor,
+      note: 'Product created',
+    });
+  }
 }
 
 export async function replaceCategories(categories: ProductCategory[]) {

@@ -5,6 +5,7 @@ import { PackageX, ShoppingCart, Zap } from 'lucide-react';
 import { startingAmount, startingPrice, type Product } from '@/lib/products';
 import { useQuickOrder } from '@/context/QuickOrderContext';
 import { useStoreNav } from '@/context/StoreNavContext';
+import { listingWindow } from '@/lib/catalog/schedule';
 import { SaleChip, useProductWindow } from '@/components/storefront/ui/SaleCountdown';
 
 export function ProductCard({ product }: { product: Product }) {
@@ -12,7 +13,12 @@ export function ProductCard({ product }: { product: Product }) {
   const { navigateTo } = useStoreNav();
   const soldOut = product.availability === 'out_of_stock';
   const canOrderWhileOos = Boolean(product.acceptOrdersWhenOutOfStock);
-  const win = useProductWindow(product);
+  const listed = listingWindow(product.plans);
+  const windowFields = {
+    availableFrom: listed.availableFrom || undefined,
+    availableUntil: listed.availableUntil || undefined,
+  };
+  const win = useProductWindow(windowFields);
   const stockBlocked = soldOut && !canOrderWhileOos;
   const blocked = stockBlocked || !win.canOrder;
   const blockedText = stockBlocked
@@ -69,7 +75,7 @@ export function ProductCard({ product }: { product: Product }) {
             {product.name}
           </button>
         </h3>
-        <SaleChip product={product} />
+        <SaleChip product={{ ...product, ...windowFields }} />
         {blocked ? (
           <div className="pcard-actions">
             <div className="pcard-soldout" role="status">
@@ -92,7 +98,7 @@ export function ProductCard({ product }: { product: Product }) {
             onClick={() => navigateTo('product', { productId: product.id })}
           >
             <ShoppingCart size={14} strokeWidth={2.4} className="shrink-0" />
-            <span>Select option</span>
+            <span>Select plan</span>
           </button>
           <button
             type="button"

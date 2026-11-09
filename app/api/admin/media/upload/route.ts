@@ -1,3 +1,5 @@
+import { lookup } from 'node:dns/promises';
+import { isIPv4, isIPv6 } from 'node:net';
 import { NextResponse } from 'next/server';
 import { requirePermission } from '@/lib/auth/require-admin';
 import { saveImageBufferAsWebp } from '@/lib/media/save-webp';
@@ -11,6 +13,73 @@ const ALLOWED = new Set([
   'image/gif',
   'image/avif',
 ]);
+
+const MAX_REMOTE_BYTES = 8 * 1024 * 1024; // 8 MB
+
+/**
+ * Standard RFC subnet validation:
+ * Validates against Loopback (127.0.0.0/8), Private subnets (RFC 1918),
+ * Link-local (RFC 3927), and IPv6 local/mapped ranges.
+ */
+function isPrivateIpAddress(ip: string): boolean {
+  if (isIPv4(ip)) {
+    const parts = ip.split('.').map(Number);
+    if (parts.length !== 4 || parts.some((n) => Number.isNaN(n) || n < 0 || n > 255)) {
+      return true;
+    }
+    // 0.0.0.0/8 (Current network)
+    if (parts[0] === 0) return true;
+    // 10.0.0.0/8 (Private)
+    if (parts[0] === 10) return true;
+    // 127.0.0.0/8 (Loopback)
+    if (parts[0] === 127) return true;
+    // 169.254.0.0/16 (Link-local / Cloud metadata)
+    if (parts[0] === 169 && parts[1] === 254) return true;
+    // 172.16.0.0/12 (Private)
+    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
+    // 192.168.0.0/16 (Private)
+    if (parts[0] === 192 && parts[1] === 168) return true;
+    return false;
+  }
+
+  if (isIPv6(ip)) {
+    const norm = ip.toLowerCase();
+    if (norm === '::1' || norm === '::') return true;
+    // IPv4-mapped IPv6 (::ffff:127.0.0.1)
+    if (norm.startsWith('::ffff:')) {
+      return isPrivateIpAddress(norm.replace('::ffff:', ''));
+    }
+    // Unique local address (fc00::/7) or Link-local (fe80::/10)
+    if (
+      norm.startsWith('fc') ||
+      norm.startsWith('fd') ||
+      norm.startsWith('fe8') ||
+      norm.startsWith('fe9') ||
+      norm.startsWith('fea') ||
+      norm.startsWith('feb')
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  return true; // Unknown/invalid IP -> treat as unsafe
+}
+
+async function isSafePublicUrl(rawUrl: string): Promise<boolean> {
+  try {
+    const parsed = new URL(rawUrl);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return false;
+    }
+
+    // Resolves hostname to its actual underlying IP (prevents DNS rebinding, alias bypasses, etc.)
+    const { address } = await lookup(parsed.hostname);
+    return !isPrivateIpAddress(address);
+  } catch {
+    return false;
+  }
+}
 
 export async function POST(request: Request) {
   const { error } = await requirePermission('media');
@@ -44,9 +113,9 @@ export async function POST(request: Request) {
     } else {
       const body = (await request.json()) as { url?: string; name?: string };
       const remoteUrl = body.url?.trim();
-      if (!remoteUrl || !/^https?:\/\//i.test(remoteUrl)) {
+      if (!remoteUrl || !(await isSafePublicUrl(remoteUrl))) {
         return NextResponse.json(
-          { error: 'Valid image URL required.' },
+          { error: 'A valid and public image URL (HTTP/HTTPS) is required.' },
           { status: 400 },
         );
       }
@@ -60,6 +129,13 @@ export async function POST(request: Request) {
           { status: 400 },
         );
       }
+      const contentLength = Number(res.headers.get('content-length') || 0);
+      if (contentLength > MAX_REMOTE_BYTES) {
+        return NextResponse.json(
+          { error: 'Remote image exceeds 8 MB limit.' },
+          { status: 400 },
+        );
+      }
       const remoteType = res.headers.get('content-type') || '';
       if (remoteType.includes('svg')) {
         return NextResponse.json(
@@ -68,7 +144,14 @@ export async function POST(request: Request) {
         );
       }
       preferredName = body.name?.trim() || pathNameFromUrl(remoteUrl) || preferredName;
-      buffer = Buffer.from(await res.arrayBuffer());
+      const arrayBuf = await res.arrayBuffer();
+      if (arrayBuf.byteLength > MAX_REMOTE_BYTES) {
+        return NextResponse.json(
+          { error: 'Remote image exceeds 8 MB limit.' },
+          { status: 400 },
+        );
+      }
+      buffer = Buffer.from(arrayBuf);
     }
 
     const saved = await saveImageBufferAsWebp(buffer, preferredName);

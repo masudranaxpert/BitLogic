@@ -8,19 +8,28 @@ type QoPlanChipsProps = {
   plans: Plan[];
   selectedId: string;
   onSelect: (planId: string) => void;
+  hasError?: boolean;
 };
 
 export function QoPlanChips({
   plans,
   selectedId,
   onSelect,
+  hasError = false,
 }: QoPlanChipsProps) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-extrabold text-[#0F172A]">
-          Select option
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-extrabold text-[#0F172A]">
+            Select option
+          </span>
+          {hasError && !selectedId && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-red-600 text-white animate-pulse shadow-2xs">
+              Required
+            </span>
+          )}
+        </div>
         {selectedId && (
           <button
             type="button"
@@ -35,17 +44,21 @@ export function QoPlanChips({
       <div className="space-y-1.5" role="radiogroup" aria-label="Choose a plan">
         {plans.map((plan) => {
           const active = plan.id === selectedId;
+          const soldOut = plan.canOrder === false;
           return (
             <button
               key={plan.id}
               type="button"
               role="radio"
               aria-checked={active}
+              disabled={soldOut}
               onClick={() => onSelect(plan.id)}
-              className={`w-full px-3.5 py-2.5 rounded-md border flex items-center justify-between gap-3 text-left transition-all cursor-pointer ${
+              className={`w-full px-3.5 py-2.5 rounded-lg border flex items-center justify-between gap-3 text-left transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
                 active
                   ? 'bg-[#0F172A] border-[#0F172A] text-white shadow-xs'
-                  : 'bg-white border-slate-200 hover:border-slate-300 text-[#0F172A]'
+                  : hasError && !selectedId
+                    ? 'bg-red-50/40 border-red-400 hover:border-red-500 text-[#0F172A] ring-1 ring-red-400/50'
+                    : 'bg-white border-slate-200 hover:border-slate-300 text-[#0F172A]'
               }`}
             >
               <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -72,6 +85,11 @@ export function QoPlanChips({
                   >
                     {plan.duration}
                   </span>
+                  {soldOut ? (
+                    <span className="text-[10px] font-extrabold uppercase text-slate-500">Out of stock</span>
+                  ) : plan.inStock === false ? (
+                    <span className="text-[10px] font-extrabold uppercase text-amber-600">Pre-order</span>
+                  ) : null}
                 </div>
               </div>
 

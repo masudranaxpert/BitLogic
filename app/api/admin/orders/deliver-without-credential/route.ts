@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requirePermission } from '@/lib/auth/require-admin';
 import { warrantyWindow } from '@/lib/warranty';
+import { recordActivity, requestIp } from '@/lib/audit/record';
 
 function pad(n: number) {
   return String(n).padStart(2, '0');
@@ -85,5 +86,13 @@ export async function POST(request: Request) {
       },
     }),
   ]);
+  await recordActivity({
+    userId: session.id,
+    action: 'order.deliver',
+    entityType: 'order',
+    entityId: d.orderId,
+    summary: `Delivered ${d.orderId} · ${d.productName} to ${d.buyerName || d.buyerEmail || 'the buyer'} without a credential`,
+    ip: requestIp(request),
+  });
   return NextResponse.json({ ok: true });
 }

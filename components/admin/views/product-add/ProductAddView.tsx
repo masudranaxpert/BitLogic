@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import type {
   DigitalProduct,
@@ -29,7 +29,9 @@ import {
   type DraftVariant,
 } from './draft-helpers';
 import ProductGeneralInfoCard from './ProductGeneralInfoCard';
-import ProductSchedulePicker, { scheduleProblem } from './ProductSchedulePicker';
+import { scheduleProblem } from './ProductSchedulePicker';
+import ProductSupplyPanel from './ProductSupplyPanel';
+import type { OptionView, ProductOptions } from '@/components/admin/views/suppliers/shared';
 import ProductOptionsEditor from './ProductOptionsEditor';
 import ProductMediaPicker from './ProductMediaPicker';
 import ProductLivePreview from './ProductLivePreview';
@@ -93,13 +95,10 @@ export default function ProductAddView({
   const [status, setStatus] = useState<DigitalProduct['status']>(
     editingProduct?.status === 'draft' ? 'draft' : 'active',
   );
-  const [renewable, setRenewable] = useState(editingProduct?.renewable ?? true);
-  const [allowOrderWhenOutOfStock, setAllowOrderWhenOutOfStock] = useState(
-    editingProduct?.allowOrderWhenOutOfStock ?? false,
-  );
   const [description, setDescription] = useState(editingProduct?.description ?? '');
-  const [availableFrom, setAvailableFrom] = useState(editingProduct?.availableFrom ?? '');
-  const [availableUntil, setAvailableUntil] = useState(editingProduct?.availableUntil ?? '');
+  const [supplyPlans, setSupplyPlans] = useState<OptionView[] | null>(null);
+  const [managePlanId, setManagePlanId] = useState<string | null>(null);
+  const onSupply = useCallback((data: ProductOptions | null) => setSupplyPlans(data?.plans ?? null), []);
 
   const [selectedMediaUrls, setSelectedMediaUrls] = useState<string[]>(() =>
     initialMediaUrls(editingProduct),
@@ -140,13 +139,7 @@ export default function ProductAddView({
     setPlatform(editingProduct.shortDescription || '');
     setCategoryId(resolveCategoryId(editingProduct, productCategories));
     setStatus(editingProduct.status === 'draft' ? 'draft' : 'active');
-    setRenewable(editingProduct.renewable ?? true);
-    setAllowOrderWhenOutOfStock(
-      editingProduct.allowOrderWhenOutOfStock ?? false,
-    );
     setDescription(editingProduct.description ?? '');
-    setAvailableFrom(editingProduct.availableFrom ?? '');
-    setAvailableUntil(editingProduct.availableUntil ?? '');
     setSelectedMediaUrls(initialMediaUrls(editingProduct));
     const drafts = editingProduct.variants.map((v) =>
       variantToDraft(v, warranties, credentialSchemes),
@@ -216,7 +209,7 @@ export default function ProductAddView({
   const saveProduct = () => {
     if (!name.trim()) return;
     if (draftVariants.length === 0) return;
-    if (scheduleProblem(availableFrom, availableUntil)) return;
+    if (draftVariants.some((dv) => scheduleProblem(dv.availableFrom, dv.availableUntil))) return;
 
     const prodId = editingProduct?.id ?? `prod-${Date.now()}`;
     const finalGallery = customImageUrl.trim()
@@ -248,7 +241,8 @@ export default function ProductAddView({
       return {
         id: varId,
         productId: prodId,
-        name: dv.name.trim() || `Option ${index + 1}`,
+        name: dv.name.trim() || `Plan ${index + 1}`,
+        sourcing: dv.sourcing || 'own',
         isDefault: false,
         durationDays: parsedDays,
         durationLabel,
@@ -272,6 +266,11 @@ export default function ProductAddView({
         warningNote: '',
         optionDescription: '',
         specifications: [],
+        renewable: dv.renewable,
+        renewalPricing: dv.renewalPricing,
+        allowOrderWhenOutOfStock: dv.allowOrderWhenOutOfStock,
+        availableFrom: dv.availableFrom || undefined,
+        availableUntil: dv.availableUntil || undefined,
       };
     });
 
@@ -287,10 +286,6 @@ export default function ProductAddView({
       imageUrl: primaryImageUrl,
       galleryUrls: finalGallery,
       status: status === 'draft' ? 'draft' : 'active',
-      renewable,
-      allowOrderWhenOutOfStock,
-      availableFrom: availableFrom || undefined,
-      availableUntil: availableUntil || undefined,
       shortDescription: platform.trim() || name.trim(),
       description,
       descriptionMode: 'global',
@@ -367,10 +362,6 @@ export default function ProductAddView({
               categoryId={categoryId}
               categories={productCategories}
               status={status}
-              renewable={renewable}
-              onRenewableChange={setRenewable}
-              allowOrderWhenOutOfStock={allowOrderWhenOutOfStock}
-              onAllowOrderWhenOutOfStockChange={setAllowOrderWhenOutOfStock}
               description={description}
               onNameChange={setName}
               onPlatformChange={setPlatform}
@@ -378,15 +369,6 @@ export default function ProductAddView({
               onStatusChange={setStatus}
               onDescriptionChange={setDescription}
               onOpenCategories={onOpenCategories}
-            />
-
-            <ProductSchedulePicker
-              from={availableFrom}
-              until={availableUntil}
-              onChange={(next) => {
-                setAvailableFrom(next.from);
-                setAvailableUntil(next.until);
-              }}
             />
 
             <ProductOptionsEditor
@@ -398,7 +380,18 @@ export default function ProductAddView({
               onUpdate={updateDraftVariant}
               onOpenWarranties={onOpenWarranties}
               onOpenCredentialTypes={onOpenCredentialTypes}
+              supplyPlans={supplyPlans ?? undefined}
+              onManageSupply={setManagePlanId}
             />
+
+            {isEdit && editingProduct ? (
+              <ProductSupplyPanel
+                productId={editingProduct.id}
+                onSupply={onSupply}
+                managePlanId={managePlanId}
+                onManagePlanId={setManagePlanId}
+              />
+            ) : null}
           </div>
 
           <div className="lg:col-span-4 space-y-5">

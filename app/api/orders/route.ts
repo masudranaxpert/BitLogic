@@ -164,13 +164,21 @@ export async function GET(request: Request) {
     const vaultMap = new Map(vaultRows.map((v) => [v.id, v]));
 
     const uniqueOrderIds = Array.from(new Set(deliveries.map((d) => d.orderId)));
-    const payments =
+    const [payments, orderRows] = await Promise.all([
       uniqueOrderIds.length > 0
-        ? await db.paymentTransaction.findMany({
+        ? db.paymentTransaction.findMany({
             where: { orderId: { in: uniqueOrderIds } },
           })
-        : [];
+        : [],
+      uniqueOrderIds.length > 0
+        ? db.order.findMany({
+            where: { id: { in: uniqueOrderIds } },
+            select: { id: true, paymentStatus: true, status: true },
+          })
+        : [],
+    ]);
     const paymentByOrderId = new Map(payments.map((p) => [p.orderId, p]));
+    const orderByOrderId = new Map(orderRows.map((o) => [o.id, o]));
 
     const orderGroups = new Map<string, typeof deliveries>();
     for (const d of deliveries) {
@@ -183,7 +191,14 @@ export async function GET(request: Request) {
       ([ordId, group]) => {
         const first = group[0];
         const payment = paymentByOrderId.get(ordId);
+        const orderRow = orderByOrderId.get(ordId);
         const unitsCount = group.length;
+
+        // Security check: is payment verified or fully paid?
+        const isPaymentVerified = Boolean(
+          payment?.status === 'verified' || orderRow?.paymentStatus === 'paid'
+        );
+        const isPaymentRejected = payment?.status === 'rejected';
 
         const allDelivered = group.every(
           (d) =>
@@ -199,23 +214,41 @@ export async function GET(request: Request) {
           ? 'Refunded'
           : anyClaim
             ? 'Warranty Claim'
-            : allDelivered
-              ? 'Active'
-              : 'Pending (10–24h)';
+            : !isPaymentVerified
+              ? isPaymentRejected
+                ? 'Payment Rejected'
+                : 'Pending Verification'
+              : allDelivered
+                ? 'Active'
+                : 'Pending (10–24h)';
 
         const units = group.map((d) => {
           const v = d.vaultCredentialId
             ? vaultMap.get(d.vaultCredentialId)
             : null;
           const latestAudit = d.credentialAudits?.[0];
-          const secretValue = decryptSecret(
-            v?.secretValue ||
-              latestAudit?.secretValue ||
-              '',
-          );
-          const password = v?.password
+          // Security gate: Never expose decrypted credentials or secrets if payment is unverified!
+          const canExposeCredential =
+            isPaymentVerified && (d.status === 'delivered' || d.status === 'warranty_claim');
+
+          const secretValue = canExposeCredential
+            ? decryptSecret(
+                v?.secretValue ||
+                  latestAudit?.secretValue ||
+                  '',
+              )
+            : '';
+          const password = canExposeCredential && v?.password
             ? decryptSecret(v.password)
             : undefined;
+          const email = canExposeCredential ? (v?.email || undefined) : undefined;
+          const profilePin = canExposeCredential ? (v?.profilePin || undefined) : undefined;
+          const isLocked = !canExposeCredential;
+          const lockReason = isPaymentRejected
+            ? 'Payment was rejected'
+            : !isPaymentVerified
+              ? 'Payment verification pending'
+              : 'Access is being prepared';
 
           return {
             deliveryId: d.id,
@@ -229,10 +262,12 @@ export async function GET(request: Request) {
             orderExpiresAt: d.orderExpiresAt,
             credentialType: d.credentialType,
             status: d.status,
+            isLocked,
+            lockReason,
             secretValue,
-            email: v?.email || undefined,
+            email,
             password,
-            profilePin: v?.profilePin || undefined,
+            profilePin,
             vpnRequired: d.vpnRequired,
             vpnRegionNote: d.vpnRegionNote,
             hasWarranty: d.hasWarranty,
@@ -285,10 +320,12 @@ export async function GET(request: Request) {
           buyerName: first.buyerName,
           buyerEmail: first.buyerEmail,
           buyerPhone: first.buyerPhone,
-          loginEmail: units[0]?.email || first.buyerEmail,
-          loginPassword: units[0]?.password,
-          profilePin: units[0]?.profilePin,
-          secretText: units[0]?.secretValue,
+          isPaymentVerified,
+          paymentStatus: orderRow?.paymentStatus || (isPaymentVerified ? 'paid' : 'pending'),
+          loginEmail: isPaymentVerified ? (units[0]?.email || undefined) : undefined,
+          loginPassword: isPaymentVerified ? units[0]?.password : undefined,
+          profilePin: isPaymentVerified ? units[0]?.profilePin : undefined,
+          secretText: isPaymentVerified ? units[0]?.secretValue : undefined,
           units,
           chatMessages: units[0]?.chatMessages || [],
           unreadChatCount: group.reduce(

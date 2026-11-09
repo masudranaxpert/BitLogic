@@ -122,8 +122,10 @@ function unitStatus(u: DigitalDelivery): {
 }
 
 /** Unit still needs a credential from the admin. */
+/** A supplier purchase in flight is not "open": nobody should send a credential by hand meanwhile. */
 export const isOpenUnit = (u: DigitalDelivery) =>
-  u.status === 'pending_dispatch' || (Boolean(u.renewalPending) && !isServed(u));
+  u.supplierState !== 'processing' &&
+  (u.status === 'pending_dispatch' || (Boolean(u.renewalPending) && !isServed(u)));
 
 /** Has a credential, or was delivered without one (set up on the buyer's device). */
 function isServed(u: DigitalDelivery) {
@@ -185,6 +187,39 @@ export function OrderDetailView({
   }, [orderId]);
 
   const [historyOpen, setHistoryOpen] = useState<string | null>(null);
+  // Supplier purchases (reseller APIs) for units of supplier-sourced options.
+  const [supBusy, setSupBusy] = useState<string | null>(null);
+  const [supMsg, setSupMsg] = useState<Record<string, string>>({});
+  const sourcingOf = (u: DigitalDelivery) =>
+    products.find((p) => p.id === u.productId)?.variants.find((v) => v.id === u.variantId)?.sourcing || 'own';
+  const supplierAct = async (u: DigitalDelivery, action: 'retry' | 'buy_anyway') => {
+    if (action === 'buy_anyway' && !window.confirm('Buy at the supplier’s current price even if it is more than this sale allows?')) return;
+    setSupBusy(u.id);
+    try {
+      const res = await fetch('/api/admin/suppliers/purchases', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, deliveryId: u.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      const r = (data.results || [])[0] as { outcome: string; message: string } | undefined;
+      setSupMsg((m) => ({
+        ...m,
+        [u.id]: !res.ok
+          ? data.error || 'Could not reach the supplier.'
+          : r
+            ? r.outcome === 'delivered'
+              ? 'Delivered by the supplier.'
+              : r.outcome === 'processing'
+                ? 'Sent. Waiting for the supplier to deliver.'
+                : r.message || r.outcome
+            : 'Nothing to buy for this unit.',
+      }));
+      window.dispatchEvent(new Event(ADMIN_RELOAD_EVENT));
+    } finally {
+      setSupBusy(null);
+    }
+  };
   const [noCredUnit, setNoCredUnit] = useState<DigitalDelivery | null>(null);
   const [noCredNote, setNoCredNote] = useState('');
   const [noCredBusy, setNoCredBusy] = useState(false);
@@ -233,6 +268,7 @@ export function OrderDetailView({
     const today = new Date(new Date().toISOString().slice(0, 10)).getTime();
     const daysLeft = endsAt ? Math.round((new Date(endsAt).getTime() - today) / 86_400_000) : null;
     const product = products.find((p) => p.id === pool[0]?.productId);
+    const variant = product?.variants.find((v) => v.id === pool[0]?.variantId);
     const ids = new Set(pool.map((u) => u.id));
     const renewalPending = payments.some(
       (p) =>
@@ -248,7 +284,7 @@ export function OrderDetailView({
       liveIds: pool.map((u) => u.id),
       warrantyLeft: Math.max(0, ...pool.map((u) => u.warrantyRemainingDays || 0)),
       warrantyDays: Math.max(0, ...pool.map((u) => u.warrantyDays || 0)),
-      renewable: product ? product.renewable !== false : true,
+      renewable: variant ? variant.renewable !== false : true,
       renewalPending,
     };
   };
@@ -568,14 +604,14 @@ export function OrderDetailView({
                 const left = end ? daysBetween(ymdOf(new Date()), end) : null;
                 return (
                   <li key={u.id} className="rounded-lg border border-slate-200 dark:border-slate-800">
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3.5 py-3">
-                      <div className="flex w-32 shrink-0 items-center gap-2.5">
+                    <div className="flex flex-wrap items-start gap-x-3 gap-y-2 px-3.5 py-3">
+                      <div className="flex shrink-0 items-center gap-2">
                         <span className="font-mono text-sm font-semibold text-slate-700 dark:text-slate-300">
                           #{i + 1}
                         </span>
                         <StatusIndicator tone={st.tone} label={st.label} />
                       </div>
-                      <div className="min-w-[11rem] flex-1">
+                      <div className="min-w-0 flex-1">
                         {secret ? (
                           <div className="flex items-center gap-1.5">
                             <span className="truncate rounded bg-slate-100 px-2 py-1 font-mono text-sm font-medium text-slate-900 dark:bg-slate-800 dark:text-slate-100">
@@ -644,9 +680,25 @@ export function OrderDetailView({
                             <WarrantySummary fields={u} compact />
                           </div>
                         ) : null}
+                        {u.supplierState && !closed ? (
+                          <div className="mt-1.5 text-xs">
+                            {u.supplierState === 'processing' ? (
+                              <span className="inline-flex items-center gap-1.5 font-medium text-sky-700 dark:text-sky-400">
+                                <span className="h-2 w-2 animate-pulse rounded-full bg-sky-500" aria-hidden /> Buying from supplier…
+                              </span>
+                            ) : u.supplierState === 'delivered' ? (
+                              <span className="text-slate-500">Bought from supplier</span>
+                            ) : u.supplierState === 'needs_review' ? (
+                              <span className="font-medium text-amber-700 dark:text-amber-400">Supplier price is higher than this sale allows — buy anyway, or refund.</span>
+                            ) : u.supplierState === 'failed' && !secret ? (
+                              <span className="font-medium text-rose-700 dark:text-rose-400">Supplier purchase failed (retries every 30 min). See Suppliers → Purchases.</span>
+                            ) : null}
+                          </div>
+                        ) : null}
+                        {supMsg[u.id] ? <div className="mt-1 text-xs text-slate-600 dark:text-slate-300">{supMsg[u.id]}</div> : null}
                       </div>
-                      {!closed ? (
-                        <div className="ml-auto flex shrink-0 flex-wrap items-center gap-1.5">
+                      {!closed && u.supplierState === 'processing' ? null : !closed ? (
+                        <div className="ml-auto flex shrink-0 flex-wrap items-center gap-1.5 self-center">
                           {secret ? (
                             <button
                               type="button"
@@ -657,6 +709,28 @@ export function OrderDetailView({
                             </button>
                           ) : (
                             <>
+                              {isOpenUnit(u) && sourcingOf(u) !== 'own' ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    disabled={supBusy === u.id}
+                                    onClick={() => void supplierAct(u, 'retry')}
+                                    className="h-8 rounded-md bg-sky-600 px-3 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-60 cursor-pointer"
+                                  >
+                                    {supBusy === u.id ? 'Buying…' : u.supplierState === 'failed' ? 'Retry supplier' : 'Buy from supplier'}
+                                  </button>
+                                  {u.supplierState === 'needs_review' ? (
+                                    <button
+                                      type="button"
+                                      disabled={supBusy === u.id}
+                                      onClick={() => void supplierAct(u, 'buy_anyway')}
+                                      className="h-8 rounded-md border border-amber-300 px-3 text-sm font-medium text-amber-800 hover:border-amber-500 dark:border-amber-800 dark:text-amber-300 cursor-pointer"
+                                    >
+                                      Buy anyway
+                                    </button>
+                                  ) : null}
+                                </>
+                              ) : null}
                               {isOpenUnit(u) ? (
                                 <button
                                   type="button"

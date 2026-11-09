@@ -106,11 +106,22 @@ export default function UsersSubscriptionsView({
     const activeUser = subscribers.find((u) => u.id === selectedCustomerId);
 
     if (!activeUser) {
+      if (!subscribers.length) {
+        return (
+          <div className="space-y-4 animate-pulse" aria-busy="true" aria-label="Loading customer details">
+            <div className="h-8 w-48 rounded bg-slate-200/80 dark:bg-slate-800" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="h-28 rounded-lg bg-slate-200/60 dark:bg-slate-800" />
+              <div className="h-28 rounded-lg bg-slate-200/60 dark:bg-slate-800" />
+              <div className="h-28 rounded-lg bg-slate-200/60 dark:bg-slate-800" />
+            </div>
+            <div className="h-64 rounded-lg bg-slate-200/50 dark:bg-slate-800" />
+          </div>
+        );
+      }
       return (
         <div className="rounded-lg border border-slate-200 bg-white p-8 text-center dark:border-slate-800 dark:bg-slate-900">
-          <p className="text-sm text-slate-500">
-            {subscribers.length ? 'This customer was not found.' : 'Loading…'}
-          </p>
+          <p className="text-sm text-slate-500">This customer was not found.</p>
           <button
             type="button"
             onClick={onBackToList}

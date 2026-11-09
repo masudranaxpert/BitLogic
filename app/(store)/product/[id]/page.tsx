@@ -5,7 +5,7 @@ import { getCatalogProductBySlug } from '@/lib/catalog/queries';
 import { JsonLd } from '@/lib/seo/json-ld';
 import { getSiteUrl } from '@/lib/seo/site-url';
 import { formatPrice } from '@/lib/products';
-import { scheduleState } from '@/lib/catalog/schedule';
+import { listingWindow, scheduleState } from '@/lib/catalog/schedule';
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -53,7 +53,8 @@ export default async function ProductPage({ params }: Props) {
   const low = product.plans.length
     ? Math.min(...product.plans.map((p) => p.price))
     : undefined;
-  const sched = scheduleState(product);
+  const listed = listingWindow(product.plans);
+  const sched = scheduleState(listed);
   const high = product.plans.length
     ? Math.max(...product.plans.map((p) => p.price))
     : undefined;
@@ -68,7 +69,7 @@ export default async function ProductPage({ params }: Props) {
           description: product.tagline || product.description,
           image: product.image ? [new URL(product.image, base).toString()] : undefined,
           sku: product.id,
-          brand: { '@type': 'Brand', name: 'BitLogic' },
+          brand: { '@type': 'Brand', name: 'Blumartbd' },
           offers:
             low != null
               ? {
@@ -85,7 +86,7 @@ export default async function ProductPage({ params }: Props) {
                         !product.acceptOrdersWhenOutOfStock
                       ? 'https://schema.org/OutOfStock'
                       : 'https://schema.org/InStock',
-                  ...(product.availableUntil ? { priceValidUntil: product.availableUntil } : {}),
+                  ...(listed.availableUntil ? { priceValidUntil: listed.availableUntil } : {}),
                   url: `${base}/product/${product.id}`,
                 }
               : undefined,

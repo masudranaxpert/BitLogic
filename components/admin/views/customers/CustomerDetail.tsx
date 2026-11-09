@@ -593,15 +593,16 @@ export function CustomerDetail({
                       <td className="py-3 px-4 text-right">
                         {(() => {
                           const prod = products.find((p) => p.name === sub.productName);
+                          const plan = prod?.variants.find((v) => v.name === sub.variantName);
                           const blocked =
-                            prod?.renewable === false
-                              ? 'One-time product — no renewals'
+                            plan?.renewable === false
+                              ? 'One-time plan — no renewals'
                               : prod?.status === 'draft'
                                 ? 'Product not available — renewals blocked'
                                 : '';
                           return blocked ? (
                             <span className="text-[11px] text-slate-400" title={blocked}>
-                              {prod?.renewable === false ? 'One-time' : 'Unavailable'}
+                              {plan?.renewable === false ? 'One-time' : 'Unavailable'}
                             </span>
                           ) : (
                         <button

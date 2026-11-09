@@ -26,13 +26,28 @@ export type AdminTab =
   | 'user-add'
   | 'media'
   | 'payments'
+  | 'payment-methods'
   | 'coupons'
   | 'features'
   | 'email'
+  | 'email-templates'
+  | 'email-triggers'
   | 'contact'
   | 'storefront'
+  | 'suppliers'
+  | 'supplier-catalog'
+  | 'supplier-links'
+  | 'supplier-orders'
+  | 'supplier-settings'
   | 'staff'
-  | 'staff-add';
+  | 'staff-add'
+  | 'staff-logins'
+  | 'staff-actions'
+  | 'staff-view'
+  | 'security'
+  | 'security-ips'
+  | 'security-audit'
+  | 'security-rules';
 
 export interface AdminChatAttachment {
   id: string;
@@ -76,6 +91,12 @@ export interface ProductSpecification {
 
 export interface ProductVariant {
   id: string;
+  /** Read-only here (managed in Suppliers): own | own_then_supplier | supplier_auto | supplier_manual */
+  sourcing?: string;
+  /** Read-only here: fixed | auto (auto = price follows supplier cost) */
+  pricingMode?: string;
+  /** Read-only: database plan id (for supplier links / price history) */
+  planDbId?: string;
   productId: string;
   name: string;
   isDefault?: boolean;
@@ -100,6 +121,14 @@ export interface ProductVariant {
   warningNote?: string;
   optionDescription?: string;
   specifications?: ProductSpecification[];
+  /** false = one-time plan */
+  renewable?: boolean;
+  /** current = today's price; locked = the price they first paid */
+  renewalPricing?: 'current' | 'locked';
+  /** Accept orders when this plan has no credentials */
+  allowOrderWhenOutOfStock?: boolean;
+  availableFrom?: string;
+  availableUntil?: string;
 }
 
 export interface DigitalProduct {
@@ -113,16 +142,6 @@ export interface DigitalProduct {
   galleryUrls?: string[];
   /** active = show on storefront; draft = hidden (no new buy/renew). */
   status: 'active' | 'draft';
-  /** false = one-time product; no renewals after first purchase. Default true. */
-  renewable?: boolean;
-  /**
-   * When vault has no available credential: still accept buy/renew → pending assign.
-   * Independent of availability (active/draft).
-   */
-  allowOrderWhenOutOfStock?: boolean;
-  /** Order window (ISO, UTC). Empty = always orderable. Renewals are never blocked. */
-  availableFrom?: string;
-  availableUntil?: string;
   shortDescription: string;
   description?: string;
   descriptionMode?: 'global' | 'per_option';
@@ -234,6 +253,10 @@ export type OrderStatus =
 export type PaymentKind = 'purchase' | 'renewal' | 'manual';
 
 export interface DigitalDelivery {
+  /** Supplier purchase state for this unit ('' | processing | delivered | needs_review | failed). Server-owned. */
+  supplierState?: string;
+  /** Server bumps this on supplier writes; saves carrying an older value don't touch fulfilment fields. */
+  supplierRev?: number;
   id: string;
   orderId: string;
   createdAt: string;

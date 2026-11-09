@@ -14,7 +14,7 @@ export function ModalShell({
   open: boolean;
   onClose: () => void;
   title: string;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   children: React.ReactNode;
   maxWidth?: string;
 }) {
@@ -41,7 +41,7 @@ export function ModalShell({
         aria-modal="true"
         aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
-        className={`surface-elevated w-full ${maxWidth} rounded-lg max-h-[min(92dvh,40rem)] flex flex-col overflow-hidden`}
+        className={`surface-elevated w-full ${maxWidth} rounded-lg max-h-[min(94dvh,54rem)] flex flex-col overflow-hidden`}
       >
         <div className="flex items-start justify-between gap-4 px-4 sm:px-5 py-3.5 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/50 shrink-0">
           <div className="min-w-0">

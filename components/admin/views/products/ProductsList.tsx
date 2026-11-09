@@ -24,7 +24,7 @@ import {
   FloatingBulkActionBar,
   EmptyTableState,
 } from '@/components/admin/ui/primitives';
-import { scheduleState, shortDuration } from '@/lib/catalog/schedule';
+import { listingWindow, scheduleState, shortDuration } from '@/lib/catalog/schedule';
 
 /** Small status chip for products with an order window. */
 function ScheduleChip({ product }: { product: DigitalProduct }) {
@@ -34,8 +34,9 @@ function ScheduleChip({ product }: { product: DigitalProduct }) {
     const id = window.setInterval(() => setNow(Date.now()), 60_000);
     return () => window.clearInterval(id);
   }, []);
-  if (now === null || (!product.availableFrom && !product.availableUntil)) return null;
-  const s = scheduleState(product, now);
+  const windowed = listingWindow(product.variants);
+  if (now === null || (!windowed.availableFrom && !windowed.availableUntil)) return null;
+  const s = scheduleState(windowed, now);
   if (s.state === 'upcoming') return <StatusIndicator tone="blue" label="Opens in" detail={shortDuration(s.msLeft ?? 0)} />;
   if (s.state === 'ended') return <StatusIndicator tone="zinc" label="Order window closed" />;
   return s.msLeft !== null ? (
@@ -46,18 +47,70 @@ function ScheduleChip({ product }: { product: DigitalProduct }) {
 const iconBtnClass =
   'inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:border-emerald-600 hover:text-emerald-700 dark:hover:text-emerald-400 cursor-pointer transition-colors';
 
+export type ProductTab = 'all' | 'in_stock' | 'out_of_stock' | 'linked' | 'manual_queue';
+
+/** Server view of one option: sell status and supplier links (own stock is counted live from the vault). */
+export type RowSupply = {
+  inStock: boolean;
+  canOrder: boolean;
+  backorder: boolean;
+  manual: boolean;
+  sourcing: string;
+  suppliers: string[];
+  links: Array<{ supplierName: string; name: string; stock: number | null; status: string; supplierOn: boolean }>;
+};
+
 type VariantRow = {
   product: DigitalProduct;
   variant: DigitalProduct['variants'][number];
+  /** Own vault credentials ready to send. */
   stockCount: number;
+  supply?: RowSupply;
 };
+
+const SOURCING_SHORT: Record<string, string> = {
+  own: 'Own stock',
+  own_then_supplier: 'Own, then supplier',
+  supplier_auto: 'Auto-buy',
+  supplier_manual: 'Buy by hand',
+};
+
+/** Supplier column: what is linked and whether it can deliver now. */
+function SupplierCell({ s }: { s?: RowSupply }) {
+  if (!s || s.links.length === 0) return <span className="text-sm text-slate-400">—</span>;
+  const first = s.links[0];
+  const ok = first.supplierOn && first.status === 'available' && first.stock !== 0;
+  return (
+    <div className="min-w-0 max-w-[16rem] whitespace-normal">
+      <div className="flex items-center gap-1.5">
+        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${ok ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}`} aria-hidden />
+        <span className="truncate text-sm font-medium text-slate-800 dark:text-slate-200" title={first.name}>{first.supplierName}</span>
+        {s.links.length > 1 ? <span className="text-xs text-slate-400">+{s.links.length - 1}</span> : null}
+      </div>
+      <div className="truncate text-xs text-slate-500">
+        {SOURCING_SHORT[s.sourcing] || s.sourcing}
+        {' · '}
+        {!first.supplierOn ? 'buying off' : first.status === 'removed' ? 'removed' : first.status !== 'available' || first.stock === 0 ? 'out of stock' : first.stock === null ? 'in stock' : `${first.stock} at supplier`}
+      </div>
+    </div>
+  );
+}
+
+/** Status column: can a customer buy this option right now (own stock or a supplier). */
+function SellStatus({ s, own, manual }: { s?: RowSupply; own: number; manual: boolean }) {
+  if (manual) return <StatusIndicator tone="blue" label="Manual" />;
+  const inStock = s ? s.inStock : own > 0;
+  if (inStock) return own === 1 && !s?.suppliers.length ? <StatusIndicator tone="amber" label="Low stock" /> : <StatusIndicator tone="emerald" label="In stock" />;
+  if (s?.backorder) return <StatusIndicator tone="amber" label="Back-order" />;
+  return <StatusIndicator tone="red" label="Out of stock" />;
+}
 
 interface ProductsListProps {
   products: DigitalProduct[];
   vault: VaultCredential[];
   allVariantRows: VariantRow[];
   filteredRows: VariantRow[];
-  tabFilter: 'all' | 'in_stock' | 'manual_queue' | 'vpn_required';
+  tabFilter: ProductTab;
   viewMode: 'table' | 'grouped';
   showStatistics: boolean;
   searchQuery: string;
@@ -65,7 +118,7 @@ interface ProductsListProps {
   totalRevenue: number;
   totalSold: number;
   totalAvailableVault: number;
-  onTabFilterChange: (value: 'all' | 'in_stock' | 'manual_queue' | 'vpn_required') => void;
+  onTabFilterChange: (value: ProductTab) => void;
   onViewModeChange: (value: 'table' | 'grouped') => void;
   onShowStatisticsChange: (value: boolean) => void;
   onSearchQueryChange: (value: string) => void;
@@ -166,7 +219,7 @@ export function ProductsList({
               type="text"
               value={searchQuery}
               onChange={(e) => onSearchQueryChange(e.target.value)}
-              placeholder="Search product or option..."
+              placeholder="Search product or plan..."
               className="w-full h-9 pl-8 pr-3 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:border-emerald-600"
             />
           </div>
@@ -185,18 +238,23 @@ export function ProductsList({
                 { value: 'all', label: 'All', count: allVariantRows.length },
                 {
                   value: 'in_stock',
-                  label: 'In Stock',
-                  count: allVariantRows.filter((r) => r.stockCount > 0).length,
+                  label: 'In stock',
+                  count: allVariantRows.filter((r) => (r.supply ? r.supply.inStock : r.stockCount > 0)).length,
+                },
+                {
+                  value: 'out_of_stock',
+                  label: 'Out of stock',
+                  count: allVariantRows.filter((r) => (r.supply ? !r.supply.inStock : r.stockCount === 0 && r.variant.deliveryMode !== 'manual_dispatch')).length,
+                },
+                {
+                  value: 'linked',
+                  label: 'Supplier',
+                  count: allVariantRows.filter((r) => r.supply?.links.length).length,
                 },
                 {
                   value: 'manual_queue',
                   label: 'Manual',
                   count: allVariantRows.filter((r) => r.variant.deliveryMode === 'manual_dispatch').length,
-                },
-                {
-                  value: 'vpn_required',
-                  label: 'VPN',
-                  count: allVariantRows.filter((r) => r.variant.vpnRequired).length,
                 },
               ]}
               value={tabFilter}
@@ -209,7 +267,7 @@ export function ProductsList({
       {showStatistics && (
         <Card className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-slate-200/80 dark:divide-slate-800 overflow-hidden [&>*:nth-child(2)]:border-t-0 [&>*:nth-child(odd)]:border-l-0">
           <StatMetric
-            label="Total Options"
+            label="Total plans"
             value={allVariantRows.length}
             hint={`${products.length} products`}
           />
@@ -247,17 +305,16 @@ export function ProductsList({
                         }
                       />
                     </th>
-                    <th className="py-3 px-3 whitespace-nowrap">Product &amp; Option</th>
+                    <th className="py-3 px-3 whitespace-nowrap">Product &amp; plan</th>
                     <th className="py-3 px-3 whitespace-nowrap">Price</th>
-                    <th className="py-3 px-3 whitespace-nowrap">Stock</th>
-                    <th className="py-3 px-3 whitespace-nowrap">Warranty</th>
-                    <th className="py-3 px-3 whitespace-nowrap">VPN</th>
+                    <th className="py-3 px-3 whitespace-nowrap" title="Your own vault credentials ready to send">Own stock</th>
+                    <th className="py-3 px-3 whitespace-nowrap">Supplier</th>
                     <th className="py-3 px-3 whitespace-nowrap">Status</th>
                     <th className="py-3 px-4 text-right whitespace-nowrap">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800">
-                  {paged.map(({ product, variant, stockCount }) => {
+                  {paged.map(({ product, variant, stockCount, supply: rowSupply }) => {
                     const isSelected = selectedVariantIds.includes(variant.id);
                     return (
                       <tr
@@ -328,32 +385,12 @@ export function ProductsList({
                           )}
                         </td>
 
-                        <td className="admin-metric py-2.5 px-3">
-                          {variant.hasWarranty ? `${variant.warrantyDays} days` : '—'}
+                        <td className="py-2.5 px-3">
+                          <SupplierCell s={rowSupply} />
                         </td>
 
                         <td className="py-2.5 px-3">
-                          <span
-                            className={
-                              variant.vpnRequired
-                                ? 'text-amber-700 dark:text-amber-400 font-medium'
-                                : 'text-slate-600 dark:text-slate-400'
-                            }
-                          >
-                            {variant.vpnRequired ? 'Required' : 'No'}
-                          </span>
-                        </td>
-
-                        <td className="py-2.5 px-3">
-                          {variant.deliveryMode === 'manual_dispatch' ? (
-                            <StatusIndicator tone="blue" label="Manual" />
-                          ) : stockCount > 1 ? (
-                            <StatusIndicator tone="emerald" label="In Stock" />
-                          ) : stockCount === 1 ? (
-                            <StatusIndicator tone="amber" label="Restock" />
-                          ) : (
-                            <StatusIndicator tone="red" label="Out of Stock" />
-                          )}
+                          <SellStatus s={rowSupply} own={stockCount} manual={variant.deliveryMode === 'manual_dispatch'} />
                         </td>
 
                         <td className="py-2.5 px-4 text-right">

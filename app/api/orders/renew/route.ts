@@ -6,6 +6,8 @@ import { getBuyerAccess, sameEmail } from '@/lib/auth/buyer-access';
 import { accessTokensMatch } from '@/lib/orders/access-token';
 import { getStoreSettings } from '@/lib/store-settings';
 import { renewWindow, warrantyState } from '@/lib/warranty';
+import { planSupplyMap } from '@/lib/suppliers/supply';
+import { clientIp, rateLimit } from '@/lib/auth/rate-limit';
 
 function stamp(d = new Date()) {
   const p = (n: number) => String(n).padStart(2, '0');
@@ -19,6 +21,8 @@ export type RenewLine = {
   planName: string;
   units: number;
   unitPriceBdt: number;
+  /** Renewing at the price first paid (option set to locked renewal price). */
+  priceLocked: boolean;
   amountBdt: number;
   endsAt: string | null;
   warrantyDaysLeft: number;
@@ -83,78 +87,31 @@ async function buildLines(orderId: string): Promise<{ lines: RenewLine[]; units:
     productByKey.set(p.slug, p);
   }
 
-  // Prefetch available vault rows once for lines that need stock checks.
-  const vaultProbe = [...groups.values()]
-    .map((group) => {
-      const first = group[0];
-      const product = productByKey.get(first.productId);
-      const plan = product?.plans.find(
-        (p) => p.code === first.variantId || p.id === first.variantId,
-      );
-      if (
-        !product ||
-        !plan ||
-        plan.deliveryMode !== 'auto_vault' ||
-        product.allowOrderWhenOutOfStock
-      ) {
-        return null;
-      }
-      return { product, plan, need: group.length };
-    })
-    .filter(Boolean) as Array<{
-    product: (typeof products)[number];
-    plan: (typeof products)[number]['plans'][number];
-    need: number;
-  }>;
-  const stockByPair = new Map<string, number>();
-  if (vaultProbe.length > 0) {
-    const productIds = [
-      ...new Set(vaultProbe.flatMap((v) => [v.product.id, v.product.slug])),
-    ];
-    const variantIds = [
-      ...new Set(vaultProbe.flatMap((v) => [v.plan.id, v.plan.code])),
-    ];
-    const rows = await db.vaultCredential.findMany({
-      where: {
-        status: 'available',
-        productId: { in: productIds },
-        variantId: { in: variantIds },
-      },
-      select: { productId: true, variantId: true },
-    });
-    for (const r of rows) {
-      const k = `${r.productId}|${r.variantId}`;
-      stockByPair.set(k, (stockByPair.get(k) || 0) + 1);
-    }
-  }
-  const stockFor = (
-    product: (typeof products)[number],
-    plan: (typeof products)[number]['plans'][number],
-  ) => {
-    const pids = new Set([product.id, product.slug]);
-    const vids = new Set([plan.id, plan.code]);
-    let n = 0;
-    for (const [pair, count] of stockByPair) {
-      const [pid, vid] = pair.split('|');
-      if (pids.has(pid) && vids.has(vid)) n += count;
-    }
-    return n;
-  };
+  // Per-option stock (own vault + supplier) and the prices first paid (for locked renewal prices).
+  const supply = await planSupplyMap(products);
+  const paidItems = await db.orderItem.findMany({ where: { orderId }, select: { planId: true, unitPriceBdt: true } });
+  const firstPaid = new Map(paidItems.map((i) => [i.planId, Number(i.unitPriceBdt)]));
 
   const lines: RenewLine[] = [];
   for (const [key, group] of groups) {
     const first = group[0];
     const product = productByKey.get(first.productId);
     const plan = product?.plans.find((p) => p.code === first.variantId || p.id === first.variantId);
-    const unitPrice = plan ? Number(plan.priceBdt) : 0;
+    const current = plan ? Number(plan.priceBdt) : 0;
+    // locked = renew at the price first paid; never more than today's price.
+    const original = plan ? firstPaid.get(plan.id) : undefined;
+    const priceLocked = Boolean(plan && plan.renewalPricing === 'locked' && original && original > 0 && original < current);
+    const unitPrice = priceLocked ? (original as number) : current;
     let reason: string | undefined;
     if (!product || !plan) reason = 'No longer sold';
-    else if (!product.renewable) reason = 'One-time product';
+    else if (plan.renewable === false) reason = 'One-time plan';
     else if (product.status === 'suspended' || product.status === 'draft' || !plan.isActive) reason = 'Not available';
-    else if (product.status === 'out_of_stock' && !product.allowOrderWhenOutOfStock) reason = 'Out of stock';
-    else if (plan.deliveryMode === 'auto_vault' && !product.allowOrderWhenOutOfStock) {
-      const stock = stockFor(product, plan);
-      if (stock < group.length) reason = stock === 0 ? 'Out of stock' : `Only ${stock} in stock`;
+    else {
+      const s = supply.get(plan.id);
+      if (s && !s.backorder) {
+        if (!s.inStock) reason = s.reason || 'Out of stock';
+        else if (s.stock !== null && s.stock < group.length) reason = s.stock === 0 ? 'Out of stock' : `Only ${s.stock} in stock`;
+      }
     }
     const pending = wholeOrderPending || group.some((u) => pendingIds.has(u.id));
     const endsSoonest = group.map((u) => u.orderExpiresAt).filter((x): x is string => Boolean(x)).sort()[0] || null;
@@ -172,6 +129,7 @@ async function buildLines(orderId: string): Promise<{ lines: RenewLine[]; units:
       planName: first.variantName,
       units: group.length,
       unitPriceBdt: unitPrice,
+      priceLocked,
       amountBdt: unitPrice * group.length,
       endsAt: ends,
       hasWarranty: group.some((u) => u.hasWarranty),
@@ -227,6 +185,14 @@ export async function GET(request: Request) {
  * exactly those units. Admin verification extends only them.
  */
 export async function POST(request: Request) {
+  const ip = clientIp(request);
+  if (!rateLimit(`renew:${ip}`, 15, 10 * 60_000).ok) {
+    return NextResponse.json(
+      { error: 'Too many renewal attempts. Please wait a few minutes.' },
+      { status: 429 },
+    );
+  }
+
   const body = (await request.json().catch(() => null)) as {
     orderId?: string;
     buyerEmail?: string;

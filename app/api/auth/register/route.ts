@@ -4,7 +4,7 @@ import { db } from '@/lib/db';
 import { hashPassword } from '@/lib/auth/password';
 import { attachSessionCookie, createSessionToken } from '@/lib/auth/session';
 import { ROLES } from '@/lib/auth/roles';
-import { EMAIL_RE, passwordProblem } from '@/lib/auth/password-policy';
+import { passwordProblem, validateCustomerEmail } from '@/lib/auth/password-policy';
 import { clientIp, rateLimit } from '@/lib/auth/rate-limit';
 import { appUrl, issueAuthToken } from '@/lib/auth/tokens';
 import { getEmailConfig, isEmailReady } from '@/lib/email/config';
@@ -27,10 +27,13 @@ export async function POST(request: Request) {
     if (!rateLimit(`register:${clientIp(request)}`, 10, 60 * 60_000).ok) {
       return NextResponse.json({ error: 'Too many sign-ups from this network. Try again later.' }, { status: 429 });
     }
-    if (!EMAIL_RE.test(email) || email.length > 120) {
-      return NextResponse.json({ error: 'Enter a valid email address.' }, { status: 400 });
+
+    const emailCheck = validateCustomerEmail(email);
+    if (!emailCheck.ok) {
+      return NextResponse.json({ error: emailCheck.error }, { status: 400 });
     }
-    const weak = passwordProblem(password, email);
+
+    const weak = passwordProblem(password, { email, name, phone });
     if (weak) return NextResponse.json({ error: weak }, { status: 400 });
 
     const existing = await db.user.findUnique({ where: { email } });

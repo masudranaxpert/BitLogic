@@ -1,5 +1,6 @@
 import { warrantyState } from '@/lib/warranty';
 import { db } from '@/lib/db';
+import { dispatchPaymentStatusEmail } from '@/lib/email/dispatch';
 import type {
   AdminNotificationItem,
   AdminSupportTicket,
@@ -13,14 +14,9 @@ import type {
 } from '@/lib/admin/types';
 import { loadAdminCatalog } from '@/lib/admin/catalog-repo';
 import { decryptSecret, encryptSecret } from '@/lib/crypto/secrets';
+import { parseJson } from '@/lib/utils';
 
-function parseJson<T>(raw: string, fallback: T): T {
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
+
 
 /** One-time soft-read of legacy payloadJson blob (pre–CredentialAudit table). */
 function legacyPayloadFallback(raw: string): {
@@ -258,6 +254,8 @@ export async function loadAdminWorkspace() {
         ),
         credentialAudit:
           fromTable.length > 0 ? fromTable : legacy.auditFromPayload,
+        supplierState: (d as { supplierState?: string }).supplierState || '',
+        supplierRev: (d as { supplierRev?: number }).supplierRev ?? 0,
         vpnRequired: d.vpnRequired,
         vpnRegionNote: d.vpnRegionNote,
         hasWarranty: d.hasWarranty,
@@ -439,7 +437,14 @@ export async function replaceVault(items: VaultCredential[]) {
 export async function replaceDeliveries(items: DigitalDelivery[]) {
   await db.$transaction(async (tx) => {
     if (items.length === 0) return;
+    // Supplier fulfilment happens on the server. A browser holding an older copy must not undo it.
+    const revRows = await tx.digitalDelivery.findMany({
+      where: { id: { in: items.map((d) => d.id) } },
+      select: { id: true, supplierRev: true },
+    });
+    const revById = new Map(revRows.map((r) => [r.id, r.supplierRev]));
     for (const d of items) {
+      const stale = revById.has(d.id) && (revById.get(d.id) ?? 0) !== (d.supplierRev ?? 0);
       const rawCreatedAt = (d as any).createdAt;
       const createdAtStr =
         (d as any).createdAtLabel ||
@@ -509,22 +514,27 @@ export async function replaceDeliveries(items: DigitalDelivery[]) {
           unitIndex: d.unitIndex ?? 1,
         },
         update: {
-          deliveredAt: d.deliveredAt || null,
           buyerName: d.buyerName,
           buyerEmail: d.buyerEmail,
           buyerPhone: d.buyerPhone,
-          status: d.status,
-          vaultCredentialId:
-            d.vaultCredentialId ||
-            d.credentialPayload?.vaultCredentialId ||
-            null,
+          // Fulfilment fields: only from a client that saw the latest supplier write.
+          ...(stale
+            ? {}
+            : {
+                deliveredAt: d.deliveredAt || null,
+                status: d.status,
+                vaultCredentialId: d.vaultCredentialId || d.credentialPayload?.vaultCredentialId || null,
+                credentialAssignedAt: d.credentialAssignedAt || null,
+                credentialExpiresAt: d.credentialExpiresAt || null,
+                renewalPending: Boolean(d.renewalPending),
+                warrantyRemainingDays: d.warrantyRemainingDays,
+                warrantyStartsAt: d.warrantyStartsAt || null,
+                warrantyEndsAt: d.warrantyEndsAt || null,
+              }),
           vpnRequired: d.vpnRequired,
           vpnRegionNote: d.vpnRegionNote,
           hasWarranty: d.hasWarranty,
           warrantyDays: d.warrantyDays,
-          warrantyRemainingDays: d.warrantyRemainingDays,
-          warrantyStartsAt: d.warrantyStartsAt || null,
-          warrantyEndsAt: d.warrantyEndsAt || null,
           nextWarrantyStartsAt: d.nextWarrantyStartsAt || null,
           nextWarrantyEndsAt: d.nextWarrantyEndsAt || null,
           warrantyTerms: d.warrantyTerms,
@@ -541,9 +551,6 @@ export async function replaceDeliveries(items: DigitalDelivery[]) {
           pinned: Boolean(d.pinned),
           orderExpiresAt: d.orderExpiresAt || null,
           credentialValidDays: d.credentialValidDays ?? 30,
-          credentialAssignedAt: d.credentialAssignedAt || null,
-          credentialExpiresAt: d.credentialExpiresAt || null,
-          renewalPending: Boolean(d.renewalPending),
           credentialClearedAt: d.credentialClearedAt || null,
           orderQuantity: d.orderQuantity ?? 1,
           unitIndex: d.unitIndex ?? 1,
@@ -696,9 +703,24 @@ export async function replaceSubscribers(items: SubscriberUser[]) {
 }
 
 export async function replacePayments(items: PaymentTransaction[]) {
+  const statusChangesToNotify: Array<{
+    orderId: string;
+    buyerName: string;
+    buyerEmail: string;
+    productSummary: string;
+    status: string;
+  }> = [];
+
   await db.$transaction(async (tx) => {
     if (items.length === 0) return;
     for (const p of items) {
+      const existingTx = await tx.paymentTransaction.findUnique({
+        where: { id: p.id },
+        select: { status: true, amountBdt: true, buyerEmail: true },
+      });
+      const previousStatus = existingTx?.status;
+      const wasVerified = previousStatus === 'verified';
+
       await tx.paymentTransaction.upsert({
         where: { id: p.id },
         create: {
@@ -728,8 +750,60 @@ export async function replacePayments(items: PaymentTransaction[]) {
           ...(p.verifiedAt ? { verifiedAtLabel: p.verifiedAt } : {}),
         },
       });
+
+      if (previousStatus && previousStatus !== p.status && (p.status === 'verified' || p.status === 'rejected')) {
+        statusChangesToNotify.push({
+          orderId: p.orderId,
+          buyerName: p.buyerName,
+          buyerEmail: p.buyerEmail,
+          productSummary: p.productSummary,
+          status: p.status,
+        });
+      }
+
+      if (p.status === 'verified') {
+        await tx.order.updateMany({
+          where: { id: p.orderId },
+          data: { paymentStatus: 'paid', paidBdt: p.amountBDT },
+        });
+        if (!wasVerified && p.buyerEmail) {
+          await tx.adminSubscriber.updateMany({
+            where: { email: p.buyerEmail },
+            data: { totalSpentBdt: { increment: p.amountBDT } },
+          });
+        }
+      } else if (p.status === 'rejected') {
+        await tx.order.updateMany({
+          where: { id: p.orderId },
+          data: { paymentStatus: 'rejected' },
+        });
+        if (wasVerified && p.buyerEmail) {
+          await tx.adminSubscriber.updateMany({
+            where: { email: p.buyerEmail },
+            data: { totalSpentBdt: { decrement: p.amountBDT } },
+          });
+        }
+      } else if (p.status === 'refunded') {
+        await tx.order.updateMany({
+          where: { id: p.orderId },
+          data: { paymentStatus: 'refunded' },
+        });
+        if (wasVerified && p.buyerEmail) {
+          await tx.adminSubscriber.updateMany({
+            where: { email: p.buyerEmail },
+            data: { totalSpentBdt: { decrement: p.amountBDT } },
+          });
+        }
+      }
     }
   });
+
+  // Dispatch payment email notifications outside the db transaction
+  for (const item of statusChangesToNotify) {
+    void dispatchPaymentStatusEmail(item).catch((err) =>
+      console.error('[replacePayments email dispatch error]', err),
+    );
+  }
 }
 
 export async function replaceCoupons(items: CouponCode[]) {

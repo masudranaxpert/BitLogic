@@ -11,6 +11,7 @@ import {
   Eye,
   EyeOff,
   FileText,
+  Lock,
   Paperclip,
   Reply,
   Send,
@@ -31,6 +32,9 @@ import {
 } from './StoreBadge';
 import { StoreButton } from './StoreButton';
 import { StoreSurfaceCard } from './StoreSurfaceCard';
+import { useStoreSettings } from '@/context/StoreSettingsContext';
+import { whatsappHref } from '@/lib/whatsapp';
+import { WhatsAppIcon } from './BrandIcons';
 
 type OrderAccessDetailViewProps = {
   order: CustomerOrderItem;
@@ -74,8 +78,13 @@ export function OrderAccessDetailView({
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const settings = useStoreSettings();
+  const waMessage = `Hi Blumartbd Support, I need assistance with Order ${order.id} (${order.productName}). Status: ${order.status}`;
+  const waUrl = settings?.whatsappNumber ? whatsappHref(settings.whatsappNumber, waMessage) : null;
 
-  const isPending = order.status === 'Pending (10–24h)';
+  const isPendingVerification = order.status === 'Pending Verification' || order.isPaymentVerified === false;
+  const isDeliveryPending = order.status === 'Pending (10–24h)';
+  const isPending = isPendingVerification || isDeliveryPending;
   const isLifetime = order.expiryDate === 'Lifetime';
 
   const progressPercent = isPending
@@ -351,8 +360,13 @@ export function OrderAccessDetailView({
                 <span className="text-xs font-semibold text-slate-600">
                   Payment Method
                 </span>
-                <span className="font-bold text-slate-900 uppercase tabular-nums">
-                  {order.paymentMethod} · {order.trxId}
+                <span className="font-bold text-slate-900 uppercase tabular-nums flex items-center gap-1.5">
+                  <span>{order.paymentMethod}</span>
+                  {order.trxId ? (
+                    <span className="text-xs font-mono font-medium text-slate-500 normal-case">
+                      (TrxID: <span className="text-slate-800 font-bold">{order.trxId}</span>)
+                    </span>
+                  ) : null}
                 </span>
               </div>
 
@@ -384,10 +398,18 @@ export function OrderAccessDetailView({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-bold text-slate-900 m-0">
-                  {isPending ? 'Activation Status' : 'Login Credentials'}
+                  {isPendingVerification
+                    ? 'Credentials Status'
+                    : isDeliveryPending
+                      ? 'Activation Status'
+                      : 'Login Credentials'}
                 </h2>
                 <StatusBadge tone={isPending ? 'amber' : 'emerald'}>
-                  {isPending ? 'Queued (10–24h)' : 'Ready'}
+                  {isPendingVerification
+                    ? 'Pending Verification'
+                    : isDeliveryPending
+                      ? 'Queued (10–24h)'
+                      : 'Ready'}
                 </StatusBadge>
               </div>
 
@@ -423,7 +445,19 @@ export function OrderAccessDetailView({
                       </div>
 
                       {/* Unit Credential Details */}
-                      {unit.email || unit.password || unit.profilePin || unit.secretValue ? (
+                      {unit.isLocked ? (
+                        <div className="flex items-start gap-2.5 p-3 rounded bg-amber-50/90 border border-amber-200/80 text-amber-900 text-xs">
+                          <Lock size={15} className="text-amber-600 shrink-0 mt-0.5" />
+                          <div className="min-w-0 space-y-0.5">
+                            <span className="font-semibold block text-slate-900">
+                              Credentials Locked (Pending Verification)
+                            </span>
+                            <span className="text-[11px] text-amber-800 block">
+                              {unit.lockReason || 'Awaiting payment verification by staff. Will unlock automatically once confirmed.'}
+                            </span>
+                          </div>
+                        </div>
+                      ) : unit.email || unit.password || unit.profilePin || unit.secretValue ? (
                         <div className="space-y-1.5 pt-1">
                           {unit.email && (
                             <div className="flex items-center justify-between gap-2 p-2 rounded bg-slate-50 border border-slate-200 text-xs">
@@ -526,22 +560,25 @@ export function OrderAccessDetailView({
                   );
                 })}
               </div>
-            ) : isPending ? (
+            ) : isPending || order.isPaymentVerified === false ? (
               <div className="divide-y divide-slate-200/70 border border-slate-200 rounded overflow-hidden text-[13px]">
                 <div className="px-3.5 py-2.5 flex items-center justify-between gap-2 bg-slate-50/60">
                   <span className="text-xs font-semibold text-slate-600">
-                    Target Email
+                    Payment Status
                   </span>
-                  <span className="font-bold text-slate-900">
-                    {order.loginEmail || 'Not set'}
+                  <span className="font-bold text-amber-700 flex items-center gap-1.5">
+                    <Lock size={13} className="text-amber-600" />
+                    {order.status === 'Payment Rejected' ? 'Rejected' : 'Pending Verification'}
                   </span>
                 </div>
                 <div className="px-3.5 py-2.5 flex items-center justify-between gap-2 bg-white">
                   <span className="text-xs font-semibold text-slate-600">
-                    Delivery Window
+                    Credentials Status
                   </span>
-                  <span className="font-bold text-amber-700">
-                    10–24 Hours
+                  <span className="font-medium text-slate-700 text-xs">
+                    {order.status === 'Payment Rejected'
+                      ? 'Payment was rejected. Contact support.'
+                      : 'Unlocks automatically once payment is verified by staff'}
                   </span>
                 </div>
               </div>

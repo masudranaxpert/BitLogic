@@ -1,5 +1,6 @@
 'use client';
 
+import { BrandLogo } from '@/components/brand/BrandLogo';
 import { RenewOrderCard } from '@/components/storefront/ui/RenewOrderCard';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -263,8 +264,9 @@ function AccountPageInner({
             warrantyLabel: o.warrantyLabel || '25D Warranty',
             warrantyDaysLeft: o.warrantyDaysLeft || 25,
             deliveryEta: '10–24h delivery',
-            loginEmail: o.units?.[0]?.email || o.buyerEmail,
-            loginPassword: o.units?.[0]?.password,
+            isPaymentVerified: o.isPaymentVerified,
+            loginEmail: o.isPaymentVerified ? (o.units?.[0]?.email || undefined) : undefined,
+            loginPassword: o.isPaymentVerified ? o.units?.[0]?.password : undefined,
             profilePin: o.units?.[0]?.profilePin,
             secretText: o.units?.[0]?.secretValue,
             chatMessages: o.chatMessages || [],
@@ -1257,19 +1259,14 @@ function AccountPageInner({
       >
         <div className="p-4 space-y-5 overflow-y-auto">
           {/* Signature Brand Logo (Matches Storefront Header) */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between pb-1 border-b border-slate-100">
             <button
               type="button"
               onClick={() => navigateTo('home', { code: 'ALL' })}
-              className="flex lg:hidden items-center gap-2 cursor-pointer border-0 bg-transparent p-0 shrink-0"
-              aria-label="Bitlogic home"
+              className="flex items-center gap-2 cursor-pointer border-0 bg-transparent p-0 shrink-0"
+              aria-label="Blumartbd home"
             >
-              <span className="w-8 h-8 rounded-xl bg-[#FF5E5B] text-white font-extrabold text-sm flex items-center justify-center shadow-md shadow-[#FF5E5B]/25 rotate-[-4deg] shrink-0">
-                B
-              </span>
-              <span className="font-display font-extrabold text-lg tracking-tight text-[#0F172A] whitespace-nowrap">
-                Bit<span className="text-[#FF5E5B]">logic</span>
-              </span>
+              <BrandLogo size="md" />
             </button>
 
             {drawerOpen && (
@@ -1376,7 +1373,8 @@ function AccountPageInner({
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Bar (Desktop & Mobile) with Clean Notification Icon & Popover */}
-        <header className="sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 lg:px-8 h-13 bg-white border-b border-slate-200">
+        <header className="sticky top-0 z-30 bg-white border-b border-slate-200">
+          <div className="w-full max-w-7xl mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-8 h-13">
           <div className="flex items-center gap-2.5 min-w-0">
             <button
               type="button"
@@ -1578,9 +1576,11 @@ function AccountPageInner({
               </StoreButton>
             </div>
           </div>
+          </div>
         </header>
 
-        <div className="flex-1 w-full p-4 sm:p-6 lg:p-8 xl:px-10 space-y-6">
+        <main className="flex-1 w-full">
+          <div className="w-full max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
           {activeTab === 'overview' && (
             <AccountOverviewPanel
               orders={orders}
@@ -1809,7 +1809,8 @@ function AccountPageInner({
               onUpdatePassword={handleUpdatePassword}
             />
           )}
-        </div>
+          </div>
+        </main>
       </div>
     </div>
   );

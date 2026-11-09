@@ -112,9 +112,20 @@ export default function EmailSettingsView() {
             Provider, sender identity, and sign-up verification.
           </p>
         </header>
-        <Card className="p-5 text-sm text-slate-500">
-          {msg?.text || 'Loading…'}
-        </Card>
+        {msg?.tone === 'err' ? (
+          <Card className="p-5 text-sm text-rose-600">
+            {msg.text}
+          </Card>
+        ) : (
+          <Card className="overflow-hidden p-6 space-y-5" aria-busy="true">
+            <div className="h-9 w-64 rounded-lg bg-slate-200/70 dark:bg-slate-800 animate-pulse" />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="h-10 rounded-md bg-slate-100 dark:bg-slate-800/80 animate-pulse" />
+              <div className="h-10 rounded-md bg-slate-100 dark:bg-slate-800/80 animate-pulse" />
+            </div>
+            <div className="h-10 rounded-md bg-slate-100 dark:bg-slate-800/80 animate-pulse" />
+          </Card>
+        )}
       </div>
     );
   }
@@ -203,10 +214,10 @@ export default function EmailSettingsView() {
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-semibold text-slate-900 dark:text-slate-50">
-            Email
+            Email Settings & SMTP
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            How BitLogic sends verification, password reset, and system mail.
+            Configure SMTP or transactional API providers (Resend, Brevo, SendGrid, etc.) and test connectivity.
           </p>
         </div>
         {saved.provider === 'none' ? (

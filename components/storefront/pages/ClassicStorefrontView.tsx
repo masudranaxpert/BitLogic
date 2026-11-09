@@ -372,7 +372,7 @@ export function ClassicStorefrontView() {
             type="button"
             onClick={() => navigateTo('home', { code: 'ALL' })}
             className="flex items-center gap-2 cursor-pointer border-0 bg-transparent p-0 shrink-0"
-            aria-label="Bitlogic home"
+            aria-label="Blumartbd home"
           >
             <BrandLogo />
           </button>

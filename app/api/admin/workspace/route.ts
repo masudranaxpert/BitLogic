@@ -11,6 +11,8 @@ import {
   permissionForWorkspacePatchKey,
 } from '@/lib/auth/permissions';
 import { ROLES } from '@/lib/auth/roles';
+import { auditWorkspacePatch } from '@/lib/audit/workspace';
+import { requestIp } from '@/lib/audit/record';
 
 export async function GET() {
   const { session, error } = await requireConsoleAccess();
@@ -86,6 +88,7 @@ export async function PUT(request: Request) {
       }
     }
 
+    await auditWorkspacePatch(session.id, requestIp(request), body);
     await applyWorkspacePatch(body);
     return NextResponse.json({ ok: true });
   } catch (err) {

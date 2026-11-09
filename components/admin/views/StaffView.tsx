@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Eye, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import {
   Card,
   PaginationFooter,
@@ -28,9 +28,10 @@ type StaffRow = {
 interface StaffViewProps {
   onOpenAdd: () => void;
   onOpenEdit: (id: string) => void;
+  onOpenView: (id: string) => void;
 }
 
-export default function StaffView({ onOpenAdd, onOpenEdit }: StaffViewProps) {
+export default function StaffView({ onOpenAdd, onOpenEdit, onOpenView }: StaffViewProps) {
   const [users, setUsers] = useState<StaffRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -112,7 +113,37 @@ export default function StaffView({ onOpenAdd, onOpenEdit }: StaffViewProps) {
 
       <Card className="overflow-hidden">
         {loading ? (
-          <p className="p-5 text-sm text-slate-500 m-0">Loading…</p>
+          <div className="overflow-x-auto" aria-busy="true">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200/80 dark:border-slate-800 text-left text-xs text-slate-500">
+                  <th className="px-4 py-3 font-medium">Person</th>
+                  <th className="px-4 py-3 font-medium">Role</th>
+                  <th className="px-4 py-3 font-medium">Access</th>
+                  <th className="px-4 py-3 font-medium text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td className="px-4 py-3">
+                      <div className="h-4 w-32 rounded bg-slate-200/80 dark:bg-slate-700 mb-1.5" />
+                      <div className="h-3 w-44 rounded bg-slate-200/60 dark:bg-slate-800" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="h-5 w-16 rounded-full bg-slate-200/70 dark:bg-slate-800" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="h-5 w-24 rounded-full bg-slate-200/70 dark:bg-slate-800" />
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="h-8 w-16 rounded bg-slate-200/60 dark:bg-slate-800 ml-auto" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : users.length === 0 ? (
           <p className="p-5 text-sm text-slate-500 m-0">No console users yet.</p>
         ) : (
@@ -134,9 +165,13 @@ export default function StaffView({ onOpenAdd, onOpenEdit }: StaffViewProps) {
                       className="border-b border-slate-100 dark:border-slate-800/80"
                     >
                       <td className="px-4 py-3">
-                        <div className="font-medium text-slate-900 dark:text-slate-100">
-                          {u.name || '—'}
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => onOpenView(u.id)}
+                          className="cursor-pointer border-0 bg-transparent p-0 text-left font-medium text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:text-slate-100"
+                        >
+                          {u.name || u.email}
+                        </button>
                         <div className="text-xs text-slate-500">{u.email}</div>
                       </td>
                       <td className="px-4 py-3">
@@ -155,6 +190,16 @@ export default function StaffView({ onOpenAdd, onOpenEdit }: StaffViewProps) {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="inline-flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            title="View"
+                            aria-label={`View ${u.name || u.email}`}
+                            disabled={busy}
+                            onClick={() => onOpenView(u.id)}
+                            className={iconBtnClass}
+                          >
+                            <Eye className="w-3.5 h-3.5" strokeWidth={2.2} />
+                          </button>
                           <button
                             type="button"
                             title="Edit"

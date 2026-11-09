@@ -64,9 +64,9 @@ export function ProductDetailView({ productId }: { productId: string }) {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
 
-  const win = useProductWindow(product ?? {});
   const currentPlanId = product ? selectedPlanMap[product.id] ?? '' : '';
   const selectedPlan = product?.plans.find((p) => p.id === currentPlanId) ?? null;
+  const win = useProductWindow(selectedPlan ?? {});
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -280,7 +280,13 @@ export function ProductDetailView({ productId }: { productId: string }) {
               ) : null}
             </div>
 
-            <SaleCountdown product={product} />
+            <SaleCountdown
+              product={{
+                ...product,
+                availableFrom: selectedPlan?.availableFrom,
+                availableUntil: selectedPlan?.availableUntil,
+              }}
+            />
 
             {/* Select Option Dropdown (Full Text Priority + Highlighted Duration Tag + Red Clear Button) */}
             <div className="space-y-2 pt-2.5 border-t border-slate-100" ref={dropdownRef}>
@@ -336,21 +342,24 @@ export function ProductDetailView({ productId }: { productId: string }) {
                 </button>
 
                 {selectPromptError && !selectedPlan && (
-                  <p className="text-[11px] font-bold text-[#FF5E5B] m-0 mt-1">
-                    Please select an option first.
-                  </p>
+                  <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-red-50 border border-red-300 text-red-700 text-[11px] font-bold mt-1.5 animate-in fade-in slide-in-from-top-1">
+                    <AlertCircle size={12} strokeWidth={2.8} className="text-red-600 shrink-0" />
+                    <span>Please select an option first to continue.</span>
+                  </div>
                 )}
 
                 {dropdownOpen && (
                   <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 bg-white rounded-md border border-slate-200 shadow-xl shadow-slate-900/10 py-1 overflow-hidden divide-y divide-slate-100">
                     {product.plans.map((p) => {
                       const isSelected = p.id === selectedPlan?.id;
+                      const soldOut = p.canOrder === false;
                       return (
                         <button
                           key={p.id}
                           type="button"
+                          disabled={soldOut}
                           onClick={() => handleSelectPlan(p.id)}
-                          className={`w-full px-3.5 py-2.5 flex items-center justify-between gap-3 text-left transition-colors cursor-pointer border-0 ${
+                          className={`w-full px-3.5 py-2.5 flex items-center justify-between gap-3 text-left transition-colors cursor-pointer border-0 disabled:cursor-not-allowed disabled:opacity-50 ${
                             isSelected
                               ? 'bg-[#0F172A] text-white'
                               : 'bg-white hover:bg-slate-50 text-[#0F172A]'
@@ -379,6 +388,13 @@ export function ProductDetailView({ productId }: { productId: string }) {
                               >
                                 {p.duration}
                               </span>
+                              {soldOut ? (
+                                <span className="text-[10px] font-extrabold uppercase text-slate-500">Out of stock</span>
+                              ) : p.inStock === false ? (
+                                <span className="text-[10px] font-extrabold uppercase text-amber-600">Pre-order</span>
+                              ) : p.stockLeft !== null && p.stockLeft !== undefined && p.stockLeft <= 5 ? (
+                                <span className="text-[10px] font-extrabold uppercase text-[#FF5E5B]">{p.stockLeft} left</span>
+                              ) : null}
                             </div>
                           </div>
 
@@ -451,7 +467,11 @@ export function ProductDetailView({ productId }: { productId: string }) {
                 </button>
               </div>
 
-              {!win.canOrder ? (
+              {selectedPlan && selectedPlan.canOrder === false ? (
+                <div className="w-full h-10 px-4 rounded-md bg-slate-100 text-slate-500 font-extrabold text-xs inline-flex items-center justify-center border border-slate-200">
+                  This plan is out of stock — choose another
+                </div>
+              ) : !win.canOrder ? (
                 <div className="w-full h-10 px-4 rounded-md bg-slate-100 text-slate-500 font-extrabold text-xs inline-flex items-center justify-center border border-slate-200">
                   {win.state === 'upcoming' ? 'Not on sale yet — check the countdown above' : 'This offer has ended'}
                 </div>
@@ -462,10 +482,9 @@ export function ProductDetailView({ productId }: { productId: string }) {
                 </div>
               ) : (
               <>
-              {product.availability === 'out_of_stock' &&
-              product.acceptOrdersWhenOutOfStock ? (
+              {selectedPlan && selectedPlan.inStock === false ? (
                 <p className="w-full text-[11px] font-semibold text-amber-700 m-0">
-                  Out of stock — order queues as pending assign
+                  Pre-order. This plan is restocking. The order waits until a credential is in.
                 </p>
               ) : null}
               <button
@@ -566,7 +585,7 @@ export function ProductDetailView({ productId }: { productId: string }) {
               </div>
               <div className="py-2 flex justify-between gap-4">
                 <span className="text-slate-500 shrink-0">Payment</span>
-                <span className="font-bold text-[#0F172A] text-right">bKash, Nagad</span>
+                <span className="font-bold text-[#0F172A] text-right">bKash, Nagad, Rocket</span>
               </div>
             </div>
           )}

@@ -76,8 +76,8 @@ export function OverviewActivitySection({
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-      <Card className="lg:col-span-8 flex flex-col justify-between overflow-hidden">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+      <Card className="lg:col-span-8 overflow-hidden">
         <div>
           <div className="p-4 sm:p-5 border-b border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <h2 className="font-display text-base font-bold text-slate-900 dark:text-slate-100">

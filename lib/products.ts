@@ -10,6 +10,15 @@ export type Plan = {
   warrantyType?: 'warranty' | 'login-only';
   warrantyHeadline?: string;
   details?: string[];
+  /** Can be delivered now (own stock or a supplier). Missing = treat as in stock. */
+  inStock?: boolean;
+  /** Can be ordered now (in stock, or back-orders allowed for this option). */
+  canOrder?: boolean;
+  /** Units left when known (shown only when low). */
+  stockLeft?: number | null;
+  /** New-order window for this plan. */
+  availableFrom?: string;
+  availableUntil?: string;
 };
 
 export type Product = {

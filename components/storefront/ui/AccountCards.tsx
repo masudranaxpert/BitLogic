@@ -74,6 +74,8 @@ export interface CustomerOrderUnit {
   warrantyTerms?: string;
   credentialExpiresAt?: string;
   deliveredAt?: string | null;
+  isLocked?: boolean;
+  lockReason?: string;
 }
 
 export interface CustomerOrderItem {
@@ -86,9 +88,11 @@ export interface CustomerOrderItem {
   daysRemaining?: number;
   totalDays?: number;
   price: number;
-  paymentMethod: 'bkash' | 'nagad';
+  paymentMethod: 'bkash' | 'nagad' | 'rocket' | string;
   trxId: string;
-  status: 'Active' | 'Pending (10–24h)' | 'Delivered' | 'Expired' | 'Refunded' | 'Warranty Claim';
+  status: 'Active' | 'Pending (10–24h)' | 'Pending Verification' | 'Payment Rejected' | 'Delivered' | 'Expired' | 'Refunded' | 'Warranty Claim';
+  isPaymentVerified?: boolean;
+  paymentStatus?: string;
   warrantyLabel: string;
   warrantyDaysLeft?: number;
   deliveryEta?: string;

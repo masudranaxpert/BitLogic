@@ -60,6 +60,9 @@ function mapDbPlan(plan: DbPlan, productId: string): ProductVariant {
   const credentialType = (plan.credentialType || 'email_login') as CredentialType;
   return {
     id: plan.code,
+    planDbId: plan.id,
+    sourcing: plan.sourcing,
+    pricingMode: plan.pricingMode,
     productId,
     name: plan.label,
     isDefault: plan.isDefault || undefined,
@@ -81,6 +84,11 @@ function mapDbPlan(plan: DbPlan, productId: string): ProductVariant {
     importantNote: plan.importantNote || plan.warrantyBadge || '',
     warningNote: plan.warningNote || undefined,
     optionDescription: plan.optionDescription || undefined,
+    renewable: plan.renewable,
+    renewalPricing: plan.renewalPricing === 'locked' ? 'locked' : 'current',
+    allowOrderWhenOutOfStock: plan.allowBackorder === true,
+    availableFrom: plan.availableFrom ? plan.availableFrom.toISOString() : undefined,
+    availableUntil: plan.availableUntil ? plan.availableUntil.toISOString() : undefined,
     specifications: parseJsonArray<ProductSpecification>(
       plan.specificationsJson,
       [],
@@ -115,10 +123,6 @@ export function mapDbProduct(row: DbProductWithPlans): DigitalProduct {
     imageUrl: row.imageUrl || gallery[0] || undefined,
     galleryUrls: gallery.length ? gallery : undefined,
     status,
-    renewable: row.renewable,
-    allowOrderWhenOutOfStock: row.allowOrderWhenOutOfStock,
-    availableFrom: row.availableFrom ? row.availableFrom.toISOString() : undefined,
-    availableUntil: row.availableUntil ? row.availableUntil.toISOString() : undefined,
     shortDescription: row.tagline || '',
     description: row.description || undefined,
     descriptionMode: 'global',
@@ -148,10 +152,6 @@ export function digitalProductToDbPayload(product: DigitalProduct) {
     isActive: status === 'active',
     sku: product.sku || '',
     status,
-    renewable: product.renewable !== false,
-    allowOrderWhenOutOfStock: Boolean(product.allowOrderWhenOutOfStock),
-    availableFrom: toDate(product.availableFrom),
-    availableUntil: toDate(product.availableUntil),
     plans: ((product.variants || (product as { plans?: any[] }).plans || []) as any[]).map((v, index) => ({
       code: v.id || v.code,
       label: v.name || v.label,
@@ -178,6 +178,13 @@ export function digitalProductToDbPayload(product: DigitalProduct) {
       importantNote: v.importantNote || '',
       warningNote: v.warningNote || '',
       optionDescription: v.optionDescription || '',
+      sourcing: v.sourcing || 'own',
+      pricingMode: v.pricingMode || 'fixed',
+      renewable: v.renewable !== false,
+      renewalPricing: v.renewalPricing === 'locked' ? 'locked' : 'current',
+      allowBackorder: Boolean(v.allowOrderWhenOutOfStock),
+      availableFrom: toDate(v.availableFrom),
+      availableUntil: toDate(v.availableUntil),
       specificationsJson: typeof v.specifications === 'string'
         ? v.specifications
         : JSON.stringify(v.specifications || []),

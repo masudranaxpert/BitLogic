@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Minus, Plus, RefreshCw } from 'lucide-react';
 import { getOrderAccessToken } from '@/lib/customerSession';
+import { useStoreSettings } from '@/context/StoreSettingsContext';
 
 type Line = {
   key: string;
@@ -19,7 +20,6 @@ type Line = {
   opensOn?: string | null;
 };
 
-const PAY_NUMBER = '01700-123456';
 const DAY = 86_400_000;
 const daysUntil = (d: string | null) =>
   d ? Math.round((new Date(d).getTime() - new Date(new Date().toISOString().slice(0, 10)).getTime()) / DAY) : null;
@@ -39,7 +39,27 @@ export function RenewOrderCard({ orderId, email }: { orderId: string; email: str
   /** key → how many units to renew (0 = not renewing this line) */
   const [qty, setQty] = useState<Record<string, number>>({});
   const [open, setOpen] = useState(false);
-  const [gateway, setGateway] = useState<'bKash' | 'Nagad'>('bKash');
+  const settings = useStoreSettings();
+  const availableGateways = useMemo(() => {
+    const list: Array<{ id: 'bKash' | 'Nagad' | 'Rocket'; number: string; type: string }> = [];
+    if (settings.bkashEnabled !== false) {
+      list.push({ id: 'bKash', number: settings.bkashNumber || '01700-123456', type: settings.bkashType || 'Personal' });
+    }
+    if (settings.nagadEnabled !== false) {
+      list.push({ id: 'Nagad', number: settings.nagadNumber || '01700-123456', type: settings.nagadType || 'Personal' });
+    }
+    if (settings.rocketEnabled) {
+      list.push({ id: 'Rocket', number: settings.rocketNumber || '', type: settings.rocketType || 'Personal' });
+    }
+    return list.length > 0 ? list : [{ id: 'bKash' as const, number: '01700-123456', type: 'Personal' }];
+  }, [settings]);
+  const [gateway, setGateway] = useState<'bKash' | 'Nagad' | 'Rocket'>('bKash');
+  useEffect(() => {
+    if (!availableGateways.some((g) => g.id === gateway)) {
+      setGateway(availableGateways[0].id);
+    }
+  }, [availableGateways, gateway]);
+  const activeGatewayConfig = availableGateways.find((g) => g.id === gateway) || availableGateways[0];
   const [trxId, setTrxId] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -216,20 +236,27 @@ export function RenewOrderCard({ orderId, email }: { orderId: string; email: str
           {/* One row on wider screens: method + TrxID */}
           <div className="grid gap-2 sm:grid-cols-[auto_1fr]">
             <div className="inline-flex rounded-md border border-slate-200 bg-white p-0.5" role="radiogroup" aria-label="Payment method">
-              {(['bKash', 'Nagad'] as const).map((g) => (
+              {availableGateways.map((gObj) => { const g = gObj.id; return (
                 <button
                   key={g}
                   type="button"
                   role="radio"
                   aria-checked={gateway === g}
                   onClick={() => setGateway(g)}
-                  className={`h-9 flex-1 rounded px-5 text-xs font-extrabold cursor-pointer border-0 ${
+                  className={`h-9 flex-1 rounded px-3 text-xs font-extrabold cursor-pointer border-0 inline-flex items-center justify-center gap-1.5 ${
                     gateway === g ? 'bg-[#0F172A] text-white' : 'bg-transparent text-[#0F172A]'
                   }`}
                 >
-                  {g}
+                  <span className="w-4 h-4 rounded bg-white p-0.5 inline-flex items-center justify-center shrink-0">
+                    <img
+                      src={g === 'bKash' ? '/payments/bkash-icon.svg' : g === 'Nagad' ? '/payments/nagad.svg' : '/payments/rocket.png'}
+                      alt={g}
+                      className="w-full h-full object-contain"
+                    />
+                  </span>
+                  <span>{g}</span>
                 </button>
-              ))}
+              ); })}
             </div>
             <input
               value={trxId}
@@ -241,7 +268,7 @@ export function RenewOrderCard({ orderId, email }: { orderId: string; email: str
           </div>
           <p className="text-xs text-slate-600">
             Send <strong>{money(total)}</strong> to{' '}
-            <span className="font-mono font-bold text-[#0F172A]">{PAY_NUMBER}</span> ({gateway}), then paste the transaction ID above.
+            <span className="font-mono font-bold text-[#0F172A]">{activeGatewayConfig.number}</span> ({gateway} - {activeGatewayConfig.type}), then paste the transaction ID above.
           </p>
           {error ? <p role="alert" className="text-xs font-semibold text-rose-600">{error}</p> : null}
           <div className="flex justify-end gap-2">

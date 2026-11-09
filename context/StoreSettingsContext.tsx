@@ -18,6 +18,18 @@ export type PublicStoreSettings = {
   homeBanners?: HomeBannerItem[];
   /** True once an admin has added any banner (even hidden): then the built-in defaults are not used. */
   homeBannersCustom?: boolean;
+  bkashEnabled?: boolean;
+  bkashNumber?: string;
+  bkashType?: string;
+  bkashInstructions?: string;
+  nagadEnabled?: boolean;
+  nagadNumber?: string;
+  nagadType?: string;
+  nagadInstructions?: string;
+  rocketEnabled?: boolean;
+  rocketNumber?: string;
+  rocketType?: string;
+  rocketInstructions?: string;
 };
 
 const Ctx = createContext<PublicStoreSettings>({
@@ -29,6 +41,18 @@ const Ctx = createContext<PublicStoreSettings>({
   supportHours: '',
   facebookUrl: '',
   youtubeUrl: '',
+  bkashEnabled: true,
+  bkashNumber: '01700-123456',
+  bkashType: 'Personal',
+  bkashInstructions: 'Send Money to our personal bKash number and enter the Transaction ID (TrxID) below.',
+  nagadEnabled: true,
+  nagadNumber: '01700-123456',
+  nagadType: 'Personal',
+  nagadInstructions: 'Send Money to our personal Nagad number and enter the Transaction ID (TrxID) below.',
+  rocketEnabled: false,
+  rocketNumber: '',
+  rocketType: 'Personal',
+  rocketInstructions: 'Send Money to our Rocket number and enter the Transaction ID (TrxID) below.',
 });
 
 export function StoreSettingsProvider({

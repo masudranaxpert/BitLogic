@@ -55,11 +55,14 @@ export default function ProductSchedulePicker({
   from,
   until,
   onChange,
+  embedded = false,
 }: {
   /** ISO strings (UTC); '' = not set. */
   from: string;
   until: string;
   onChange: (next: { from: string; until: string }) => void;
+  /** Inside a plan card, without a second card chrome. */
+  embedded?: boolean;
 }) {
   const [on, setOn] = useState(Boolean(from || until));
   // Keep the switch in step when another product is loaded into the form.
@@ -80,28 +83,25 @@ export default function ProductSchedulePicker({
   let summary: { tone: 'emerald' | 'amber' | 'blue' | 'zinc'; label: string; text: string } | null = null;
   if (on && now !== null && !problem && (from || until)) {
     if (st.state === 'upcoming') {
-      summary = { tone: 'blue', label: 'Not open yet', text: `Opens ${fmt(from)} (in ${shortDuration(st.msLeft ?? 0)}). Until then customers see a countdown and cannot order.` };
+      summary = { tone: 'blue', label: 'Not open yet', text: `Opens ${fmt(from)}.` };
     } else if (st.state === 'ended') {
-      summary = { tone: 'amber', label: 'Closed', text: `Closed on ${fmt(until)}. Customers can see the product but cannot order it. Change the closing time to reopen.` };
+      summary = { tone: 'amber', label: 'Closed', text: `Closed ${fmt(until)}.` };
     } else if (until) {
-      summary = { tone: 'emerald', label: 'On sale', text: `Customers can order until ${fmt(until)} (${shortDuration(st.msLeft ?? 0)} from now). A countdown shows on the product.` };
+      summary = { tone: 'emerald', label: 'On sale', text: `Open until ${fmt(until)}.` };
     } else {
-      summary = { tone: 'emerald', label: 'On sale', text: 'Open now with no closing time.' };
+      summary = { tone: 'emerald', label: 'On sale', text: 'Open, no close time.' };
     }
   }
 
-  return (
-    <Card className="p-5 space-y-4">
-      <div className="flex items-start justify-between gap-3 border-b border-slate-200/80 pb-3 dark:border-slate-800">
+  const body = (
+    <div className={embedded ? 'space-y-3 rounded-lg border border-slate-200 p-3 dark:border-slate-800' : 'space-y-4'}>
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="flex items-center gap-2 font-display text-sm font-semibold text-slate-900 dark:text-slate-100">
             <CalendarClock className="h-4 w-4 text-slate-500" aria-hidden />
             Order window
           </h2>
-          <p className="mt-1 text-xs text-slate-500">
-            Limit when customers can place <strong className="font-semibold">new</strong> orders, for limited-time
-            offers or a future launch. People who already own it can still renew.
-          </p>
+          <p className="mt-1 text-xs text-slate-500">New orders only. Renewals still work.</p>
         </div>
         <SwitchToggle
           checked={on}
@@ -180,6 +180,8 @@ export default function ProductSchedulePicker({
           <p className="m-0 text-[11px] text-slate-400">Times are in your time zone ({tz}).</p>
         </div>
       ) : null}
-    </Card>
+    </div>
   );
+
+  return embedded ? body : <Card className="p-5">{body}</Card>;
 }

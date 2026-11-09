@@ -6,6 +6,7 @@ import Facebook from '@thesvg/react/facebook';
 import Youtube from '@thesvg/react/youtube';
 import Whatsapp from '@thesvg/react/whatsapp';
 import Telegram from '@thesvg/react/telegram';
+import { BrandLogo } from '@/components/brand/BrandLogo';
 import { useStoreNav } from '@/context/StoreNavContext';
 import { useStoreSettings } from '@/context/StoreSettingsContext';
 import { whatsappHref } from '@/lib/whatsapp';
@@ -28,14 +29,10 @@ export function StoreFooter() {
             <button
               type="button"
               onClick={() => navigateTo('home', { code: 'ALL' })}
-              className="flex items-center gap-2.5 cursor-pointer border-0 bg-transparent p-0"
+              className="cursor-pointer border-0 bg-transparent p-0"
+              aria-label="Blumartbd home"
             >
-              <span className="w-9 h-9 rounded-xl bg-[#FF5E5B] text-white font-extrabold text-base flex items-center justify-center shadow-md shadow-[#FF5E5B]/25 rotate-[-4deg]">
-                B
-              </span>
-              <span className="font-display font-extrabold text-xl tracking-tight text-[#0F172A]">
-                Bit<span className="text-[#FF5E5B]">logic</span>
-              </span>
+              <BrandLogo />
             </button>
 
             <p className="text-xs text-slate-600 leading-relaxed m-0">
@@ -145,8 +142,15 @@ export function StoreFooter() {
                 </span>
                 <span className="h-9.5 w-24 px-2.5 rounded-md bg-white border border-slate-200/90 shadow-2xs inline-flex items-center justify-center overflow-hidden">
                   <img
-                    src="/payments/nagad.jpeg"
+                    src="/payments/nagad.svg"
                     alt="Nagad"
+                    className="h-7 w-auto max-w-full object-contain"
+                  />
+                </span>
+                <span className="h-9.5 w-24 px-2.5 rounded-md bg-white border border-slate-200/90 shadow-2xs inline-flex items-center justify-center overflow-hidden">
+                  <img
+                    src="/payments/rocket.png"
+                    alt="Rocket"
                     className="h-7 w-auto max-w-full object-contain"
                   />
                 </span>
@@ -168,7 +172,7 @@ export function StoreFooter() {
           </div>
 
           <p className="m-0">
-            © 2026 <strong className="text-[#0F172A]">Bitlogic</strong>. All rights reserved.
+            © 2026 <strong className="text-[#0F172A]">Blumartbd</strong>. All rights reserved.
           </p>
         </div>
       </div>

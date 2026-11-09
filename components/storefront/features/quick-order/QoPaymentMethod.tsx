@@ -3,7 +3,8 @@ import { ShieldCheck } from 'lucide-react';
 
 const METHODS = [
   { id: 'bkash', label: 'bKash', logo: '/payments/bkash.svg' },
-  { id: 'nagad', label: 'Nagad', logo: '/payments/nagad.jpeg' },
+  { id: 'nagad', label: 'Nagad', logo: '/payments/nagad.svg' },
+  { id: 'rocket', label: 'Rocket', logo: '/payments/rocket.png' },
 ] as const;
 
 export function QoPaymentMethod() {

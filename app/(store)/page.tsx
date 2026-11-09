@@ -21,7 +21,7 @@ export default async function HomePage() {
           '@graph': [
             {
               '@type': 'Organization',
-              name: 'BitLogic',
+              name: 'Blumartbd',
               url: base,
               description,
             },

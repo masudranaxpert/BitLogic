@@ -6,7 +6,7 @@ import { ROLES } from '@/lib/auth/roles';
 export const metadata: Metadata = {
   title: 'Admin',
   description:
-    'BitLogic admin console for products, credential vault, deliveries, payments, and support.',
+    'Blumartbd admin console for products, credential vault, deliveries, payments, and support.',
   robots: { index: false, follow: false, nocache: true },
 };
 

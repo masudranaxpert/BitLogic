@@ -5,6 +5,10 @@ export type StoreSettings = {
   siteTitle: string;
   /** Meta description for search / social previews. */
   siteDescription: string;
+  /** Uploaded header logo. Empty uses the built-in lockup. */
+  logoUrl: string;
+  /** Uploaded browser-tab icon. Empty uses the built-in favicon. */
+  faviconUrl: string;
   /** Storefront shows a maintenance screen to everyone except signed-in admins. */
   maintenanceMode: boolean;
   maintenanceMessage: string;
@@ -25,12 +29,35 @@ export type StoreSettings = {
   supportHours: string;
   facebookUrl: string;
   youtubeUrl: string;
+  /** Suppliers: buy automatically when a payment is verified (master switch). */
+  supplierAutoDispatch: boolean;
+  /** Suppliers: an auto price rise above this % waits for review instead of applying. */
+  supplierPriceGuardPct: number;
+  /** Suppliers: stop selling an option whose cost is above its price. */
+  supplierStopOnLoss: boolean;
+  /** Suppliers: at purchase time, still buy if cost exceeds what the customer paid by up to this %. */
+  supplierMaxLossPct: number;
+  /** Payment Gateways Configuration */
+  bkashEnabled: boolean;
+  bkashNumber: string;
+  bkashType: string;
+  bkashInstructions: string;
+  nagadEnabled: boolean;
+  nagadNumber: string;
+  nagadType: string;
+  nagadInstructions: string;
+  rocketEnabled: boolean;
+  rocketNumber: string;
+  rocketType: string;
+  rocketInstructions: string;
 };
 
 export const DEFAULT_STORE_SETTINGS: StoreSettings = {
-  siteTitle: 'BitLogic | Digital Subscriptions',
+  siteTitle: 'Blumartbd | All Premium Digital Products in One Place',
+  logoUrl: '',
+  faviconUrl: '',
   siteDescription:
-    'Buy digital subscriptions with fast delivery, warranty tracking, and account access — plus an admin console for vault, payments, and support.',
+    'Blumartbd — All premium digital products, AI tools, streaming, software, and subscriptions in one place with instant delivery in Bangladesh.',
   maintenanceMode: false,
   maintenanceMessage: "We're doing some upkeep and will be back shortly.",
   ordersPaused: false,
@@ -45,6 +72,22 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   supportHours: '',
   facebookUrl: '',
   youtubeUrl: '',
+  supplierAutoDispatch: true,
+  supplierPriceGuardPct: 30,
+  supplierStopOnLoss: true,
+  supplierMaxLossPct: 0,
+  bkashEnabled: true,
+  bkashNumber: '01700-123456',
+  bkashType: 'Personal',
+  bkashInstructions: 'Send Money to our personal bKash number and enter the Transaction ID (TrxID) below.',
+  nagadEnabled: true,
+  nagadNumber: '01700-123456',
+  nagadType: 'Personal',
+  nagadInstructions: 'Send Money to our personal Nagad number and enter the Transaction ID (TrxID) below.',
+  rocketEnabled: false,
+  rocketNumber: '',
+  rocketType: 'Personal',
+  rocketInstructions: 'Send Money to our Rocket number and enter the Transaction ID (TrxID) below.',
 };
 
 const KEYS = Object.keys(DEFAULT_STORE_SETTINGS) as Array<keyof StoreSettings>;
@@ -89,7 +132,9 @@ export async function saveStoreSettings(patch: Partial<StoreSettings>) {
                 ? 80
                 : 500;
     const value =
-      typeof def === 'boolean'
+      k === 'logoUrl' || k === 'faviconUrl'
+        ? localImageUrl(raw)
+        : typeof def === 'boolean'
         ? String(Boolean(raw))
         : typeof def === 'number'
           ? String(
@@ -106,4 +151,10 @@ export async function saveStoreSettings(patch: Partial<StoreSettings>) {
   }
   await db.$transaction(ops);
   return getStoreSettings();
+}
+
+function localImageUrl(raw: unknown): string {
+  const s = String(raw ?? '').trim();
+  if (!s.startsWith('/uploads/media/') || s.includes('..')) return '';
+  return s.slice(0, 500);
 }

@@ -10,6 +10,7 @@ import {
   STAFF_PERMISSIONS,
   type StaffPermissionKey,
 } from '@/lib/auth/permissions';
+import { recordActivity, requestIp } from '@/lib/audit/record';
 
 function sanitizePermissions(raw: unknown): StaffPermissionKey[] {
   if (!Array.isArray(raw)) return [];
@@ -114,6 +115,15 @@ export async function POST(request: Request) {
     },
   });
 
+  await recordActivity({
+    userId: session.id,
+    action: 'staff.create',
+    entityType: 'user',
+    entityId: user.id,
+    summary: `Added ${role === ROLES.ADMIN ? 'admin' : 'staff'} ${email}`,
+    ip: requestIp(request),
+  });
+
   return NextResponse.json({
     ok: true,
     user: {
@@ -211,6 +221,16 @@ export async function PATCH(request: Request) {
   if (body.password || role !== target.role) data.sessionVersion = { increment: 1 };
 
   const user = await db.user.update({ where: { id }, data });
+  await recordActivity({
+    userId: session.id,
+    action: 'staff.update',
+    entityType: 'user',
+    entityId: user.id,
+    summary: body.password
+      ? `Updated ${target.email} and set a new password`
+      : `Updated ${target.email}`,
+    ip: requestIp(request),
+  });
   const res = NextResponse.json({
     ok: true,
     user: {
@@ -269,6 +289,14 @@ export async function DELETE(request: Request) {
     }
   }
 
+  await recordActivity({
+    userId: session.id,
+    action: 'staff.delete',
+    entityType: 'user',
+    entityId: id,
+    summary: `Removed ${target.email}`,
+    ip: requestIp(request),
+  });
   await db.user.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }

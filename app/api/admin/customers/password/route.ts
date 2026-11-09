@@ -9,6 +9,7 @@ import { appUrl, issueAuthToken } from '@/lib/auth/tokens';
 import { getEmailConfig, isEmailReady } from '@/lib/email/config';
 import { sendEmail } from '@/lib/email/send';
 import { passwordChangedByAdminMail, resetPasswordMail } from '@/lib/email/templates';
+import { recordActivity, requestIp } from '@/lib/audit/record';
 
 /** Readable temporary password: no look-alike characters. */
 function tempPassword() {
@@ -41,7 +42,7 @@ export async function GET(request: Request) {
  * Customers only — staff/admin passwords are never changed here.
  */
 export async function POST(request: Request) {
-  const { error } = await requirePermission('customers');
+  const { session, error } = await requirePermission('customers');
   if (error) return error;
   const body = (await request.json().catch(() => ({}))) as {
     email?: string;
@@ -66,6 +67,14 @@ export async function POST(request: Request) {
     const token = await issueAuthToken(user.id, 'reset_password');
     const sent = await sendEmail(resetPasswordMail(email, `${appUrl(request)}/reset-password?token=${token}`), cfg);
     if (!sent.ok) return NextResponse.json({ error: `Could not send: ${sent.error}` }, { status: 502 });
+    await recordActivity({
+      userId: session.id,
+      action: 'customer.password',
+      entityType: 'user',
+      entityId: user.id,
+      summary: `Emailed a password reset to ${email}`,
+      ip: requestIp(request),
+    });
     return NextResponse.json({ ok: true, emailed: true });
   }
 
@@ -84,6 +93,14 @@ export async function POST(request: Request) {
   if (body.notify && isEmailReady(cfg)) {
     notified = (await sendEmail(passwordChangedByAdminMail(email, `${appUrl(request)}/login`), cfg)).ok;
   }
+  await recordActivity({
+    userId: session.id,
+    action: 'customer.password',
+    entityType: 'user',
+    entityId: user.id,
+    summary: `Set a new password for ${email}`,
+    ip: requestIp(request),
+  });
   // Shown once to the admin to pass on; never stored in plain text.
   return NextResponse.json({ ok: true, password, notified });
 }

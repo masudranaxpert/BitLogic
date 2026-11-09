@@ -2,7 +2,7 @@
 
 import { useStoreSettings } from '@/context/StoreSettingsContext';
 import React, { useState } from 'react';
-import { ShoppingBag, ArrowRight, Trash2, CheckCircle2, ArrowLeft, Minus, Plus, AlertCircle } from 'lucide-react';
+import { ShoppingBag, ArrowRight, Trash2, CheckCircle2, ArrowLeft, Minus, Plus, AlertCircle, Loader2 } from 'lucide-react';
 import { formatPrice, getProduct } from '@/lib/products';
 import { useCatalog } from '@/context/CatalogContext';
 import { useCart } from '@/context/CartContext';
@@ -68,7 +68,7 @@ export function CartPageView() {
           customerName: customerName.trim(),
           customerEmail: customerEmail.trim(),
           customerPhone: customerPhone.trim(),
-          gateway: selectedMethod === 'nagad' ? 'Nagad' : 'bKash',
+          gateway: selectedMethod === 'nagad' ? 'Nagad' : selectedMethod === 'rocket' ? 'Rocket' : 'bKash',
           trxId: trxId.trim(),
           couponCode: couponDiscount > 0 ? coupon.trim() : undefined,
           items: items.map((i) => ({
@@ -377,13 +377,18 @@ export function CartPageView() {
                 disabled={isSubmitting || Boolean(placedOrderId) || ordersPaused}
                 className="w-full h-10.5 rounded-md bg-[#FF5E5B] hover:bg-[#e04845] text-white font-extrabold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer border-0 disabled:opacity-50"
               >
-                {isSubmitting
-                  ? 'Placing order...'
-                  : placedOrderId
-                    ? 'Order confirmed'
-                    : ordersPaused
-              ? 'Ordering is paused'
-              : `Place order — ${formatPrice(finalTotal)}`}
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    <span>Placing order...</span>
+                  </>
+                ) : placedOrderId ? (
+                  'Order confirmed'
+                ) : ordersPaused ? (
+                  'Ordering is paused'
+                ) : (
+                  `Place order — ${formatPrice(finalTotal)}`
+                )}
               </button>
             </form>
           </div>

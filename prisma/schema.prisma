@@ -29,8 +29,43 @@ model User {
   updatedAt    DateTime @updatedAt
   orders       Order[]
   authTokens   AuthToken[]
+  loginEvents  LoginEvent[]
+  activityLogs ActivityLog[]
 
   @@index([role])
+}
+
+/// One row per sign-in attempt. Staff analytics reads the last 7 days.
+model LoginEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  email     String   @default("")
+  /// password
+  method    String
+  success   Boolean
+  ip        String   @default("")
+  userAgent String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([email, createdAt])
+}
+
+/// Who did what. userId is the staff or admin who acted.
+model ActivityLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action     String
+  entityType String   @default("")
+  entityId   String   @default("")
+  summary    String
+  ip         String   @default("")
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
 }
 
 /// One-time links: email verification and password reset. Only a SHA-256 hash is stored.
@@ -102,13 +137,6 @@ model Product {
   sku              String           @default("")
   /// active = listed on storefront; draft = hidden (legacy out_of_stock/suspended → normalized in code)
   status           String           @default("active")
-  /// false = one-time product (no renewals after the first purchase)
-  renewable        Boolean          @default(true)
-  /// Vault empty: still accept purchase/renew → pending assign (not tied to status)
-  allowOrderWhenOutOfStock Boolean  @default(false)
-  /// Optional order window (UTC). Before availableFrom / after availableUntil new orders are refused; renewals are not.
-  availableFrom    DateTime?
-  availableUntil   DateTime?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
   plans            ProductPlan[]
@@ -170,9 +198,30 @@ model ProductPlan {
   warningNote         String      @default("")
   optionDescription   String      @default("")
   specificationsJson  String      @default("[]")
+  /// Where credentials come from: own | own_then_supplier | supplier_auto | supplier_manual
+  sourcing            String      @default("own")
+  /// fixed = admin sets priceBdt; auto = supplier cost x rate x (1 + markup) + flat, rounded up
+  pricingMode         String      @default("fixed")
+  markupPercent       Float       @default(20)
+  markupFlatBdt       Int         @default(0)
+  roundToBdt          Int         @default(10)
+  /// Never sell below cost + this (taka)
+  minMarginBdt        Int         @default(0)
+  /// current = renew at today's price; locked = price first paid (or today's if lower)
+  renewalPricing      String      @default("current")
+  /// false = one-time plan (no renewals)
+  renewable           Boolean     @default(true)
+  /// Accept new orders when this plan has no credentials
+  allowBackorder      Boolean?
+  /// New-order window (UTC). Renewals are not blocked.
+  availableFrom       DateTime?
+  availableUntil      DateTime?
+  /// Why auto pricing/selling is held (big jump, loss, no rate); empty = fine
+  pricingAlert        String      @default("")
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
   orderItems          OrderItem[]
+  supplierLinks       PlanSupplierLink[]
 
   @@unique([productId, code])
   @@index([productId])
@@ -312,6 +361,10 @@ model DigitalDelivery {
   credentialAssignedAt    String?
   credentialExpiresAt     String?
   renewalPending          Boolean  @default(false)
+  /// '' | processing | delivered | needs_review | failed : supplier purchase state for this unit
+  supplierState           String   @default("")
+  /// Bumped on every server-side supplier write; a client save with an older value cannot overwrite fulfilment fields
+  supplierRev             Int      @default(0)
   credentialClearedAt     String?
   /// Total units purchased on this ORD line
   orderQuantity           Int      @default(1)
@@ -435,6 +488,7 @@ model PaymentTransaction {
   @@index([status])
   @@index([orderId])
   @@index([deliveryId])
+  @@index([trxId])
 }
 
 model CouponCode {
@@ -473,3 +527,189 @@ model MediaAsset {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
+
+/// One reseller API connection (Pandora, Jaha, ...). The key is encrypted at rest.
+model Supplier {
+  id                String            @id @default(cuid())
+  name              String
+  /// adapter key: pandora | jaha | mock
+  kind              String
+  baseUrl           String
+  apiKeyEnc         String
+  apiKeyHint        String            @default("")
+  currency          String            @default("USD")
+  isEnabled         Boolean           @default(true)
+  /// Kill switch for buying only (sync keeps running)
+  purchasingEnabled Boolean           @default(true)
+  syncIntervalMin   Int               @default(15)
+  lowBalanceAlert   Float             @default(5)
+  lastSyncAt        DateTime?
+  /// ok | error | running
+  lastSyncStatus    String            @default("")
+  lastSyncError     String            @default("")
+  balance           String            @default("")
+  balanceAt         DateTime?
+  webhookSecretEnc  String            @default("")
+  webhookUrl        String            @default("")
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  products          SupplierProduct[]
+  orders            SupplierOrder[]
+}
+
+/// Cached catalog item of a supplier. Never deleted by sync (status removed instead).
+model SupplierProduct {
+  id              String             @id @default(cuid())
+  supplierId      String
+  supplier        Supplier           @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  /// Stable key inside the supplier: product id (+ '::' + variant id)
+  externalId      String
+  productRef      String
+  variantRef      String             @default("")
+  name            String
+  variantName     String             @default("")
+  category        String             @default("")
+  description     String             @default("")
+  period          String             @default("")
+  /// Decimal string as sent by the supplier, e.g. "0.285"
+  price           String
+  currency        String
+  /// null = supplier does not say
+  stock           Int?
+  /// available | out_of_stock | removed
+  status          String             @default("available")
+  minQty          Int                @default(1)
+  maxQty          Int                @default(100)
+  /// instant | automatic | manual
+  deliveryType    String             @default("instant")
+  needsBuyerInput Boolean            @default(false)
+  previousPrice   String             @default("")
+  priceChangedAt  DateTime?
+  lastSeenAt      DateTime           @default(now())
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  links           PlanSupplierLink[]
+
+  @@unique([supplierId, externalId])
+  @@index([status])
+}
+
+/// Which supplier items can fulfil one of our options, in priority order (0 = first).
+model PlanSupplierLink {
+  id                String          @id @default(cuid())
+  planId            String
+  plan              ProductPlan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  supplierProductId String
+  supplierProduct   SupplierProduct @relation(fields: [supplierProductId], references: [id], onDelete: Cascade)
+  priority          Int             @default(0)
+  isActive          Boolean         @default(true)
+  createdAt         DateTime        @default(now())
+
+  @@unique([planId, supplierProductId])
+}
+
+/// One purchase attempt for one customer unit. id doubles as the Idempotency-Key.
+model SupplierOrder {
+  id                String          @id
+  supplierId        String
+  supplier          Supplier        @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  supplierProductId String
+  orderId           String
+  deliveryId        String
+  /// queued | processing | delivered | failed | needs_review | cancelled
+  status            String          @default("queued")
+  externalOrderId   String          @default("")
+  externalStatus    String          @default("")
+  quantity          Int             @default(1)
+  unitCost          String          @default("")
+  currency          String          @default("")
+  costBdt           Int             @default(0)
+  salePriceBdt      Int             @default(0)
+  /// Exact body sent, so a retry re-sends the same request with the same key (never secrets)
+  requestJson       String          @default("")
+  attempts          Int             @default(0)
+  nextPollAt        DateTime?
+  errorCode         String          @default("")
+  lastError         String          @default("")
+  /// sha256 of the last delivery text seen (detects supplementary data)
+  deliveryHash      String          @default("")
+  /// Encrypted copy of what the supplier delivered (backup / evidence)
+  resultEnc         String          @default("")
+  productLabel      String          @default("")
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  deliveredAt       DateTime?
+
+  @@index([status])
+  @@index([orderId])
+  @@index([deliveryId])
+}
+
+/// Every price change of an option: who/what changed it and from what to what.
+model PriceHistory {
+  id        String   @id @default(cuid())
+  productId String
+  planCode  String
+  planLabel String   @default("")
+  /// price | cost | pricing
+  field     String   @default("price")
+  oldValue  String
+  newValue  String
+  /// admin | auto | supplier | rate | system
+  source    String
+  actor     String   @default("")
+  note      String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([productId, createdAt])
+}
+
+/// Taka per one unit of a supplier currency (USD, USDT, ...).
+model CurrencyRate {
+  code       String   @id
+  bdtPerUnit Float
+  updatedBy  String   @default("")
+  updatedAt  DateTime @updatedAt
+}
+
+/// Webhook event ids already processed (replay protection).
+model SupplierWebhookEvent {
+  id         String   @id
+  receivedAt DateTime @default(now())
+}
+
+/// Managed IP blocklist and rate-limit violations.
+model IpRule {
+  id        String    @id @default(cuid())
+  ip        String    @unique
+  /// "blocked" | "flagged" | "whitelisted"
+  status    String    @default("blocked")
+  reason    String    @default("Rate limit exceeded")
+  hitCount  Int       @default(1)
+  expiresAt DateTime?
+  notes     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([status])
+  @@index([ip])
+}
+
+/// Real-time incident telemetry & attack logs.
+model SecurityEvent {
+  id        String   @id @default(cuid())
+  ip        String
+  endpoint  String
+  /// "rate_limit_429" | "ip_blocked_403" | "brute_force" | "credential_stuffing"
+  action    String
+  /// "info" | "warning" | "critical"
+  severity  String   @default("warning")
+  userAgent String?
+  details   String?
+  createdAt DateTime @default(now())
+
+  @@index([ip, createdAt])
+  @@index([action, createdAt])
+  @@index([createdAt])
+}
+

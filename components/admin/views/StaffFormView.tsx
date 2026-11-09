@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, Shield, UserCog, UserPlus } from 'lucide-react';
-import { Card } from '@/components/admin/ui/primitives';
+import { Card, AdminFormSkeleton } from '@/components/admin/ui/primitives';
 import type { StaffPermissionKey } from '@/lib/auth/permissions';
 
 type CatalogItem = {
@@ -152,9 +152,7 @@ export default function StaffFormView({
       ) : null}
 
       {loading ? (
-        <Card className="p-5">
-          <p className="text-sm text-slate-500 m-0">Loading…</p>
-        </Card>
+        <AdminFormSkeleton />
       ) : (
         <form
           onSubmit={(e) => void save(e)}
@@ -191,7 +189,7 @@ export default function StaffFormView({
                   value={email}
                   disabled={isEdit}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="staff@bitlogic.local"
+                  placeholder="staff@blumartbd.local"
                 />
               </div>
               <div>

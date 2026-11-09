@@ -1,9 +1,9 @@
 import { Suspense } from 'react';
-import { AdminDashboard } from '@/components/admin';
+import { AdminDashboard, AdminShellSkeleton } from '@/components/admin';
 
 export default function AdminPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<AdminShellSkeleton />}>
       <AdminDashboard />
     </Suspense>
   );

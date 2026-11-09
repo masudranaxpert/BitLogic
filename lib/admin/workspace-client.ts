@@ -16,6 +16,7 @@ import {
   persistAdminProduct,
   persistAdminTaxonomies,
 } from '@/lib/admin/catalog-client';
+import type { ConsoleUser } from '@/components/admin/shell/admin-nav-types';
 
 export type AdminWorkspacePayload = {
   products: DigitalProduct[];
@@ -32,13 +33,57 @@ export type AdminWorkspacePayload = {
   mediaAssets: MediaAsset[];
 };
 
+let cachedWorkspace: AdminWorkspacePayload | null = null;
+let cachedConsoleUser: ConsoleUser | null = null;
+
+if (typeof window !== 'undefined') {
+  try {
+    const raw = sessionStorage.getItem('admin_workspace_cache');
+    if (raw) cachedWorkspace = JSON.parse(raw);
+    const rawUser = sessionStorage.getItem('admin_console_user');
+    if (rawUser) cachedConsoleUser = JSON.parse(rawUser);
+  } catch {}
+}
+
+export function getCachedConsoleUser(): ConsoleUser | null {
+  return cachedConsoleUser;
+}
+
+export function setCachedConsoleUser(user: ConsoleUser | null) {
+  cachedConsoleUser = user;
+  if (typeof window !== 'undefined') {
+    try {
+      if (user) {
+        sessionStorage.setItem('admin_console_user', JSON.stringify(user));
+      } else {
+        sessionStorage.removeItem('admin_console_user');
+      }
+    } catch {}
+  }
+}
+
+export function getCachedAdminWorkspace(): AdminWorkspacePayload | null {
+  return cachedWorkspace;
+}
+
+export function setCachedAdminWorkspace(data: AdminWorkspacePayload) {
+  cachedWorkspace = data;
+  if (typeof window !== 'undefined') {
+    try {
+      sessionStorage.setItem('admin_workspace_cache', JSON.stringify(data));
+    } catch {}
+  }
+}
+
 export async function fetchAdminWorkspace(): Promise<AdminWorkspacePayload | null> {
   try {
     const res = await fetch('/api/admin/workspace', { cache: 'no-store' });
-    if (!res.ok) return null;
-    return (await res.json()) as AdminWorkspacePayload;
+    if (!res.ok) return cachedWorkspace;
+    const data = (await res.json()) as AdminWorkspacePayload;
+    setCachedAdminWorkspace(data);
+    return data;
   } catch {
-    return null;
+    return cachedWorkspace;
   }
 }
 

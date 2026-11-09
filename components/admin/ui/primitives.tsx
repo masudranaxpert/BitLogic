@@ -23,5 +23,16 @@ export { ModalShell } from '@/components/admin/ui/ModalShell';
 export { SearchableSelect } from '@/components/admin/ui/SearchableSelect';
 export { PlanRadioGroup } from '@/components/admin/ui/PlanRadioGroup';
 export { GatewayBadge } from '@/components/admin/ui/GatewayBadge';
+export { SourcingSelect } from '@/components/admin/ui/SourcingSelect';
+export type { SourcingValue } from '@/components/admin/ui/SourcingSelect';
 export { RowMenu } from '@/components/admin/ui/RowMenu';
 export type { RowMenuItem } from '@/components/admin/ui/RowMenu';
+export {
+  AdminTableSkeleton,
+  AdminFormSkeleton,
+  AdminDashboardSkeleton,
+  AdminProductFormSkeleton,
+  AdminListViewSkeleton,
+  AdminContextualSkeleton,
+  AdminShellSkeleton,
+} from '@/components/admin/ui/AdminSkeleton';

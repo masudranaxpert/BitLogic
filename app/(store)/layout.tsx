@@ -53,6 +53,18 @@ export default async function StoreLayout({
         serverNow: Date.now(),
         homeBanners: allBanners.filter((b) => b.isActive),
         homeBannersCustom: allBanners.length > 0,
+        bkashEnabled: settings.bkashEnabled,
+        bkashNumber: settings.bkashNumber,
+        bkashType: settings.bkashType,
+        bkashInstructions: settings.bkashInstructions,
+        nagadEnabled: settings.nagadEnabled,
+        nagadNumber: settings.nagadNumber,
+        nagadType: settings.nagadType,
+        nagadInstructions: settings.nagadInstructions,
+        rocketEnabled: settings.rocketEnabled,
+        rocketNumber: settings.rocketNumber,
+        rocketType: settings.rocketType,
+        rocketInstructions: settings.rocketInstructions,
       }}
     >
       {settings.maintenanceMode && isAdmin ? (

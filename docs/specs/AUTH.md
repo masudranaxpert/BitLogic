@@ -1,58 +1,86 @@
-# Accounts, passwords and email
+# Accounts, Authentication & Email Specification
 
 ## Sessions
 
-- Login sets an httpOnly cookie `bitlogic_session` (JWT signed with `AUTH_SECRET`, `lib/auth/session.ts`).
-- The token carries `sv` = the user's `sessionVersion`. `getSession()` re-reads the user on every call, so:
-  - a password change/reset, a suspension, or a role/permission change signs that user out everywhere;
-  - a deleted user is signed out at once.
-- `/admin` is guarded in `middleware.ts` (ADMIN or STAFF). Each admin API also checks
-  `requirePermission(key)` / `requireFullAdmin()` (`lib/auth/require-admin.ts`).
-- Buyer APIs (orders, chat, tickets, warranty) use `lib/auth/buyer-access.ts`:
-  signed-in members see only their own email's orders; guests must send the order's private `accessToken`.
+- Login sets an httpOnly cookie `bitlogic_session` containing a JWT signed with `AUTH_SECRET` via `jose` (`lib/auth/session.ts`).
+- The JWT payload carries `sv` = the user's `sessionVersion`. `getSession()` reads the user record on every call:
+  - Any password change or reset, user suspension, or role/permission update increments `sessionVersion`, instantly signing out all existing sessions across devices.
+  - A deleted user's session is terminated immediately.
+- `/admin` routes are guarded in `middleware.ts` (requiring `ADMIN` or `STAFF` roles). Each admin API endpoint also explicitly verifies permissions via `requirePermission(key)` or `requireFullAdmin()` (`lib/auth/require-admin.ts`).
+- Buyer APIs (orders, chat, tickets, warranty) authenticate via `lib/auth/buyer-access.ts`:
+  - Signed-in customers access orders matching their authenticated email.
+  - Guest buyers access order details via the unguessable `accessToken` generated at checkout.
 
-## Password rules (`lib/auth/password-policy.ts`)
+---
 
-At least 8 characters, letters and numbers, at most 72 bytes (bcrypt limit), not a common password,
-not containing the email name. Applied on sign-up, reset, change, admin set and staff accounts.
+## Password Policy (`lib/auth/password-policy.ts`)
+
+BitLogic enforces a smart, zero-dependency password security policy (Ponytail style):
+- **Length & Boundary**: Minimum 8 characters. Maximum 72 bytes (strictly enforcing the bcrypt byte limit to prevent silent truncation attacks).
+- **Complexity**: Must contain both letters and numbers.
+- **Leaked & Cracked Password Shield**: In-memory `Set` containing the most common leaked and cracked passwords from SecLists / RockYou, combined with regional Bangladeshi patterns (`bangladesh123`, `dhaka123`, `bitlogic123`, etc.).
+- **Character Repetition**: Rejects passwords consisting of repeated single characters (e.g. `11111111`, `aaaaaaaa`).
+- **Context-Aware Anti-User Info Reuse**:
+  - Rejects passwords matching or containing the user's email username (e.g. `rahim` from `rahim@gmail.com`).
+  - Rejects passwords containing tokens of the user's personal name (tokens $\ge 3$ characters).
+  - Rejects passwords containing the last 6 digits of the user's mobile phone number.
+- Applied consistently across customer sign-up, password reset, account password change, and staff account creation.
+
+---
+
+## Disposable Email Protection (`lib/email/validate-email.ts`)
+
+Checkout and registration strictly reject throwaway/temporary email providers:
+- **100k+ Domain Blocklist**: An in-memory hash set of 100,143 known disposable domains (`lib/email/disposable-domains.json`).
+- **Progressive Subdomain Traversal**: Evaluates wildcards and nested subdomains down to the root domain.
+- **Permanent Consumer Whitelist**: Legitimate major email providers (`gmail.com`, `googlemail.com`, `outlook.com`, `hotmail.com`, `yahoo.com`, `icloud.com`, `proton.me`, `protonmail.com`, `zoho.com`, etc.) are permanently whitelisted and can never be blocked.
+
+---
 
 ## Flows
 
-| Flow | API | Notes |
-|------|-----|-------|
-| Sign up | `POST /api/auth/register` | If email is set up and "Verify email on sign-up" is on: account is created unverified, a link is emailed, no session yet. Otherwise signed in straight away. |
-| Confirm email | `GET /api/auth/verify-email?token=` | Redirects to `/login?verified=1` or `?verified=invalid`. |
-| Resend link | `POST /api/auth/resend-verification` | Same answer whether or not the account exists. |
-| Sign in | `POST /api/auth/login` | Unverified customer → 403 `EMAIL_NOT_VERIFIED` (only while email is set up). CRM status suspended → 403 `ACCOUNT_SUSPENDED`. |
-| Forgot password | `GET/POST /api/auth/forgot-password` | GET says if email reset is available. POST always gives the same answer. Without email setup the page tells the buyer to contact support. |
-| Reset password | `GET/POST /api/auth/reset-password` | Page: `/reset-password?token=`. Link works once, for 1 hour. Password is checked before the link is used up. |
-| Change password | `POST /api/account/password` | Needs the current password. Other devices are signed out; this one gets a fresh cookie. |
-| Profile | `GET/PATCH /api/account/profile` | Name and phone. Email is the login and stays fixed. Also updates the CRM record. |
-| Admin: help a customer | `GET/POST /api/admin/customers/password` | Customers → open one → Profile → Sign-in. "Email reset link", or "Set new password" (typed or generated, shown once). Staff/admin accounts can't be changed here. |
+| Flow | Endpoint | Description |
+|---|---|---|
+| **Sign up** | `POST /api/auth/register` | If email provider is configured and "Verify email on sign-up" is enabled: creates user with `emailVerifiedAt = null`, sends one-time verification link. Otherwise marks verified and signs in immediately. Validates disposable email and password policy. |
+| **Confirm email** | `GET /api/auth/verify-email?token=` | Validates `AuthToken` hash; marks user verified and redirects to `/login?verified=1`. |
+| **Resend link** | `POST /api/auth/resend-verification` | Issues a new verification link. Uniform response to prevent account enumeration. |
+| **Sign in** | `POST /api/auth/login` | Audits attempt in `LoginEvent`. Checks unverified status (403 `EMAIL_NOT_VERIFIED`) and CRM suspension (403 `ACCOUNT_SUSPENDED`). Issues JWT session cookie. |
+| **Forgot password** | `GET/POST /api/auth/forgot-password` | Generates 1-hour `AuthToken` (`reset_password`) and emails the reset link. Returns uniform response. |
+| **Reset password** | `GET/POST /api/auth/reset-password` | Validates token, checks new password against policy, updates `passwordHash`, increments `sessionVersion`, and marks token used. |
+| **Change password** | `POST /api/account/password` | Authenticated customer flow. Verifies current password, updates to new password, increments `sessionVersion`, and re-issues a fresh session cookie for the active device. |
+| **Profile** | `GET/PATCH /api/account/profile` | Updates customer name and phone. Keeps the CRM `AdminSubscriber` record synchronized. |
+| **Admin Password Assistance** | `GET/POST /api/admin/customers/password` | Admin console tool to either trigger an emailed reset link or manually set an admin-generated temporary password for a customer. |
 
-## Rate limits (`lib/auth/rate-limit.ts`, in-memory)
+---
 
-Login 8 per 15 min per IP+email and 40 per IP; sign-up 10 per hour per IP; forgot/resend 3 per 15 min per email;
-password change 6 per 15 min; checkout 15 per 10 min; chat 40 per 5 min; tickets 20 per 10 min.
-Move this to the DB/Redis when running more than one server.
+## Rate Limits (`lib/auth/rate-limit.ts`)
 
-## Email (Admin → Settings → Email)
+In-memory sliding window rate limits (see [ADR-008](../adr/ADR-008-in-memory-zero-dependency-vs-redis.md)):
+- **Login**: 8 attempts per 15 minutes per IP+email; 40 per IP
+- **Sign-up**: 10 attempts per hour per IP
+- **Password Reset / Resend**: 3 requests per 15 minutes per email
+- **Password Change**: 6 requests per 15 minutes
+- **Checkout**: 15 requests per 10 minutes per IP
+- **Chat**: 40 messages per 5 minutes
+- **Support Tickets**: 20 requests per 10 minutes
 
-Stored in `StoreSetting['emailConfig']`. Passwords and API keys are encrypted and never sent back to the browser.
+---
 
-| Provider | What you need | Free tier (check the provider) |
-|----------|---------------|------|
-| SMTP | Host, port, username, password. Presets: Gmail (App Password), Outlook, Zoho, Brevo, SendGrid, Mailgun, Amazon SES, custom. | Gmail ~500/day |
-| Resend | API key | 3,000/month |
-| Brevo | API key | 300/day |
-| SendGrid | API key (Mail Send) | — |
-| Postmark | Server token | — |
-| Mailgun | API key + domain + region | — |
+## Email Configuration (Admin → Settings → Email)
 
-- "Sender email" must be an address or domain the provider has verified.
-- "Send test" sends with the saved settings and shows the provider's error if it fails.
-- When the provider is **Off** (or setup is incomplete): sign-up signs in without verification,
-  forgot-password shows "contact support", and admins can still set a new password by hand.
-- Set `APP_URL` in production: email links are built from it.
+Settings stored in `StoreSetting['emailConfig']`. SMTP credentials and API keys are stored encrypted at rest via AES-256-GCM.
 
-Code: `lib/email/config.ts` (settings), `lib/email/send.ts` (SMTP via nodemailer + HTTP APIs), `lib/email/templates.ts`.
+| Provider | Configuration Requirements | Typical Allowance |
+|---|---|---|
+| **SMTP** | Host, port, username, encrypted password. Presets for Gmail App Passwords, Outlook, Zoho, Brevo, SendGrid, Mailgun, Amazon SES, or custom SMTP. | Gmail ~500/day |
+| **Resend** | Encrypted API key | 3,000/month |
+| **Brevo** | Encrypted API key | 300/day |
+| **SendGrid** | Encrypted API key (Mail Send) | Custom |
+| **Postmark** | Encrypted Server token | Custom |
+| **Mailgun** | Encrypted API key + sending domain + region | Custom |
+
+- **Fallback Behavior**: When the email provider is disabled or not yet configured:
+  - Registration signs the user in immediately without requiring verification.
+  - Forgot-password gracefully directs buyers to customer support.
+  - Admins can still set customer passwords directly from the console.
+- **Production Setting**: `APP_URL` must be set in the production environment to construct valid verification and reset URLs.

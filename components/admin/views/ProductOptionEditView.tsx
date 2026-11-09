@@ -4,6 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import type { DigitalProduct, ProductVariant } from '@/lib/admin/types';
 import { Card } from '@/components/admin/ui/Card';
+import { scheduleProblem } from '@/components/admin/views/product-add/ProductSchedulePicker';
 import { ProductOptionForm } from '@/components/admin/views/product-option/ProductOptionForm';
 import {
   buildVariantFromOptionForm,
@@ -57,6 +58,7 @@ export default function ProductOptionEditView({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (scheduleProblem(values.availableFrom, values.availableUntil)) return;
 
     if (editing) {
       onUpdateVariant(
@@ -90,10 +92,10 @@ export default function ProductOptionEditView({
         </button>
         <Card className="p-6">
           <p className="m-0 text-sm font-semibold text-slate-800 dark:text-slate-100">
-            Option not found
+            Plan not found
           </p>
           <p className="mt-1 mb-0 text-xs text-slate-500">
-            This product option may have been removed.
+            This plan may have been removed.
           </p>
         </Card>
       </div>
@@ -112,7 +114,7 @@ export default function ProductOptionEditView({
           Back to Products
         </button>
         <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 m-0">
-          {mode === 'edit' ? 'Edit Option' : 'Add Option'}
+          {mode === 'edit' ? 'Edit plan' : 'Add plan'}
         </h1>
         <p className="mt-1 mb-0 text-xs text-slate-500 dark:text-slate-400">
           {mode === 'edit'

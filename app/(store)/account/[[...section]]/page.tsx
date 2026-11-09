@@ -3,7 +3,7 @@ import { StorefrontShell } from '@/components/storefront';
 
 export const metadata: Metadata = {
   title: 'Account',
-  description: 'Your BitLogic orders, credentials, and support.',
+  description: 'Your Blumartbd orders, credentials, and support.',
   robots: { index: false, follow: false },
   alternates: { canonical: '/account' },
 };

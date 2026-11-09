@@ -17,6 +17,10 @@ import {
 import { ROLES } from '@/lib/auth/roles';
 import {
   fetchAdminWorkspace,
+  getCachedAdminWorkspace,
+  setCachedAdminWorkspace,
+  getCachedConsoleUser,
+  setCachedConsoleUser,
   hasPendingAdminSaves,
   persistAdminProduct,
   persistAdminTaxonomies,
@@ -40,6 +44,7 @@ import {
   ProductCategory,
 } from '@/lib/admin-data';
 import { ModalShell } from '@/components/admin/ui/primitives';
+import { AdminContextualSkeleton } from '@/components/admin/ui/AdminSkeleton';
 import { CommandPalette } from '@/components/admin/shell/CommandPalette';
 import { parseStamp, warrantyWindow } from '@/lib/warranty';
 import { BrandLogo } from '@/components/brand/BrandLogo';
@@ -73,14 +78,20 @@ export default function AdminDashboard() {
   const searchParams = useSearchParams();
   const activeTab = pathToAdminTab(pathname);
 
-  const [consoleUser, setConsoleUser] = useState<ConsoleUser | null>(null);
+  const [consoleUser, setConsoleUser] = useState<ConsoleUser | null>(
+    () => getCachedConsoleUser(),
+  );
 
   useEffect(() => {
     let cancelled = false;
     void fetch('/api/admin/me', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (!cancelled && d?.user) setConsoleUser(d.user as ConsoleUser);
+        if (!cancelled && d?.user) {
+          const u = d.user as ConsoleUser;
+          setConsoleUser(u);
+          setCachedConsoleUser(u);
+        }
       })
       .catch(() => {
         /* ignore */
@@ -128,6 +139,7 @@ export default function AdminDashboard() {
       'email',
       'contact',
       'storefront',
+      'suppliers',
     ];
     const next =
       fallback.find((t) =>
@@ -139,7 +151,17 @@ export default function AdminDashboard() {
   // Customer detail lives in the URL (?id=) so refresh, back and deep links open the right person.
   const pendingCustomerIdRef = useRef<string | null>(null);
   const setActiveTab = (tab: AdminTab) => {
-    const id = tab === 'user-detail' ? pendingCustomerIdRef.current : null;
+    const onStaff =
+      activeTab === 'staff-add' ||
+      activeTab === 'staff-logins' ||
+      activeTab === 'staff-actions' ||
+      activeTab === 'staff-view';
+    const id =
+      tab === 'user-detail'
+        ? pendingCustomerIdRef.current
+        : (tab === 'staff-logins' || tab === 'staff-actions' || tab === 'staff-view') && onStaff
+          ? searchParams.get('id')
+          : null;
     pendingCustomerIdRef.current = null;
     router.push(id ? `${adminTabToPath(tab)}?id=${encodeURIComponent(id)}` : adminTabToPath(tab));
   };
@@ -164,7 +186,7 @@ export default function AdminDashboard() {
   /** Accordion: only the active section’s submenu stays open. */
   const navGroupForTab = (
     tab: AdminTab,
-  ): 'products' | 'vault' | 'users' | 'deliveries' | 'payments' | null => {
+  ): 'products' | 'vault' | 'users' | 'deliveries' | 'payments' | 'email' | 'suppliers' | 'security' | 'staff' | null => {
     if (
       tab === 'products' ||
       tab === 'product-add' ||
@@ -187,7 +209,7 @@ export default function AdminDashboard() {
     if (tab === 'users' || tab === 'user-detail' || tab === 'user-add') {
       return 'users';
     }
-    if (tab === 'payments' || tab === 'coupons') return 'payments';
+    if (tab === 'payments' || tab === 'payment-methods' || tab === 'coupons') return 'payments';
     if (
       tab === 'deliveries' ||
       tab === 'order-add' ||
@@ -196,6 +218,35 @@ export default function AdminDashboard() {
       tab === 'warranty-claims'
     ) {
       return 'deliveries';
+    }
+    if (tab === 'email' || tab === 'email-templates' || tab === 'email-triggers') {
+      return 'email';
+    }
+    if (
+      tab === 'suppliers' ||
+      tab === 'supplier-catalog' ||
+      tab === 'supplier-links' ||
+      tab === 'supplier-orders' ||
+      tab === 'supplier-settings'
+    ) {
+      return 'suppliers';
+    }
+    if (
+      tab === 'security' ||
+      tab === 'security-ips' ||
+      tab === 'security-audit' ||
+      tab === 'security-rules'
+    ) {
+      return 'security';
+    }
+    if (
+      tab === 'staff' ||
+      tab === 'staff-add' ||
+      tab === 'staff-logins' ||
+      tab === 'staff-actions' ||
+      tab === 'staff-view'
+    ) {
+      return 'staff';
     }
     return null;
   };
@@ -208,6 +259,10 @@ export default function AdminDashboard() {
       users: open === 'users',
       deliveries: open === 'deliveries',
       payments: open === 'payments',
+      email: open === 'email',
+      suppliers: open === 'suppliers',
+      security: open === 'security',
+      staff: open === 'staff',
     };
   });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -215,26 +270,27 @@ export default function AdminDashboard() {
   const [commandOpen, setCommandOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const [products, setProducts] = useState<DigitalProduct[]>([]);
-  const [warranties, setWarranties] = useState<WarrantyPlan[]>([]);
+  const initialCached = getCachedAdminWorkspace();
+  const [products, setProducts] = useState<DigitalProduct[]>(() => initialCached?.products ?? []);
+  const [warranties, setWarranties] = useState<WarrantyPlan[]>(() => initialCached?.warranties ?? []);
   const [credentialSchemes, setCredentialSchemes] = useState<CredentialScheme[]>(
-    [],
+    () => initialCached?.credentialSchemes ?? [],
   );
   const [productCategories, setProductCategories] = useState<ProductCategory[]>(
-    [],
+    () => initialCached?.productCategories ?? [],
   );
-  const [catalogHydrated, setCatalogHydrated] = useState(false);
+  const [catalogHydrated, setCatalogHydrated] = useState(() => Boolean(initialCached));
   const [workspaceError, setWorkspaceError] = useState(false);
-  const [vault, setVaultState] = useState<VaultCredential[]>([]);
-  const [deliveries, setDeliveriesState] = useState<DigitalDelivery[]>([]);
-  const [tickets, setTicketsState] = useState<AdminSupportTicket[]>([]);
+  const [vault, setVaultState] = useState<VaultCredential[]>(() => initialCached?.vault ?? []);
+  const [deliveries, setDeliveriesState] = useState<DigitalDelivery[]>(() => initialCached?.deliveries ?? []);
+  const [tickets, setTicketsState] = useState<AdminSupportTicket[]>(() => initialCached?.tickets ?? []);
   const [adminNotifications, setAdminNotificationsState] = useState<
     AdminNotificationItem[]
-  >([]);
-  const [subscribers, setSubscribersState] = useState<SubscriberUser[]>([]);
-  const [payments, setPaymentsState] = useState<PaymentTransaction[]>([]);
-  const [coupons, setCouponsState] = useState<CouponCode[]>([]);
-  const [mediaAssets, setMediaAssetsState] = useState<MediaAsset[]>([]);
+  >(() => initialCached?.adminNotifications ?? []);
+  const [subscribers, setSubscribersState] = useState<SubscriberUser[]>(() => initialCached?.subscribers ?? []);
+  const [payments, setPaymentsState] = useState<PaymentTransaction[]>(() => initialCached?.payments ?? []);
+  const [coupons, setCouponsState] = useState<CouponCode[]>(() => initialCached?.coupons ?? []);
+  const [mediaAssets, setMediaAssetsState] = useState<MediaAsset[]>(() => initialCached?.mediaAssets ?? []);
 
   const [selectedChatDeliveryId, setSelectedChatDeliveryId] = useState<string | null>(null);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
@@ -271,6 +327,7 @@ export default function AdminDashboard() {
   const applyWorkspace = (
     workspace: NonNullable<Awaited<ReturnType<typeof fetchAdminWorkspace>>>,
   ) => {
+    setCachedAdminWorkspace(workspace);
         setProducts(workspace.products ?? []);
         setWarranties(workspace.warranties ?? []);
         setCredentialSchemes(workspace.credentialSchemes ?? []);
@@ -638,7 +695,7 @@ export default function AdminDashboard() {
       if (!ok) showToast('Saved locally — DB write failed.');
     });
     setActiveTab('products');
-    showToast(`Published "${newProduct.name}" (${newProduct.variants.length} options).`);
+    showToast(`Published "${newProduct.name}" (${newProduct.variants.length} plans).`);
   };
 
   const handleUpdateProduct = (
@@ -650,7 +707,7 @@ export default function AdminDashboard() {
       commitVault((prev) => [...newCredentials, ...prev]);
     }
     setActiveTab('products');
-    showToast(`Saved "${product.name}" (${product.variants.length} options).`);
+    showToast(`Saved "${product.name}" (${product.variants.length} plans).`);
     void persistAdminProduct(product).then((ok) => {
       if (!ok) showToast('DB write failed — changes may not survive refresh.');
     });
@@ -694,7 +751,7 @@ export default function AdminDashboard() {
       });
     }
     setActiveTab('products');
-    showToast(`Added option "${variant.name}".`);
+    showToast(`Added plan "${variant.name}".`);
   };
 
   const handleUpdateVariant = (productId: string, updatedVariant: ProductVariant) => {
@@ -1025,8 +1082,9 @@ export default function AdminDashboard() {
     }
 
     const renewProduct = products.find((p) => p.name === sub.productName);
-    if (renewProduct?.renewable === false) {
-      showToast(renewProduct.name + ' is a one-time product — renewals are disabled.');
+    const renewPlan = renewProduct?.variants.find((v) => v.name === sub.variantName);
+    if (renewPlan?.renewable === false) {
+      showToast(renewPlan.name + ' is a one-time plan — renewals are disabled.');
       return;
     }
     if (renewProduct?.status === 'draft') {
@@ -1246,6 +1304,8 @@ export default function AdminDashboard() {
         );
       }
       showToast(`Renewal verified for ${pay.orderId}.`);
+      // Supplier options whose old credential already ended get a fresh one bought now.
+      triggerSupplierDispatch(pay.orderId, pay.renewDeliveryIds?.length ? pay.renewDeliveryIds : undefined);
       return;
     }
 
@@ -1406,6 +1466,41 @@ export default function AdminDashboard() {
         `Verified ${pay.gateway} (${pay.trxId}) — queued for manual fulfillment.`,
       );
     }
+    if (unallocatedCount > 0) triggerSupplierDispatch(pay.orderId);
+  };
+
+  /**
+   * Units of supplier-sourced options are bought on the server right after verification.
+   * The server also sweeps every minute, so a closed tab never leaves a paid order unserved.
+   */
+  const triggerSupplierDispatch = (orderId: string, deliveryIds?: string[]) => {
+    void (async () => {
+      try {
+        const res = await fetch('/api/admin/suppliers/purchases', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'dispatch', orderId, deliveryIds }),
+        });
+        if (!res.ok) return; // no Suppliers permission, or nothing to do
+        const data = (await res.json().catch(() => null)) as { results?: Array<{ outcome: string }> } | null;
+        const results = (data?.results || []).filter((r) => r.outcome !== 'skipped');
+        if (results.length === 0) return;
+        await reloadWorkspace();
+        const n = (o: string) => results.filter((r) => r.outcome === o).length;
+        showToast(
+          [
+            n('delivered') ? `${n('delivered')} delivered by supplier` : '',
+            n('processing') ? `${n('processing')} waiting for supplier` : '',
+            n('needs_review') ? `${n('needs_review')} need your review (price)` : '',
+            n('failed') ? `${n('failed')} supplier purchase failed` : '',
+          ]
+            .filter(Boolean)
+            .join(' · ') + ` — ${orderId}`,
+        );
+      } catch {
+        /* the server sweep retries */
+      }
+    })();
   };
 
   const handleRejectOrRefundPayment = (
@@ -1595,6 +1690,10 @@ export default function AdminDashboard() {
         users: groupId === 'users' ? nextOpen : false,
         deliveries: groupId === 'deliveries' ? nextOpen : false,
         payments: groupId === 'payments' ? nextOpen : false,
+        email: groupId === 'email' ? nextOpen : false,
+        suppliers: groupId === 'suppliers' ? nextOpen : false,
+        security: groupId === 'security' ? nextOpen : false,
+        staff: groupId === 'staff' ? nextOpen : false,
       };
     });
   };
@@ -1608,6 +1707,10 @@ export default function AdminDashboard() {
       users: open === 'users',
       deliveries: open === 'deliveries',
       payments: open === 'payments',
+      email: open === 'email',
+      suppliers: open === 'suppliers',
+      security: open === 'security',
+      staff: open === 'staff',
     });
   }, [activeTab]);
 
@@ -1711,10 +1814,7 @@ export default function AdminDashboard() {
               </button>
             </div>
           ) : !catalogHydrated ? (
-            <div className="flex items-center gap-3 py-10 text-sm text-slate-500" role="status">
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-emerald-600" />
-              Loading…
-            </div>
+            <AdminContextualSkeleton tab={activeTab} />
           ) : (
           <AdminViewRouter
             activeTab={activeTab}
@@ -1798,6 +1898,7 @@ export default function AdminDashboard() {
           { id: 'deliveries' as AdminTab, label: 'Orders' },
           { id: 'order-add' as AdminTab, label: 'Add order' },
           { id: 'orders-renewals' as AdminTab, label: 'Renewals' },
+          { id: 'orders-pinned' as AdminTab, label: 'Pinned orders' },
           { id: 'warranty-claims' as AdminTab, label: 'Warranty claims' },
           { id: 'payments' as AdminTab, label: 'Payments' },
           { id: 'coupons' as AdminTab, label: 'Coupons' },
@@ -1816,7 +1917,12 @@ export default function AdminDashboard() {
           { id: 'features' as AdminTab, label: 'Settings' },
           { id: 'email' as AdminTab, label: 'Email' },
           { id: 'contact' as AdminTab, label: 'Contact' },
-          { id: 'storefront' as AdminTab, label: 'Storefront (site title, homepage banners)' },
+          { id: 'storefront' as AdminTab, label: 'Storefront', keywords: 'site title homepage banners' },
+          { id: 'suppliers' as AdminTab, label: 'Suppliers', keywords: 'reseller apis' },
+          { id: 'supplier-catalog' as AdminTab, label: 'Supplier catalog' },
+          { id: 'supplier-links' as AdminTab, label: 'Linked plans' },
+          { id: 'supplier-orders' as AdminTab, label: 'Supplier purchases' },
+          { id: 'supplier-settings' as AdminTab, label: 'Supplier pricing & rules' },
           ...(consoleUser?.isFullAdmin
             ? [
                 { id: 'staff' as AdminTab, label: 'Staff' },

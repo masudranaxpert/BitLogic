@@ -1,13 +1,15 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
+import { useStoreSettings } from '@/context/StoreSettingsContext';
 
 export const STORE_PAYMENT_METHODS = [
   { id: 'bkash', label: 'bKash', icon: '/payments/bkash-icon.svg' },
   { id: 'nagad', label: 'Nagad', icon: '/payments/nagad-icon.png' },
+  { id: 'rocket', label: 'Rocket', icon: '/payments/bkash-icon.svg' },
 ] as const;
 
-export type StorePaymentMethodId = (typeof STORE_PAYMENT_METHODS)[number]['id'];
+export type StorePaymentMethodId = 'bkash' | 'nagad' | 'rocket';
 
 type PaymentMethodSelectorProps = {
   selectedMethod: StorePaymentMethodId;
@@ -24,16 +26,96 @@ export function PaymentMethodSelector({
   trxId,
   onChangeTrxId,
 }: PaymentMethodSelectorProps) {
-  const activeLabel =
-    STORE_PAYMENT_METHODS.find((m) => m.id === selectedMethod)?.label || 'bKash';
+  const settings = useStoreSettings();
+
+  const availableMethods = useMemo(() => {
+    const list: Array<{
+      id: StorePaymentMethodId;
+      label: string;
+      icon: string;
+      number: string;
+      type: string;
+      instructions: string;
+    }> = [];
+
+    if (settings.bkashEnabled !== false) {
+      list.push({
+        id: 'bkash',
+        label: 'bKash',
+        icon: '/payments/bkash-icon.svg',
+        number: settings.bkashNumber || '01700-123456',
+        type: settings.bkashType || 'Personal',
+        instructions:
+          settings.bkashInstructions ||
+          'Send Money to our personal bKash number and enter TrxID below.',
+      });
+    }
+
+    if (settings.nagadEnabled !== false) {
+      list.push({
+        id: 'nagad',
+        label: 'Nagad',
+        icon: '/payments/nagad-icon.svg',
+        number: settings.nagadNumber || '01700-123456',
+        type: settings.nagadType || 'Personal',
+        instructions:
+          settings.nagadInstructions ||
+          'Send Money to our personal Nagad number and enter TrxID below.',
+      });
+    }
+
+    if (settings.rocketEnabled) {
+      list.push({
+        id: 'rocket',
+        label: 'Rocket',
+        icon: '/payments/rocket.png',
+        number: settings.rocketNumber || '',
+        type: settings.rocketType || 'Personal',
+        instructions:
+          settings.rocketInstructions ||
+          'Send Money to our Rocket number and enter TrxID below.',
+      });
+    }
+
+    return list.length > 0
+      ? list
+      : [
+          {
+            id: 'bkash' as StorePaymentMethodId,
+            label: 'bKash',
+            icon: '/payments/bkash-icon.svg',
+            number: settings.bkashNumber || '01700-123456',
+            type: 'Personal',
+            instructions: 'Send Money and enter TrxID below.',
+          },
+        ];
+  }, [settings]);
+
+  // Keep selection synchronized with available methods
+  useEffect(() => {
+    if (!availableMethods.some((m) => m.id === selectedMethod) && availableMethods.length > 0) {
+      onSelectMethod(availableMethods[0].id);
+    }
+  }, [availableMethods, selectedMethod, onSelectMethod]);
+
+  const activeMethod =
+    availableMethods.find((m) => m.id === selectedMethod) || availableMethods[0];
 
   return (
     <div className="space-y-2.5 pt-0.5">
       <label className="block text-xs font-bold text-slate-700">
         Payment method
       </label>
-      <div className="grid grid-cols-2 gap-2.5">
-        {STORE_PAYMENT_METHODS.map((m) => {
+      <div
+        className={`grid gap-2.5 ${
+          availableMethods.length === 1
+            ? 'grid-cols-1'
+            : availableMethods.length === 2
+            ? 'grid-cols-2'
+            : 'grid-cols-3'
+        }`}
+      >
+        {availableMethods.map((m) => {
           const active = selectedMethod === m.id;
           return (
             <button
@@ -61,8 +143,15 @@ export function PaymentMethodSelector({
 
       <div className="p-2.5 bg-slate-50 rounded-md border border-slate-200/80 text-xs text-slate-600 leading-relaxed">
         Send <strong className="text-[#0F172A]">{formattedTotal}</strong> to{' '}
-        <span className="font-mono font-bold text-[#0F172A]">01700-123456</span> (
-        {activeLabel}) and enter the Transaction ID:
+        <span className="font-mono font-bold text-[#0F172A]">
+          {activeMethod.number || '(not configured)'}
+        </span>{' '}
+        ({activeMethod.label} - {activeMethod.type}) and enter the Transaction ID:
+        {activeMethod.instructions && (
+          <p className="mt-1 text-[11px] text-slate-500 m-0">
+            {activeMethod.instructions}
+          </p>
+        )}
       </div>
 
       <input

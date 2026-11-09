@@ -1,12 +1,12 @@
 'use client';
 
 import type { DigitalDelivery, PaymentTransaction } from '@/lib/admin/types';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   DigitalProduct,
   VaultCredential,
 } from '@/lib/admin-data';
-import { ProductsList } from './ProductsList';
+import { ProductsList, type ProductTab, type RowSupply } from './ProductsList';
 
 interface ProductsViewProps {
   products: DigitalProduct[];
@@ -29,7 +29,22 @@ export default function ProductsView({
   onOpenEditOptionPage,
   onOpenQuickRestock,
 }: ProductsViewProps) {
-  const [tabFilter, setTabFilter] = useState<'all' | 'in_stock' | 'manual_queue' | 'vpn_required'>('all');
+  const [tabFilter, setTabFilter] = useState<ProductTab>('all');
+  // Sell status + supplier links per option (own stock is counted live from the vault below).
+  const [supply, setSupply] = useState<Record<string, RowSupply>>({});
+  const availableCount = vault.filter((v) => v.status === 'available').length;
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/admin/catalog/supply', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (alive && d?.supply) setSupply(d.supply);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [products, availableCount]);
   const [viewMode, setViewMode] = useState<'table' | 'grouped'>('table');
   const [showStatistics, setShowStatistics] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -45,19 +60,21 @@ export default function ProductsView({
       product,
       variant,
       stockCount: getVaultStock(product.id, variant.id),
+      supply: supply[`${product.id}|${variant.id}`],
     }))
   );
 
-  const filteredRows = allVariantRows.filter(({ product, variant, stockCount }) => {
+  const filteredRows = allVariantRows.filter(({ product, variant, stockCount, supply: s }) => {
     const matchesSearch =
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       variant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.sku.toLowerCase().includes(searchQuery.toLowerCase());
 
     if (!matchesSearch) return false;
-    if (tabFilter === 'in_stock') return variant.deliveryMode === 'auto_vault' && stockCount > 0;
+    if (tabFilter === 'in_stock') return s ? s.inStock : stockCount > 0;
+    if (tabFilter === 'out_of_stock') return s ? !s.inStock : stockCount === 0 && variant.deliveryMode !== 'manual_dispatch';
+    if (tabFilter === 'linked') return Boolean(s?.links.length);
     if (tabFilter === 'manual_queue') return variant.deliveryMode === 'manual_dispatch';
-    if (tabFilter === 'vpn_required') return variant.vpnRequired;
     return true;
   });
 

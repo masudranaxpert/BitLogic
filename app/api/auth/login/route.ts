@@ -5,6 +5,7 @@ import { attachSessionCookie, createSessionToken } from '@/lib/auth/session';
 import { ROLES, type Role } from '@/lib/auth/roles';
 import { parsePermissionsJson } from '@/lib/auth/permissions';
 import { clientIp, rateLimit } from '@/lib/auth/rate-limit';
+import { recordLogin } from '@/lib/audit/record';
 import { getEmailConfig, isEmailReady } from '@/lib/email/config';
 
 // Compared against when the email is unknown so both paths take the same time.
@@ -33,6 +34,13 @@ export async function POST(request: Request) {
     const user = await db.user.findUnique({ where: { email } });
     const valid = await verifyPassword(password, user?.passwordHash || DUMMY_HASH);
     if (!user || !valid) {
+      await recordLogin({
+        userId: user?.id,
+        email,
+        success: false,
+        ip,
+        userAgent: request.headers.get('user-agent') || '',
+      });
       return NextResponse.json({ error: 'Invalid email or password.' }, { status: 401 });
     }
 
@@ -67,6 +75,14 @@ export async function POST(request: Request) {
       role,
       permissions,
       sessionVersion: user.sessionVersion,
+    });
+
+    await recordLogin({
+      userId: user.id,
+      email: user.email,
+      success: true,
+      ip,
+      userAgent: request.headers.get('user-agent') || '',
     });
 
     const response = NextResponse.json({

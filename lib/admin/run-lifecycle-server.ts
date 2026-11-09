@@ -7,14 +7,7 @@ import type {
   VaultCredential,
 } from '@/lib/admin/types';
 import { todayYmd } from '@/lib/admin/credential-lifecycle';
-
-function parseJson<T>(raw: string, fallback: T): T {
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
+import { parseJson } from '@/lib/utils';
 
 /**
  * Apply credential/vault window rules on the server so expiry does not wait

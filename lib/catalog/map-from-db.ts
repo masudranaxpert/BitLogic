@@ -4,6 +4,7 @@ import type {
   ProductPlan as DbPlan,
 } from '@prisma/client';
 import type { Category, Plan, Product } from '@/lib/products';
+import type { PlanSupply } from '@/lib/suppliers/supply';
 
 type DbProductWithPlans = DbProduct & {
   plans: DbPlan[];
@@ -48,8 +49,11 @@ function resolveCategoryCode(product: DbProductWithPlans): Category {
   return 'AI';
 }
 
-function mapPlan(plan: DbPlan): Plan {
+function mapPlan(plan: DbPlan, supply?: PlanSupply): Plan {
   return {
+    inStock: supply ? supply.inStock : true,
+    canOrder: supply ? supply.canOrder : true,
+    stockLeft: supply ? supply.stock : null,
     id: plan.code,
     label: plan.label,
     duration: plan.durationLabel,
@@ -62,25 +66,25 @@ function mapPlan(plan: DbPlan): Plan {
         : undefined,
     warrantyHeadline: plan.warrantyHeadline ?? undefined,
     details: parseStringArray(plan.detailsJson),
+    availableFrom: plan.availableFrom ? plan.availableFrom.toISOString() : undefined,
+    availableUntil: plan.availableUntil ? plan.availableUntil.toISOString() : undefined,
   };
 }
 
 /**
- * Storefront OOS is vault-driven, not product.status.
- * Manual-dispatch plans never count as vault-empty.
+ * Stock is per option (own vault + supplier, see lib/suppliers/supply.ts).
+ * The product is out of stock only when no option is in stock.
  */
 export function mapDbProductToCatalog(
   product: DbProductWithPlans,
-  availableVaultCount = 0,
+  supply: Map<string, PlanSupply> = new Map(),
 ): Product {
   const gallery = parseStringArray(product.galleryJson);
   const image = product.imageUrl || gallery[0] || '/products/chatgpt.jpg';
   const activePlans = product.plans.filter((plan) => plan.isActive);
-  const hasManualPlan = activePlans.some(
-    (p) => p.deliveryMode === 'manual_dispatch',
-  );
-  const needsVault = activePlans.some((p) => p.deliveryMode !== 'manual_dispatch');
-  const outOfStock = needsVault && !hasManualPlan && availableVaultCount <= 0;
+  const plans = activePlans.map((p) => mapPlan(p, supply.get(p.id)));
+  const outOfStock = plans.length > 0 && plans.every((p) => p.inStock === false);
+  const anyBackorder = plans.some((p) => p.canOrder && !p.inStock);
 
   return {
     id: product.slug,
@@ -95,10 +99,8 @@ export function mapDbProductToCatalog(
     platform: product.platform,
     featured: product.featured || undefined,
     availability: outOfStock ? 'out_of_stock' : 'available',
-    acceptOrdersWhenOutOfStock: Boolean(product.allowOrderWhenOutOfStock),
-    availableFrom: product.availableFrom ? product.availableFrom.toISOString() : undefined,
-    availableUntil: product.availableUntil ? product.availableUntil.toISOString() : undefined,
+    acceptOrdersWhenOutOfStock: anyBackorder,
     features: parseStringArray(product.featuresJson),
-    plans: activePlans.map(mapPlan),
+    plans,
   };
 }

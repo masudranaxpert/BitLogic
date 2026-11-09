@@ -8,6 +8,8 @@ import type {
   StockDisplayMode,
 } from '@/lib/admin/types';
 import { BBCodeEditor } from '@/components/admin/ui/BBCode';
+import { SourcingSelect } from '@/components/admin/ui/primitives';
+import ProductSchedulePicker from '@/components/admin/views/product-add/ProductSchedulePicker';
 import type { ProductOptionFormValues } from '@/components/admin/views/product-option/option-form-values';
 
 type ProductOptionFormProps = {
@@ -63,7 +65,7 @@ export function ProductOptionForm({
         <div className="sm:col-span-2">
           <div className="flex items-center justify-between mb-1">
             <label className="font-semibold text-slate-700 dark:text-slate-300">
-              Option Title
+              Plan title
             </label>
             <label className="inline-flex items-center gap-1.5 cursor-pointer text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
               <input
@@ -72,7 +74,7 @@ export function ProductOptionForm({
                 onChange={(e) => onChange('isDefault', e.target.checked)}
                 className="rounded border-slate-300"
               />
-              <span>Default Option</span>
+              <span>Default plan</span>
             </label>
           </div>
           <input
@@ -252,7 +254,7 @@ export function ProductOptionForm({
 
       <div>
         <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-          Option Description
+          Plan description
         </label>
         <textarea
           rows={2}
@@ -262,8 +264,49 @@ export function ProductOptionForm({
         />
       </div>
 
+      <div>
+        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+          Source / Sourcing <span className="font-normal text-slate-500">(Where credentials come from)</span>
+        </label>
+        <SourcingSelect
+          value={values.sourcing || 'own'}
+          onChange={(val) => onChange('sourcing', val)}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-800 dark:border-slate-800 dark:text-slate-200">
+          <input
+            type="checkbox"
+            checked={values.renewable}
+            onChange={(e) => onChange('renewable', e.target.checked)}
+            className="h-4 w-4 accent-emerald-600"
+          />
+          Renewable
+        </label>
+        <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-800 dark:border-slate-800 dark:text-slate-200">
+          <input
+            type="checkbox"
+            checked={values.allowOrderWhenOutOfStock}
+            onChange={(e) => onChange('allowOrderWhenOutOfStock', e.target.checked)}
+            className="h-4 w-4 accent-emerald-600"
+          />
+          Accept orders when out of stock
+        </label>
+      </div>
+
+      <ProductSchedulePicker
+        embedded
+        from={values.availableFrom}
+        until={values.availableUntil}
+        onChange={(next) => {
+          onChange('availableFrom', next.from);
+          onChange('availableUntil', next.until);
+        }}
+      />
+
       <BBCodeEditor
-        label="Option warning & rules"
+        label="Plan warning"
         value={values.warningNote}
         onChange={(next) => onChange('warningNote', next)}
         rows={3}
@@ -281,7 +324,7 @@ export function ProductOptionForm({
           type="submit"
           className="px-5 h-9 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg cursor-pointer"
         >
-          {isEdit ? 'Save Changes' : 'Save Option'}
+          {isEdit ? 'Save Changes' : 'Save plan'}
         </button>
       </div>
     </form>

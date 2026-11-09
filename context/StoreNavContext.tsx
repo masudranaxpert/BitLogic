@@ -7,6 +7,7 @@ import React, {
   useEffect,
   useMemo,
   useState,
+  Suspense,
   type ReactNode,
 } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -44,29 +45,46 @@ type StoreNavContextValue = {
 
 const StoreNavContext = createContext<StoreNavContextValue | null>(null);
 
+function SearchParamsWatcher({
+  onChange,
+}: {
+  onChange: (sp: URLSearchParams) => void;
+}) {
+  const sp = useSearchParams();
+  useEffect(() => {
+    onChange(new URLSearchParams(sp.toString()));
+  }, [sp, onChange]);
+  return null;
+}
+
 export function StoreNavProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const [params, setParams] = useState<URLSearchParams>(() => {
+    if (typeof window !== 'undefined') {
+      return new URLSearchParams(window.location.search);
+    }
+    return new URLSearchParams();
+  });
   const [variant, setVariant] = useState<StorefrontVariant>('classic');
 
   const view = pathToStoreView(pathname);
   const selectedProductId = productIdFromPath(pathname);
-  const categoryCode = (searchParams.get('code') as Category | 'ALL' | null) || 'ALL';
-  const searchQuery = searchParams.get('q') || '';
+  const categoryCode = (params.get('code') as Category | 'ALL' | null) || 'ALL';
+  const searchQuery = params.get('q') || '';
   const loginMode: 'login' | 'register' =
-    searchParams.get('mode') === 'register' ? 'register' : 'login';
-  const accountTab = accountTabFromPath(pathname, searchParams.get('tab'));
+    params.get('mode') === 'register' ? 'register' : 'login';
+  const accountTab = accountTabFromPath(pathname, params.get('tab'));
 
   // /account?tab=orders and unknown /account/foo → canonical path.
   useEffect(() => {
     if (!pathname.startsWith('/account')) return;
     const expected = storeViewToPath('account', { accountTab });
     const here = pathname.replace(/\/$/, '') || '/account';
-    if (searchParams.get('tab') || here !== expected) {
+    if (params.get('tab') || here !== expected) {
       router.replace(expected);
     }
-  }, [accountTab, pathname, router, searchParams]);
+  }, [accountTab, pathname, router, params]);
 
   const navigateTo = useCallback(
     (nextView: StoreView, options?: StoreNavigateOptions) => {
@@ -111,7 +129,12 @@ export function StoreNavProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <StoreNavContext.Provider value={value}>{children}</StoreNavContext.Provider>
+    <StoreNavContext.Provider value={value}>
+      <Suspense fallback={null}>
+        <SearchParamsWatcher onChange={setParams} />
+      </Suspense>
+      {children}
+    </StoreNavContext.Provider>
   );
 }
 

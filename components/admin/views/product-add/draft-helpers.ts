@@ -23,6 +23,14 @@ export interface DraftVariant {
   credentialSchemeId: string;
   /** Buyer details — one bullet per line (storefront Plan.details) */
   detailsText: string;
+  /** Credential source: own | own_then_supplier | supplier_auto | supplier_manual */
+  sourcing: 'own' | 'own_then_supplier' | 'supplier_auto' | 'supplier_manual';
+  renewable: boolean;
+  /** current = today's price; locked = the price they first paid */
+  renewalPricing: 'current' | 'locked';
+  allowOrderWhenOutOfStock: boolean;
+  availableFrom: string;
+  availableUntil: string;
 }
 
 export function emptyDraftVariant(
@@ -38,6 +46,12 @@ export function emptyDraftVariant(
     warrantyId: defaultWarrantyId,
     credentialSchemeId: defaultCredentialSchemeId,
     detailsText: '',
+    sourcing: 'own',
+    renewable: true,
+    renewalPricing: 'current',
+    allowOrderWhenOutOfStock: false,
+    availableFrom: '',
+    availableUntil: '',
     ...overrides,
   };
 }
@@ -85,6 +99,12 @@ export function variantToDraft(
     warrantyId: match?.id || '',
     credentialSchemeId: scheme?.id || variant.credentialSchemeId || '',
     detailsText: (variant.loginInstructions || []).join('\n'),
+    sourcing: (variant.sourcing as any) || 'own',
+    renewable: variant.renewable !== false,
+    renewalPricing: variant.renewalPricing === 'locked' ? 'locked' : 'current',
+    allowOrderWhenOutOfStock: Boolean(variant.allowOrderWhenOutOfStock),
+    availableFrom: variant.availableFrom || '',
+    availableUntil: variant.availableUntil || '',
   };
 }
 

@@ -12,7 +12,7 @@ export function useHydrated() {
 export function AccountSkeleton() {
   return (
     <div
-      className="mx-auto max-w-6xl py-8"
+      className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8"
       aria-busy="true"
       aria-label="Loading your account"
     >

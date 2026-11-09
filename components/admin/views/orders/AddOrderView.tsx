@@ -112,7 +112,7 @@ export default function AddOrderView({
         return {
           value: p.id,
           label: empty
-            ? p.allowOrderWhenOutOfStock
+            ? defaultVar?.allowOrderWhenOutOfStock
               ? `${p.name} (no creds · pending assign)`
               : `${p.name} (no credentials)`
             : p.name,

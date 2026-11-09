@@ -32,7 +32,7 @@ export function StoreSearchBar<T extends string = string>({
     <div
       className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${className}`}
     >
-      <div className="relative flex-1 min-w-0">
+      <div className="relative w-full sm:max-w-xs md:max-w-sm lg:max-w-md min-w-0">
         <Search
           size={14}
           className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"

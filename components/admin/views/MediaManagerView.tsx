@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import {
+  Loader2,
   Plus,
   Copy,
   Check,
@@ -435,10 +436,17 @@ export default function MediaManagerView({
             </button>
             <button
               type="submit"
-              disabled={!canSave}
-              className="h-9 px-4 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:pointer-events-none text-white rounded-lg cursor-pointer"
+              disabled={!canSave || uploading}
+              className="h-9 px-4 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:pointer-events-none text-white rounded-lg cursor-pointer inline-flex items-center gap-1.5"
             >
-              {uploading ? 'Uploading…' : 'Save to Library'}
+              {uploading ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                  <span>Uploading…</span>
+                </>
+              ) : (
+                'Save to Library'
+              )}
             </button>
           </div>
         </form>

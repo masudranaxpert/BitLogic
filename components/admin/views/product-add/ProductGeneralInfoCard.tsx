@@ -10,10 +10,6 @@ export interface ProductGeneralInfoCardProps {
   categoryId: string;
   categories: ProductCategory[];
   status: DigitalProduct['status'];
-  renewable: boolean;
-  onRenewableChange: (value: boolean) => void;
-  allowOrderWhenOutOfStock: boolean;
-  onAllowOrderWhenOutOfStockChange: (value: boolean) => void;
   description: string;
   onNameChange: (value: string) => void;
   onPlatformChange: (value: string) => void;
@@ -29,10 +25,6 @@ export default function ProductGeneralInfoCard({
   categoryId,
   categories,
   status,
-  renewable,
-  onRenewableChange,
-  allowOrderWhenOutOfStock,
-  onAllowOrderWhenOutOfStockChange,
   description,
   onNameChange,
   onPlatformChange,
@@ -114,40 +106,6 @@ export default function ProductGeneralInfoCard({
           </select>
         </div>
 
-        <div className="sm:col-span-2 space-y-2">
-          <label className="flex items-start gap-2.5 rounded-lg border border-slate-200 dark:border-slate-800 px-3 py-2.5 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={renewable}
-              onChange={(e) => onRenewableChange(e.target.checked)}
-              className="mt-0.5 h-4 w-4 accent-emerald-600"
-            />
-            <span>
-              <span className="block text-xs font-medium text-slate-800 dark:text-slate-200">
-                Renewable (turn off for one-time products)
-              </span>
-            </span>
-          </label>
-
-          <label className="flex items-start gap-2.5 rounded-lg border border-slate-200 dark:border-slate-800 px-3 py-2.5 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={allowOrderWhenOutOfStock}
-              onChange={(e) =>
-                onAllowOrderWhenOutOfStockChange(e.target.checked)
-              }
-              className="mt-0.5 h-4 w-4 accent-emerald-600"
-            />
-            <span>
-              <span className="block text-xs font-medium text-slate-800 dark:text-slate-200">
-                Still accept orders when credentials are empty
-              </span>
-              <span className="block text-[11px] text-slate-500 mt-0.5">
-                Orders queue as pending assign until you add a credential
-              </span>
-            </span>
-          </label>
-        </div>
       </div>
 
       <BBCodeEditor

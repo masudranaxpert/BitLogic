@@ -101,7 +101,10 @@ export function getOrderStatusTone(status: string): StatusBadgeTone {
     case 'Delivered':
       return 'blue';
     case 'Pending (10–24h)':
+    case 'Pending Verification':
       return 'amber';
+    case 'Payment Rejected':
+      return 'rose';
     case 'Expired':
       return 'rose';
     case 'Refunded':

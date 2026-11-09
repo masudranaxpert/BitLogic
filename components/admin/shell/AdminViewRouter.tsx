@@ -35,12 +35,25 @@ import TicketsView from '@/components/admin/views/TicketsView';
 import UsersSubscriptionsView from '@/components/admin/views/UsersSubscriptionsView';
 import MediaManagerView from '@/components/admin/views/MediaManagerView';
 import PaymentsView from '@/components/admin/views/PaymentsView';
+import PaymentMethodsView from '@/components/admin/views/payments/PaymentMethodsView';
 import FeatureControlView from '@/components/admin/views/FeatureControlView';
 import EmailSettingsView from '@/components/admin/views/settings/EmailSettingsView';
+import EmailTemplatesView from '@/components/admin/views/settings/EmailTemplatesView';
+import EmailTriggersView from '@/components/admin/views/settings/EmailTriggersView';
 import ContactInfoView from '@/components/admin/views/settings/ContactInfoView';
 import StorefrontView from '@/components/admin/views/settings/StorefrontView';
+import SuppliersView from '@/components/admin/views/suppliers/SuppliersView';
+import SupplierCatalogView from '@/components/admin/views/suppliers/SupplierCatalogView';
+import SupplierLinksView from '@/components/admin/views/suppliers/SupplierLinksView';
+import SupplierPurchasesView from '@/components/admin/views/suppliers/SupplierPurchasesView';
+import SupplierSettingsView from '@/components/admin/views/suppliers/SupplierSettingsView';
 import StaffView from '@/components/admin/views/StaffView';
 import StaffFormView from '@/components/admin/views/StaffFormView';
+import { StaffActionsView, StaffFileView, StaffLoginsView } from '@/components/admin/views/StaffActivity';
+import { SecurityOverviewView } from '@/components/admin/views/security/SecurityOverviewView';
+import { SecurityIpsView } from '@/components/admin/views/security/SecurityIpsView';
+import { SecurityAuditView } from '@/components/admin/views/security/SecurityAuditView';
+import { SecurityRulesView } from '@/components/admin/views/security/SecurityRulesView';
 
 function ProductOptionRedirect({
   productId,
@@ -496,6 +509,8 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
             />
           )}
 
+          {activeTab === 'payment-methods' && <PaymentMethodsView />}
+
           {activeTab === 'coupons' && (
             <CouponsView
               coupons={coupons}
@@ -507,10 +522,18 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
           {activeTab === 'features' && <FeatureControlView />}
 
           {activeTab === 'email' && <EmailSettingsView />}
+          {activeTab === 'email-templates' && <EmailTemplatesView />}
+          {activeTab === 'email-triggers' && <EmailTriggersView />}
 
           {activeTab === 'contact' && <ContactInfoView />}
 
           {activeTab === 'storefront' && <StorefrontView products={products} />}
+
+          {activeTab === 'suppliers' && <SuppliersView onOpen={(tab) => setActiveTab(tab)} />}
+          {activeTab === 'supplier-catalog' && <SupplierCatalogView />}
+          {activeTab === 'supplier-links' && <SupplierLinksView />}
+          {activeTab === 'supplier-orders' && <SupplierPurchasesView onOpenOrder={(id) => handleSelectChatDelivery(id)} />}
+          {activeTab === 'supplier-settings' && <SupplierSettingsView />}
 
           {activeTab === 'staff' && (
             <StaffView
@@ -518,6 +541,27 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
               onOpenEdit={(id) =>
                 router.push(`/admin/staff/add?id=${encodeURIComponent(id)}`)
               }
+              onOpenView={(id) =>
+                router.push(`/admin/staff/view?id=${encodeURIComponent(id)}`)
+              }
+            />
+          )}
+          {activeTab === 'staff-view' && (
+            <StaffFileView
+              key={searchParams.get('id') ?? 'none'}
+              userId={searchParams.get('id')}
+            />
+          )}
+          {activeTab === 'staff-logins' && (
+            <StaffLoginsView
+              key={searchParams.get('id') ?? 'none'}
+              userId={searchParams.get('id')}
+            />
+          )}
+          {activeTab === 'staff-actions' && (
+            <StaffActionsView
+              key={searchParams.get('id') ?? 'none'}
+              userId={searchParams.get('id')}
             />
           )}
 
@@ -529,6 +573,13 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
               onSaved={() => setActiveTab('staff')}
             />
           )}
+
+          {activeTab === 'security' && (
+            <SecurityOverviewView onNavigateTab={(t) => setActiveTab(t as any)} />
+          )}
+          {activeTab === 'security-ips' && <SecurityIpsView />}
+          {activeTab === 'security-audit' && <SecurityAuditView />}
+          {activeTab === 'security-rules' && <SecurityRulesView />}
     </>
   );
 }

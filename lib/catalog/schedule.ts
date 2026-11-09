@@ -1,5 +1,5 @@
 /**
- * Order window of a product (one place, used by the server and the UI).
+ * Order window of a plan (one place, used by the server and the UI).
  * - before `from`  → 'upcoming': listed, but cannot be ordered yet
  * - until `until`  → 'live': can be ordered (a countdown is shown when `until` is set)
  * - from `until`   → 'ended': listed as ended, cannot be ordered
@@ -52,4 +52,28 @@ export function shortDuration(msLeft: number): string {
   if (d > 0) return `${d}d ${h}h`;
   if (h > 0) return `${h}h ${m}m`;
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+
+/**
+ * Window a product card should show.
+ * A card stays open when any plan can be ordered, so mixed plans don't stamp the whole product.
+ */
+export function listingWindow(plans: ScheduleFields[]): ScheduleFields {
+  if (plans.some((p) => !p.availableFrom && !p.availableUntil)) return {};
+  const dated = plans.filter((p) => p.availableFrom || p.availableUntil);
+  if (dated.length === 0) return {};
+  const open = dated.filter((p) => scheduleState(p).canOrder);
+  if (open.length === 0) {
+    const upcoming = dated
+      .filter((p) => scheduleState(p).state === 'upcoming')
+      .sort((a, b) => (ms(a.availableFrom) ?? 0) - (ms(b.availableFrom) ?? 0));
+    const pick = upcoming[0] || dated[0];
+    return { availableFrom: pick.availableFrom, availableUntil: pick.availableUntil };
+  }
+  const closing = open
+    .filter((p) => p.availableUntil)
+    .sort((a, b) => (ms(a.availableUntil) ?? 0) - (ms(b.availableUntil) ?? 0));
+  return closing[0]
+    ? { availableFrom: closing[0].availableFrom, availableUntil: closing[0].availableUntil }
+    : {};
 }

@@ -231,7 +231,20 @@ export function OrderNotesPanel({
       ) : null}
 
       {loading ? (
-        <p className="text-sm text-slate-500">Loading notes…</p>
+        <div className="space-y-2.5" aria-busy="true" aria-label="Loading notes">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div
+              key={i}
+              className="rounded-lg border border-slate-200 dark:border-slate-800 p-3 space-y-2 animate-pulse"
+            >
+              <div className="flex justify-between">
+                <div className="h-3 w-28 rounded bg-slate-200/80 dark:bg-slate-700" />
+                <div className="h-3 w-16 rounded bg-slate-200/60 dark:bg-slate-800" />
+              </div>
+              <div className="h-4 w-3/4 rounded bg-slate-200/60 dark:bg-slate-800" />
+            </div>
+          ))}
+        </div>
       ) : notes.length === 0 ? (
         <p className="text-sm text-slate-500">No notes yet.</p>
       ) : (

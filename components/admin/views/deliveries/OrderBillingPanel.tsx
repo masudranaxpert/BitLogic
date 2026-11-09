@@ -303,7 +303,8 @@ export function OrderPaymentCard({
   );
 }
 
-const TX_COLS = 'md:grid-cols-[96px_minmax(0,1fr)_150px_96px_120px]';
+// Viewport `md` is wider than this card (it sits in an 8-column). Size the table off the card.
+const TX_COLS = '@min-[28rem]:grid-cols-[4.5rem_minmax(0,1fr)_4.75rem_5.5rem]';
 
 export type OrderTransactionsCardProps = {
   payments: PaymentTransaction[];
@@ -327,7 +328,7 @@ export function OrderTransactionsCard({
 }: OrderTransactionsCardProps) {
   const payCtx = { lines, units };
   return (
-    <Card className="overflow-hidden">
+    <Card className="@container overflow-hidden">
       <div className="flex items-center justify-between border-b border-slate-200/80 px-5 py-3.5 dark:border-slate-800">
         <h2 className="font-display text-base font-semibold">Transactions</h2>
         <RefundButton onRefund={onRefund} />
@@ -337,11 +338,10 @@ export function OrderTransactionsCard({
       ) : (
         <>
           <div
-            className={`hidden gap-4 border-b border-slate-100 px-5 py-2.5 text-xs font-medium text-slate-500 md:grid dark:border-slate-800 ${TX_COLS}`}
+            className={`hidden gap-x-4 border-b border-slate-100 px-5 py-2.5 text-xs font-medium text-slate-500 @min-[28rem]:grid dark:border-slate-800 ${TX_COLS}`}
           >
             <span>Date</span>
             <span>Paid for</span>
-            <span>Method</span>
             <span className="text-right">Amount</span>
             <span className="text-right">Status</span>
           </div>
@@ -358,11 +358,11 @@ export function OrderTransactionsCard({
                 return (
                   <li
                     key={p.id}
-                    className={`grid grid-cols-1 gap-2 px-5 py-3.5 md:items-start md:gap-4 ${TX_COLS}`}
+                    className={`grid grid-cols-1 gap-2 px-5 py-3.5 @min-[28rem]:items-start @min-[28rem]:gap-x-4 ${TX_COLS}`}
                   >
                     <div className="text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">
                       {fmtDay(p.createdAt, true)}
-                      <span className="ml-1 text-xs font-normal text-slate-400 md:ml-0 md:block">
+                      <span className="ml-1 text-xs font-normal text-slate-400 @min-[28rem]:ml-0 @min-[28rem]:block">
                         {fmtStamp(p.createdAt).split(', ')[1] || ''}
                       </span>
                     </div>
@@ -393,25 +393,23 @@ export function OrderTransactionsCard({
                           {fmtDay(per.from, true)} – {fmtDay(per.to, true)}
                         </div>
                       ) : null}
-                    </div>
-                    <div className="min-w-0 space-y-1">
-                      <GatewayBadge gateway={p.gateway} />
-                      <div>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <GatewayBadge gateway={p.gateway} />
                         <TrxButton p={p} handleCopy={handleCopy} copiedId={copiedId} />
+                        {sender ? (
+                          <span className="font-mono text-xs text-slate-500">{sender}</span>
+                        ) : null}
                       </div>
-                      {sender ? (
-                        <div className="font-mono text-xs text-slate-500">{sender}</div>
-                      ) : null}
                     </div>
                     <div
-                      className={`font-mono text-sm font-semibold tabular-nums md:text-right ${
+                      className={`font-mono text-sm font-semibold tabular-nums @min-[28rem]:text-right ${
                         p.status === 'refunded' ? 'text-rose-700 dark:text-rose-400' : ''
                       }`}
                     >
                       {p.status === 'refunded' ? '−' : ''}
                       {formatBDT(p.amountBDT)}
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 md:flex-col md:items-end">
+                    <div className="flex flex-wrap items-center gap-2 @min-[28rem]:flex-col @min-[28rem]:items-end">
                       <StatusIndicator tone={st.tone} label={st.label} />
                       {p.verifiedAt && p.status === 'verified' ? (
                         <span className="text-[11px] text-slate-400">{fmtStamp(p.verifiedAt)}</span>

@@ -114,9 +114,29 @@ export default function ContactInfoView() {
       ) : null}
 
       {!draft ? (
-        <Card className="p-5 text-sm text-slate-500">
-          {status === 'error' ? 'Could not load settings.' : 'Loading…'}
-        </Card>
+        status === 'error' ? (
+          <Card className="p-6 text-sm text-center space-y-3">
+            <p className="text-rose-600 dark:text-rose-400 font-medium m-0">Could not load settings.</p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="h-9 px-4 rounded-md border border-slate-200 dark:border-slate-700 text-xs font-semibold hover:border-emerald-600 cursor-pointer"
+            >
+              Retry
+            </button>
+          </Card>
+        ) : (
+          <Card className="overflow-hidden" aria-busy="true">
+            <div className="grid gap-4 px-5 py-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="space-y-1.5 animate-pulse">
+                  <div className="h-3.5 w-32 rounded bg-slate-200/80 dark:bg-slate-700" />
+                  <div className="h-10 w-full rounded-md bg-slate-100 dark:bg-slate-800" />
+                </div>
+              ))}
+            </div>
+          </Card>
+        )
       ) : (
         <Card className="overflow-hidden">
           <div className="grid gap-4 px-5 py-4">

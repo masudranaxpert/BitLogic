@@ -118,7 +118,7 @@ export function DeliveryFulfillModals({
                     </div>
                   ) : (
                     <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300">
-                      No stocked credentials for this option. Switch to Custom Input.
+                      No stocked credentials for this plan. Switch to custom input.
                     </div>
                   )
                 ) : delivery.credentialType === 'email_login' ? (

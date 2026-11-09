@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requirePermission } from '@/lib/auth/require-admin';
+import { recordActivity, requestIp } from '@/lib/audit/record';
 import { isFullAdmin } from '@/lib/auth/permissions';
 import type { SessionUser } from '@/lib/auth/session';
 
@@ -83,6 +84,14 @@ export async function POST(request: Request) {
       authorName: session?.name || session?.email || 'Admin',
     },
   });
+  await recordActivity({
+    userId: session.id,
+    action: 'order.note',
+    entityType: 'order',
+    entityId: orderId,
+    summary: `Note on ${orderId}: ${text}`,
+    ip: requestIp(request),
+  });
   return NextResponse.json({ ok: true, note: serialize(note) });
 }
 
@@ -121,6 +130,14 @@ export async function PATCH(request: Request) {
     where: { id },
     data: { text, editedAt: new Date() },
   });
+  await recordActivity({
+    userId: session.id,
+    action: 'order.note',
+    entityType: 'order',
+    entityId: existing.orderId,
+    summary: `Edited a note on ${existing.orderId}`,
+    ip: requestIp(request),
+  });
   return NextResponse.json({ ok: true, note: serialize(note) });
 }
 
@@ -147,6 +164,14 @@ export async function DELETE(request: Request) {
       { status: 403 },
     );
   }
+  await recordActivity({
+    userId: session.id,
+    action: 'order.note',
+    entityType: 'order',
+    entityId: existing.orderId,
+    summary: `Deleted a note on ${existing.orderId}`,
+    ip: requestIp(request),
+  });
   await db.orderNote.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { requirePermission } from '@/lib/auth/require-admin';
 import { db } from '@/lib/db';
 import { createOrder, OrderError } from '@/lib/orders/create-order';
+import { dispatchOrder } from '@/lib/suppliers/dispatch';
+import { recordActivity, requestIp } from '@/lib/audit/record';
 
 /** Order header + priced line items for the admin order page. */
 export async function GET(request: Request) {
@@ -75,6 +77,20 @@ export async function POST(request: Request) {
       note: body.note ? String(body.note) : undefined,
       noteAuthor: session?.name || session?.email || 'Admin',
     });
+    // Fully paid manual order: buy supplier-sourced units now (the sweep is the backstop).
+    await recordActivity({
+      userId: session.id,
+      action: 'order.create',
+      entityType: 'order',
+      entityId: result.orderId,
+      summary: `Created manual order ${result.orderId}`,
+      ip: requestIp(request),
+    });
+    if (result.paymentStatus === 'paid') {
+      void dispatchOrder(result.orderId, { trigger: 'verify' }).catch((e) =>
+        console.error('[admin/orders dispatch]', e instanceof Error ? e.message : e),
+      );
+    }
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     if (err instanceof OrderError) {

@@ -1,9 +1,12 @@
+import { validateCustomerEmail } from '@/lib/email/validate-email';
 import { randomInt, randomUUID } from 'node:crypto';
 import type { Prisma } from '@prisma/client';
 import { db } from '@/lib/db';
+import { dispatchOrderPlacedEmails } from '@/lib/email/dispatch';
 import { getStoreSettings } from '@/lib/store-settings';
 import { warrantyWindow } from '@/lib/warranty';
 import { scheduleState } from '@/lib/catalog/schedule';
+import { planSupplyMap, supplyProblem } from '@/lib/suppliers/supply';
 import { decryptSecret, encryptSecret } from '@/lib/crypto/secrets';
 import { generateOrderAccessToken } from '@/lib/orders/access-token';
 
@@ -94,10 +97,22 @@ export async function createOrder(
   const isAdmin = input.source === 'admin';
 
   if (!name) throw new OrderError('Customer name is required.');
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    throw new OrderError('A valid customer email is required.');
+  const emailCheck = validateCustomerEmail(email);
+  if (!emailCheck.ok) {
+    throw new OrderError(emailCheck.error || 'A valid customer email is required.');
   }
   if (!isAdmin && !phone) throw new OrderError('Phone number is required.');
+  if (!isAdmin) {
+    const cleanPhone = phone.replace(/[\s-]/g, '');
+    if (!/^(?:\+?8801|01)[3-9]\d{8}$/.test(cleanPhone)) {
+      throw new OrderError('Please enter a valid 11-digit Bangladeshi mobile number (e.g. 017xxxxxxxx).');
+    }
+    const gateway = (input.payment.gateway ?? '').trim().toLowerCase();
+    const VALID_GATEWAYS = ['bkash', 'nagad', 'rocket', 'upay', 'bank', 'cash'];
+    if (gateway && !VALID_GATEWAYS.includes(gateway)) {
+      throw new OrderError('Invalid payment method selected.');
+    }
+  }
   if (!Array.isArray(input.items) || input.items.length === 0) {
     throw new OrderError('Order must contain at least one item.');
   }
@@ -120,7 +135,15 @@ export async function createOrder(
     throw new OrderError('Transaction ID is required.');
   }
 
-  return db.$transaction(
+  // Per-option stock (own + supplier), read before the write transaction.
+  const supplyProducts = await db.product.findMany({
+    where: { OR: [{ id: { in: input.items.map((i) => String(i.productId)) } }, { slug: { in: input.items.map((i) => String(i.productId)) } }] },
+    include: { plans: true },
+  });
+  const supply = await planSupplyMap(supplyProducts);
+  const qtyByPlan = new Map<string, number>();
+
+  const txResult = await db.$transaction(
     async (tx) => {
       // ---- 1. Resolve + validate lines against the live catalog ----
       type Line = {
@@ -150,19 +173,6 @@ export async function createOrder(
         if (product.status !== 'active') {
           throw new OrderError(`${product.name} is not available.`);
         }
-        // Order window. Admins can still place manual orders; renewals never come through here.
-        if (!isAdmin) {
-          const win = scheduleState({
-            availableFrom: product.availableFrom?.toISOString(),
-            availableUntil: product.availableUntil?.toISOString(),
-          });
-          if (win.state === 'upcoming') {
-            throw new OrderError(`${product.name} is not on sale yet.`);
-          }
-          if (win.state === 'ended') {
-            throw new OrderError(`${product.name} is no longer on sale — the offer has ended.`);
-          }
-        }
         const plan = product.plans.find(
           (p) => p.id === raw.planId || p.code === raw.planId,
         );
@@ -172,28 +182,26 @@ export async function createOrder(
         if (!plan.isActive) {
           throw new OrderError(`${product.name} (${plan.label}) is not available.`);
         }
-
-        // Out of stock = no vault credentials. Still-accept flag allows pending assign.
-        if (!isAdmin && plan.deliveryMode === 'auto_vault') {
-          const stock = await tx.vaultCredential.count({
-            where: {
-              status: 'available',
-              AND: [
-                {
-                  OR: [
-                    { productId: product.slug },
-                    { productId: product.id },
-                  ],
-                },
-                {
-                  OR: [{ variantId: plan.code }, { variantId: plan.id }],
-                },
-              ],
-            },
+        // Order window is per plan. Admins can still place manual orders; renewals never come through here.
+        if (!isAdmin) {
+          const win = scheduleState({
+            availableFrom: plan.availableFrom?.toISOString(),
+            availableUntil: plan.availableUntil?.toISOString(),
           });
-          if (stock < qty && !product.allowOrderWhenOutOfStock) {
-            throw new OrderError(`${product.name} is currently out of stock.`);
+          if (win.state === 'upcoming') {
+            throw new OrderError(`${plan.label} is not on sale yet.`);
           }
+          if (win.state === 'ended') {
+            throw new OrderError(`${plan.label} is no longer on sale — the offer has ended.`);
+          }
+        }
+
+        // Stock is per option (own vault + supplier). Admins may still queue units as pending.
+        if (!isAdmin) {
+          const total = (qtyByPlan.get(plan.id) || 0) + qty; // same option on two lines counts once
+          qtyByPlan.set(plan.id, total);
+          const problem = supplyProblem(supply.get(plan.id), total, `${product.name} (${plan.label})`);
+          if (problem) throw new OrderError(problem, 409);
         }
 
         let unit = Number(plan.priceBdt);
@@ -351,7 +359,8 @@ export async function createOrder(
         const expiresAt = formatDate(expires);
 
         const candidates =
-          plan.deliveryMode === 'auto_vault'
+          // Security: only fulfill immediately if payment is verified (e.g. admin created with paid status)
+          isAdmin && paid >= total && plan.deliveryMode === 'auto_vault'
             ? await tx.vaultCredential.findMany({
                 where: {
                   OR: [
@@ -434,7 +443,7 @@ export async function createOrder(
                   senderName: 'Support',
                   text: instant
                     ? `Thank you for your order! Your credentials for ${product.name} (${plan.label}) have been provisioned.`
-                    : `Order ${orderId} received. Your access for ${product.name} (${plan.label}) will be dispatched shortly.`,
+                    : `Order ${orderId} received. Your payment is pending verification by our team. Your access will be automatically dispatched once verified.`,
                   time: 'Just now',
                 },
               ]),
@@ -510,8 +519,34 @@ export async function createOrder(
         paidBdt: paid,
         paymentStatus,
         deliveries,
+        summary,
+        total,
+        gateway: gateway || (isAdmin ? 'Cash' : 'bKash'),
+        trxId,
       };
     },
     { timeout: 60_000, maxWait: 15_000 },
   );
+
+  // Trigger automated order confirmation emails (non-blocking)
+  void dispatchOrderPlacedEmails({
+    orderId: txResult.orderId,
+    customerName: name,
+    customerEmail: email,
+    customerPhone: phone,
+    summary: txResult.summary,
+    totalBdt: txResult.total,
+    gateway: txResult.gateway,
+    trxId: txResult.trxId,
+    accessToken: txResult.accessToken,
+  }).catch((e) => console.error('[createOrder email dispatch]', e));
+
+  return {
+    orderId: txResult.orderId,
+    accessToken: txResult.accessToken,
+    totalBdt: txResult.totalBdt,
+    paidBdt: txResult.paidBdt,
+    paymentStatus: txResult.paymentStatus,
+    deliveries: txResult.deliveries,
+  };
 }

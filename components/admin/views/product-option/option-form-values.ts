@@ -23,6 +23,11 @@ export type ProductOptionFormValues = {
   loginStepsText: string;
   optionDescription: string;
   warningNote: string;
+  sourcing: 'own' | 'own_then_supplier' | 'supplier_auto' | 'supplier_manual';
+  renewable: boolean;
+  allowOrderWhenOutOfStock: boolean;
+  availableFrom: string;
+  availableUntil: string;
 };
 
 export function defaultOptionFormValues(): ProductOptionFormValues {
@@ -46,6 +51,11 @@ export function defaultOptionFormValues(): ProductOptionFormValues {
       'Instant pre-authenticated session delivered immediately from Vault.',
     warningNote:
       '[warning]Close the browser tab instead of clicking Log Out on shared token sessions.[/warning]',
+    sourcing: 'own',
+    renewable: true,
+    allowOrderWhenOutOfStock: false,
+    availableFrom: '',
+    availableUntil: '',
   };
 }
 
@@ -69,6 +79,11 @@ export function optionFormValuesFromVariant(
     loginStepsText: variant.loginInstructions.join('\n'),
     optionDescription: variant.optionDescription || '',
     warningNote: variant.warningNote || variant.importantNote || '',
+    sourcing: (variant.sourcing as any) || 'own',
+    renewable: variant.renewable !== false,
+    allowOrderWhenOutOfStock: Boolean(variant.allowOrderWhenOutOfStock),
+    availableFrom: variant.availableFrom || '',
+    availableUntil: variant.availableUntil || '',
   };
 }
 
@@ -90,6 +105,7 @@ export function buildVariantFromOptionForm(
   const base = opts.existing;
 
   return {
+    ...base,
     id: base?.id ?? `var-${Date.now()}`,
     productId: opts.productId,
     name: values.name,
@@ -111,6 +127,11 @@ export function buildVariantFromOptionForm(
     importantNote: values.warningNote,
     warningNote: values.warningNote,
     optionDescription: values.optionDescription,
+    sourcing: values.sourcing,
+    renewable: values.renewable,
+    allowOrderWhenOutOfStock: values.allowOrderWhenOutOfStock,
+    availableFrom: values.availableFrom || undefined,
+    availableUntil: values.availableUntil || undefined,
     specifications: base?.specifications ?? [
       {
         label: 'Delivery Type',

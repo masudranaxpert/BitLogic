@@ -10,6 +10,7 @@ import type {
   ProductCategory,
   WarrantyPlan,
 } from '@/lib/admin/types';
+import { recordActivity, requestIp } from '@/lib/audit/record';
 
 type TaxonomyBody = {
   productCategories?: ProductCategory[];
@@ -18,7 +19,7 @@ type TaxonomyBody = {
 };
 
 export async function PUT(request: Request) {
-  const { error } = await requirePermission('products');
+  const { session, error } = await requirePermission('products');
   if (error) return error;
 
   try {
@@ -32,6 +33,18 @@ export async function PUT(request: Request) {
     if (body.credentialSchemes) {
       await replaceCredentialSchemes(body.credentialSchemes);
     }
+    const parts = [
+      body.productCategories ? 'categories' : '',
+      body.warranties ? 'warranties' : '',
+      body.credentialSchemes ? 'credential types' : '',
+    ].filter(Boolean);
+    await recordActivity({
+      userId: session.id,
+      action: 'catalog.taxonomy',
+      entityType: 'catalog',
+      summary: `Updated ${parts.join(', ') || 'catalog lists'}`,
+      ip: requestIp(request),
+    });
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error('[admin/catalog/taxonomies PUT]', err);

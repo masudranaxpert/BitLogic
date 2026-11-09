@@ -1,34 +1,59 @@
-import React from 'react';
+'use client';
 
-/** The Bitlogic mark used in the storefront header — one source for store and admin. */
+import React, { createContext, useContext } from 'react';
+
+const LogoUrl = createContext('');
+
+/** Empty logoUrl keeps the built-in lockup in public/brand. */
+export function BrandProvider({
+  logoUrl,
+  children,
+}: {
+  logoUrl: string;
+  children: React.ReactNode;
+}) {
+  return <LogoUrl.Provider value={logoUrl}>{children}</LogoUrl.Provider>;
+}
+
 export function BrandLogo({
   size = 'md',
+  mark = false,
   subtitle,
   className = '',
 }: {
   size?: 'sm' | 'md';
-  /** Small line under the wordmark (e.g. "Admin"). */
+  /** Padlock only. Default is the horizontal lockup. */
+  mark?: boolean;
+  /** Small line under the lockup (e.g. "Admin"). */
   subtitle?: string;
   className?: string;
 }) {
-  const tile = size === 'sm' ? 'h-8 w-8 text-sm rounded-xl' : 'h-9 w-9 text-base rounded-2xl';
-  const word = size === 'sm' ? 'text-lg' : 'text-xl';
-  return (
-    <span className={`inline-flex items-center gap-2 ${className}`}>
-      <span
-        aria-hidden
-        className={`${tile} inline-flex shrink-0 rotate-[-4deg] items-center justify-center bg-[#FF5E5B] font-extrabold text-white shadow-md shadow-[#FF5E5B]/25`}
-      >
-        B
-      </span>
-      <span className="flex flex-col leading-none">
-        <span className={`font-display ${word} font-extrabold tracking-tight text-[#0F172A] dark:text-white whitespace-nowrap`}>
-          Bit<span className="text-[#FF5E5B]">logic</span>
-        </span>
+  const custom = useContext(LogoUrl);
+  const h = size === 'sm' ? 'h-7' : 'h-9';
+  if (mark) {
+    return <img src="/brand/mark.svg" alt="Blumartbd" className={`${h} w-auto ${className}`} />;
+  }
+  if (custom) {
+    return (
+      <span className={`inline-flex flex-col items-start leading-none ${className}`}>
+        <img src={custom} alt="Blumartbd" className={`${h} w-auto`} />
         {subtitle ? (
-          <span className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">{subtitle}</span>
+          <span className="mt-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 select-none">
+            {subtitle}
+          </span>
         ) : null}
       </span>
+    );
+  }
+  return (
+    <span className={`inline-flex flex-col items-start leading-none ${className}`}>
+      <img src="/brand/logo.svg" alt="Blumartbd" className={`${h} w-auto dark:hidden`} />
+      <img src="/brand/logo-dark.svg" alt="Blumartbd" className={`${h} hidden w-auto dark:block`} />
+      {subtitle ? (
+        <span className="mt-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 select-none">
+          {subtitle}
+        </span>
+      ) : null}
     </span>
   );
 }

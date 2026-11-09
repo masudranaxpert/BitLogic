@@ -6,10 +6,18 @@ import {
   CreditCard,
   Database,
   FileText,
+  Headset,
+  Image as ImageIcon,
   Layers,
+  LayoutDashboard,
+  Mail,
+  Network,
+  PanelTop,
   Search,
   Send,
+  Sliders,
   Ticket,
+  UserCog,
   Users,
 } from 'lucide-react';
 import type {
@@ -34,7 +42,7 @@ type Result = {
 export type CommandPaletteProps = {
   open: boolean;
   onClose: () => void;
-  pages: Array<{ id: AdminTab; label: string }>;
+  pages: Array<{ id: AdminTab; label: string; keywords?: string }>;
   deliveries: DigitalDelivery[];
   subscribers: SubscriberUser[];
   products: DigitalProduct[];
@@ -50,6 +58,42 @@ export type CommandPaletteProps = {
 };
 
 const PER_GROUP = 5;
+
+const PAGE_ICON: Partial<Record<AdminTab, React.ComponentType<{ className?: string }>>> = {
+  overview: LayoutDashboard,
+  products: Layers,
+  'product-add': Layers,
+  warranties: Layers,
+  'credential-types': Layers,
+  categories: Layers,
+  vault: Database,
+  'vault-manual': Database,
+  'vault-bulk': Database,
+  deliveries: Send,
+  'order-add': Send,
+  'orders-renewals': Send,
+  'orders-pinned': Send,
+  'warranty-claims': Send,
+  payments: CreditCard,
+  coupons: CreditCard,
+  tickets: Ticket,
+  users: Users,
+  'user-add': Users,
+  suppliers: Network,
+  'supplier-catalog': Network,
+  'supplier-links': Network,
+  'supplier-orders': Network,
+  'supplier-settings': Network,
+  media: ImageIcon,
+  features: Sliders,
+  storefront: PanelTop,
+  email: Mail,
+  'email-templates': Mail,
+  'email-triggers': Mail,
+  contact: Headset,
+  staff: UserCog,
+  'staff-add': UserCog,
+};
 
 function has(q: string, ...fields: Array<string | undefined | null>) {
   return fields.some((f) => f && f.toLowerCase().includes(q));
@@ -77,13 +121,12 @@ export function CommandPalette(props: CommandPaletteProps) {
 
     push(
       props.pages
-        .filter((p) => !q || p.label.toLowerCase().includes(q))
-        .slice(0, q ? PER_GROUP : 8)
+        .filter((p) => !q || `${p.label} ${p.keywords || ''}`.toLowerCase().includes(q))
         .map((p) => ({
           id: `page-${p.id}`,
           group: 'Go to',
           title: p.label,
-          icon: FileText,
+          icon: PAGE_ICON[p.id] || FileText,
           run: () => props.goTab(p.id),
         })),
     );

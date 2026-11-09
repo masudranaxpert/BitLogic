@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ArrowDown, ArrowUp, ImagePlus, Loader2, Trash2 } from 'lucide-react';
 import { Card, StatusIndicator, SwitchToggle } from '@/components/admin/ui/primitives';
 import type { DigitalProduct } from '@/lib/admin-data';
@@ -15,7 +16,28 @@ import {
   type HomeBannerItem,
 } from '@/lib/home-banners-shared';
 
-type Identity = { siteTitle: string; siteDescription: string };
+type Identity = {
+  siteTitle: string;
+  siteDescription: string;
+  logoUrl: string;
+  faviconUrl: string;
+};
+
+function identityFrom(s: Partial<Identity>): Identity {
+  return {
+    siteTitle: s.siteTitle ?? DEFAULT_STORE_SETTINGS.siteTitle,
+    siteDescription: s.siteDescription ?? DEFAULT_STORE_SETTINGS.siteDescription,
+    logoUrl: s.logoUrl ?? '',
+    faviconUrl: s.faviconUrl ?? '',
+  };
+}
+
+function applyTabIcon(url: string) {
+  const href = url || '/favicon.svg';
+  document.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"]').forEach((node) => {
+    (node as HTMLLinkElement).href = href;
+  });
+}
 
 const field =
   'w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-800 dark:bg-slate-950 focus:outline-none focus:border-emerald-600';
@@ -207,7 +229,74 @@ function BannerCard({
   );
 }
 
+function BrandFile({
+  label,
+  help,
+  url,
+  fallback,
+  square,
+  busy,
+  onPick,
+  onClear,
+}: {
+  label: string;
+  help: string;
+  url: string;
+  fallback: string;
+  square?: boolean;
+  busy: boolean;
+  onPick: (file: File) => void;
+  onClear: () => void;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  return (
+    <div className="flex items-center gap-3">
+      <div
+        className={`flex shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 ${square ? 'h-14 w-14' : 'h-14 w-36'}`}
+      >
+        <img src={url || fallback} alt="" className={square ? 'h-8 w-8 object-contain' : 'max-h-9 max-w-[8rem] object-contain'} />
+      </div>
+      <div className="min-w-0">
+        <p className="m-0 text-sm font-semibold text-slate-900 dark:text-slate-100">{label}</p>
+        <p className="m-0 mt-0.5 text-xs text-slate-500">{help}</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => input.current?.click()}
+            className="h-8 rounded-md border border-slate-200 px-2.5 text-xs font-medium hover:border-emerald-600 disabled:opacity-50 dark:border-slate-700 cursor-pointer"
+          >
+            {url ? 'Replace' : 'Upload'}
+          </button>
+          {url ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onClear}
+              className="h-8 rounded-md border border-slate-200 px-2.5 text-xs font-medium hover:border-emerald-600 disabled:opacity-50 dark:border-slate-700 cursor-pointer"
+            >
+              Use built-in
+            </button>
+          ) : null}
+        </div>
+        <input
+          ref={input}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          hidden
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) onPick(f);
+            e.target.value = '';
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function StorefrontView({ products }: { products: DigitalProduct[] }) {
+  const router = useRouter();
   const [savedId, setSavedId] = useState<Identity | null>(null);
   const [draftId, setDraftId] = useState<Identity | null>(null);
   const [savedBanners, setSavedBanners] = useState<HomeBannerItem[] | null>(null);
@@ -226,10 +315,7 @@ export default function StorefrontView({ products }: { products: DigitalProduct[
     ])
       .then(([s, b]) => {
         if (!s?.settings || !b?.banners) return setLoadError(true);
-        const id = {
-          siteTitle: s.settings.siteTitle ?? DEFAULT_STORE_SETTINGS.siteTitle,
-          siteDescription: s.settings.siteDescription ?? DEFAULT_STORE_SETTINGS.siteDescription,
-        };
+        const id = identityFrom(s.settings);
         setSavedId(id);
         setDraftId(id);
         setSavedBanners(b.banners);
@@ -306,14 +392,21 @@ export default function StorefrontView({ products }: { products: DigitalProduct[
     setMessage(null);
     try {
       if (idDirty && draftId) {
+        const next = identityFrom({
+          ...draftId,
+          siteTitle: draftId.siteTitle.trim(),
+          siteDescription: draftId.siteDescription.trim(),
+        });
         const res = await fetch('/api/admin/settings', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ siteTitle: draftId.siteTitle.trim(), siteDescription: draftId.siteDescription.trim() }),
+          body: JSON.stringify(next),
         });
         if (!res.ok) throw new Error('Could not save the site title.');
-        setSavedId({ siteTitle: draftId.siteTitle.trim(), siteDescription: draftId.siteDescription.trim() });
-        setDraftId({ siteTitle: draftId.siteTitle.trim(), siteDescription: draftId.siteDescription.trim() });
+        setSavedId(next);
+        setDraftId(next);
+        if (next.faviconUrl !== savedId?.faviconUrl) applyTabIcon(next.faviconUrl);
+        if (next.logoUrl !== savedId?.logoUrl || next.faviconUrl !== savedId?.faviconUrl) router.refresh();
       }
       if (bannersDirty) {
         const res = await fetch('/api/admin/banners', {
@@ -416,7 +509,7 @@ export default function StorefrontView({ products }: { products: DigitalProduct[
     <div className="mx-auto max-w-4xl space-y-5 pb-24">
       <header>
         <h1 className="font-display text-2xl font-semibold text-slate-900 dark:text-slate-50">Storefront</h1>
-        <p className="mt-1 text-sm text-slate-500">Your site title and description, and the images at the top of the homepage.</p>
+        <p className="mt-1 text-sm text-slate-500">Site title, logo, favicon, and the images at the top of the homepage.</p>
       </header>
 
       <input
@@ -433,13 +526,43 @@ export default function StorefrontView({ products }: { products: DigitalProduct[
       />
 
       {!draftId ? (
-        <Card className="p-5 text-sm text-slate-500">{loadError ? 'Could not load the storefront settings.' : 'Loading…'}</Card>
+        loadError ? (
+          <Card className="p-6 text-sm text-center space-y-3">
+            <p className="text-rose-600 dark:text-rose-400 font-medium m-0">Could not load the storefront settings.</p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="h-9 px-4 rounded-md border border-slate-200 dark:border-slate-700 text-xs font-semibold hover:border-emerald-600 cursor-pointer"
+            >
+              Retry
+            </button>
+          </Card>
+        ) : (
+          <div className="space-y-6" aria-busy="true">
+            <Card className="overflow-hidden">
+              <div className="border-b border-slate-200/80 px-5 py-3.5 dark:border-slate-800 space-y-1">
+                <div className="h-5 w-28 rounded bg-slate-200/80 dark:bg-slate-700 animate-pulse" />
+                <div className="h-3.5 w-60 rounded bg-slate-200/50 dark:bg-slate-800 animate-pulse" />
+              </div>
+              <div className="grid gap-4 px-5 py-4 animate-pulse">
+                <div className="space-y-1.5">
+                  <div className="h-3.5 w-24 rounded bg-slate-200/80 dark:bg-slate-700" />
+                  <div className="h-10 rounded-md bg-slate-100 dark:bg-slate-800" />
+                </div>
+                <div className="space-y-1.5">
+                  <div className="h-3.5 w-28 rounded bg-slate-200/80 dark:bg-slate-700" />
+                  <div className="h-20 rounded-md bg-slate-100 dark:bg-slate-800" />
+                </div>
+              </div>
+            </Card>
+          </div>
+        )
       ) : (
         <>
           <Card className="overflow-hidden">
             <div className="border-b border-slate-200/80 px-5 py-3.5 dark:border-slate-800">
               <h2 className="font-display text-base font-semibold">Website</h2>
-              <p className="mt-0.5 text-sm text-slate-500">Shown in browser tabs and in search results.</p>
+              <p className="mt-0.5 text-sm text-slate-500">Title, description, logo, and the browser-tab icon. PNG, JPG or WEBP.</p>
             </div>
             <div className="grid gap-4 px-5 py-4">
               <label className="space-y-1.5">
@@ -450,7 +573,7 @@ export default function StorefrontView({ products }: { products: DigitalProduct[
                 <input
                   value={draftId.siteTitle}
                   onChange={(e) => setDraftId({ ...draftId, siteTitle: e.target.value.slice(0, 80) })}
-                  placeholder="BitLogic | Digital Subscriptions"
+                  placeholder="Blumartbd | Digital Subscriptions"
                   className={`${field} h-10 font-medium`}
                 />
               </label>
@@ -467,6 +590,31 @@ export default function StorefrontView({ products }: { products: DigitalProduct[
                   className={field}
                 />
               </label>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <BrandFile
+                  label="Logo"
+                  help="Store header, footer, and admin."
+                  url={draftId.logoUrl}
+                  fallback="/brand/logo.svg"
+                  busy={uploading !== null || busy}
+                  onPick={(file) =>
+                    void upload(file, (r) => setDraftId({ ...draftId, logoUrl: r.url }), 'logo')
+                  }
+                  onClear={() => setDraftId({ ...draftId, logoUrl: '' })}
+                />
+                <BrandFile
+                  label="Favicon"
+                  help="Small icon in the browser tab."
+                  url={draftId.faviconUrl}
+                  fallback="/favicon.svg"
+                  square
+                  busy={uploading !== null || busy}
+                  onPick={(file) =>
+                    void upload(file, (r) => setDraftId({ ...draftId, faviconUrl: r.url }), 'favicon')
+                  }
+                  onClear={() => setDraftId({ ...draftId, faviconUrl: '' })}
+                />
+              </div>
               <div className="rounded-lg bg-slate-50 px-4 py-3 dark:bg-slate-900/60">
                 <p className="m-0 text-[11px] font-medium uppercase tracking-wide text-slate-400">How it can look in Google</p>
                 <p className="m-0 mt-1 truncate text-[13px] text-slate-500">{origin}</p>

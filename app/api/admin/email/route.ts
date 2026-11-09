@@ -10,6 +10,7 @@ import {
 } from '@/lib/email/config';
 import { sendEmail } from '@/lib/email/send';
 import { testMail } from '@/lib/email/templates';
+import { recordActivity, requestIp } from '@/lib/audit/record';
 
 const PROVIDERS = ['none', 'smtp', 'resend', 'brevo', 'sendgrid', 'postmark', 'mailgun'];
 
@@ -20,7 +21,7 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  const { error } = await requirePermission('settings');
+  const { session, error } = await requirePermission('settings');
   if (error) return error;
   const body = (await request.json().catch(() => null)) as Partial<EmailConfig> | null;
   if (!body || typeof body !== 'object') return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
@@ -43,7 +44,15 @@ export async function PUT(request: Request) {
     apiKey: body.apiKey?.trim(),
     mailgunDomain: body.mailgunDomain?.trim(),
     mailgunRegion: body.mailgunRegion === 'eu' ? 'eu' : body.mailgunRegion === 'us' ? 'us' : undefined,
+    triggers: body.triggers,
   } as Partial<EmailConfig>);
+  await recordActivity({
+    userId: session.id,
+    action: 'email.save',
+    entityType: 'settings',
+    summary: 'Updated email settings',
+    ip: requestIp(request),
+  });
   return NextResponse.json({ ok: true, config: publicEmailConfig(saved) });
 }
 

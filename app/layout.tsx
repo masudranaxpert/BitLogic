@@ -5,6 +5,8 @@ import {
   getStoreSettings,
 } from '@/lib/store-settings';
 import { getSiteUrl } from '@/lib/seo/site-url';
+import { BrandProvider } from '@/components/brand/BrandLogo';
+import { TopProgressBar } from '@/components/common/TopProgressBar';
 import './globals.css';
 import './storefront.css';
 
@@ -12,21 +14,18 @@ const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
   variable: '--font-jakarta-face',
   display: 'swap',
-  weight: ['400', '500', '600', '700', '800'],
 });
 
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter-face',
   display: 'swap',
-  weight: ['400', '500', '600', '700'],
 });
 
 const jetbrains = JetBrains_Mono({
   subsets: ['latin'],
   variable: '--font-jetbrains-face',
   display: 'swap',
-  weight: ['400', '500', '600', '700'],
 });
 
 export const viewport: Viewport = {
@@ -50,10 +49,10 @@ export async function generateMetadata(): Promise<Metadata> {
     metadataBase: new URL(base),
     title: {
       default: title,
-      template: '%s | BitLogic',
+      template: '%s | Blumartbd',
     },
     description,
-    applicationName: 'BitLogic',
+    applicationName: 'Blumartbd',
     alternates: {
       canonical: '/',
     },
@@ -62,14 +61,26 @@ export async function generateMetadata(): Promise<Metadata> {
       description: ogDesc,
       type: 'website',
       url: base,
-      siteName: 'BitLogic',
+      siteName: 'Blumartbd',
       locale: 'en_BD',
+      images: [{ url: '/og-image-1200x630.png', width: 1200, height: 630 }],
     },
     twitter: {
       card: 'summary_large_image',
       title,
       description: ogDesc,
+      images: ['/og-image-1200x630.png'],
     },
+    icons: s.faviconUrl
+      ? { icon: s.faviconUrl, apple: s.faviconUrl }
+      : {
+          icon: [
+            { url: '/favicon.ico', sizes: '48x48' },
+            { url: '/favicon.svg', type: 'image/svg+xml' },
+          ],
+          apple: '/apple-touch-icon.png',
+        },
+    manifest: '/site.webmanifest',
     robots: {
       index: true,
       follow: true,
@@ -84,7 +95,8 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const settings = await getStoreSettings();
   return (
     <html
       lang="en"
@@ -95,7 +107,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         className="font-sans bg-[#f6f8fa] text-slate-900 dark:bg-[#090d16] dark:text-slate-100 selection:bg-emerald-600 selection:text-white antialiased overflow-x-hidden"
         suppressHydrationWarning
       >
-        {children}
+        <TopProgressBar />
+        <BrandProvider logoUrl={settings.logoUrl}>{children}</BrandProvider>
       </body>
     </html>
   );
