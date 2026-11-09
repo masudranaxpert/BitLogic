@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ShieldCheck, Smartphone, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { useStoreSettings } from '@/context/StoreSettingsContext';
 
 export type StorePaymentMethodId = 'bkash' | 'nagad' | 'rocket' | 'upay';
@@ -15,7 +15,6 @@ type PaymentMethodSelectorProps = {
 export function PaymentMethodSelector({
   selectedMethod,
   onSelectMethod,
-  formattedTotal,
 }: PaymentMethodSelectorProps) {
   const settings = useStoreSettings();
 
@@ -29,17 +28,13 @@ export function PaymentMethodSelector({
   }
 
   return (
-    <div className="space-y-3 pt-1">
-      <div className="flex items-center justify-between text-xs">
-        <span className="font-extrabold text-slate-900">Payment Gateway</span>
-        <span className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1">
-          <ShieldCheck className="w-3.5 h-3.5" />
-          Automated Instant Verification
-        </span>
-      </div>
+    <div className="space-y-2 pt-1">
+      <label className="block text-xs font-bold text-slate-700">
+        Payment method
+      </label>
 
-      {/* Branded Gateway Cards Selection */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+      {/* Clean Branded Gateway Buttons */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         {methods.map((m) => {
           const active = selectedMethod === m.id;
           return (
@@ -47,40 +42,27 @@ export function PaymentMethodSelector({
               key={m.id}
               type="button"
               onClick={() => onSelectMethod(m.id)}
-              className={`h-12 px-3 rounded-xl border font-bold text-xs transition-all cursor-pointer flex items-center justify-between gap-2 ${
+              className={`h-11 px-3 rounded-xl border font-bold text-xs transition-all cursor-pointer flex items-center justify-between gap-2 ${
                 active
-                  ? 'border-indigo-600 bg-indigo-50/50 text-indigo-950 shadow-xs ring-1 ring-indigo-600'
-                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                  ? 'border-slate-900 bg-slate-900 text-white shadow-xs'
+                  : 'border-slate-200 bg-white text-slate-800 hover:border-slate-300 hover:bg-slate-50'
               }`}
             >
               <div className="flex items-center gap-2 min-w-0">
-                <span className="w-7 h-7 rounded-lg bg-white border border-slate-100 p-1 flex items-center justify-center shrink-0 shadow-2xs">
+                <span className="w-6 h-6 rounded-md bg-white border border-slate-100 p-0.5 flex items-center justify-center shrink-0">
                   <img src={m.icon} alt={m.label} className="w-full h-full object-contain" />
                 </span>
                 <span className="truncate">{m.label}</span>
               </div>
 
               {active && (
-                <div className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center shrink-0">
+                <div className="w-4 h-4 rounded-full bg-white text-slate-900 flex items-center justify-center shrink-0">
                   <Check className="w-2.5 h-2.5 stroke-[3]" />
                 </div>
               )}
             </button>
           );
         })}
-      </div>
-
-      {/* Gateway Transition Notice */}
-      <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 text-xs text-slate-600 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Smartphone className="w-4 h-4 text-slate-400 shrink-0" />
-          <span className="text-[11px] text-slate-500">
-            Clicking <strong>Place Order</strong> will redirect directly to the secure <strong>{selectedMethod.toUpperCase()}</strong> gateway.
-          </span>
-        </div>
-        <span className="font-mono text-xs font-black text-slate-900 shrink-0 ml-2">
-          {formattedTotal}
-        </span>
       </div>
     </div>
   );

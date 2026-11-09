@@ -68,10 +68,6 @@ export function QoCheckoutStep({
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!trxId.trim()) {
-      setErrorMessage('Please enter the transaction ID');
-      return;
-    }
     setErrorMessage('');
     setIsSubmitting(true);
 
