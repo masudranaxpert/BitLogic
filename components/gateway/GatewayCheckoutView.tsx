@@ -193,6 +193,11 @@ export function GatewayCheckoutView({
           bnName: 'নগদ',
           icon: '/payments/nagad.svg',
           guideImg: '/payments/guides/nagad-guide.jpg',
+          guideViewBox: '0 0 487 162',
+          circleCx: '68',
+          circleCy: '82',
+          arrowPath: 'M 220 28 Q 145 25 108 60',
+          arrowHead: '98,70 105,49 120,62',
           brandBg: '#E3262E',
           brandDarkBg: '#B81B22',
           number: settings.nagadNumber || '01700-123456',
@@ -205,6 +210,11 @@ export function GatewayCheckoutView({
           bnName: 'রকেট',
           icon: '/payments/rocket.png',
           guideImg: '/payments/guides/rocket-guide.jpg',
+          guideViewBox: '0 0 487 162',
+          circleCx: '68',
+          circleCy: '95',
+          arrowPath: 'M 225 35 Q 145 32 108 72',
+          arrowHead: '98,82 105,61 120,74',
           brandBg: '#7E22CE',
           brandDarkBg: '#581C87',
           number: settings.rocketNumber || '01700-123456',
@@ -218,6 +228,11 @@ export function GatewayCheckoutView({
           bnName: 'বিকাশ',
           icon: '/payments/bkash-icon.svg',
           guideImg: '/payments/guides/bkash-guide.jpg',
+          guideViewBox: '0 0 487 205',
+          circleCx: '64',
+          circleCy: '126',
+          arrowPath: 'M 235 38 Q 145 36 105 92',
+          arrowHead: '95,103 103,80 118,95',
           brandBg: '#D12053',
           brandDarkBg: '#A6153F',
           number: settings.bkashNumber || '01700-123456',
@@ -322,7 +337,7 @@ export function GatewayCheckoutView({
   if (isPaid) {
     return (
       <div className="min-h-screen bg-[#ECEEF1] flex items-center justify-center p-3 sm:p-6 font-sans">
-        <div className="w-full max-w-[440px] overflow-hidden rounded-xl bg-white shadow-2xl border border-slate-200/80 animate-in zoom-in-95 duration-200">
+        <div className="w-full max-w-[440px] overflow-hidden rounded-lg bg-white shadow-2xl border border-slate-200/80 animate-in zoom-in-95 duration-200">
           <div className="py-5 px-6 flex items-center justify-center border-b border-slate-100 bg-white">
             <div className="flex items-center gap-2.5">
               <img
@@ -376,7 +391,7 @@ export function GatewayCheckoutView({
             </div>
 
             <div
-              className="rounded-xl p-5 border border-white/20 mx-auto max-w-[340px]"
+              className="rounded-md p-5 border border-white/20 mx-auto max-w-[340px]"
               style={{ backgroundColor: theme.brandDarkBg }}
             >
               <p className="text-xs font-semibold text-white/85">
@@ -402,7 +417,7 @@ export function GatewayCheckoutView({
   return (
     <div className="min-h-screen bg-[#ECEEF1] flex flex-col items-center justify-center p-3 sm:p-6 font-sans">
       {isOffline && (
-        <div className="w-full max-w-[440px] mb-3 rounded-xl bg-amber-500 text-slate-950 px-4 py-2.5 text-xs font-bold flex items-center justify-between shadow-md">
+        <div className="w-full max-w-[440px] mb-3 rounded-md bg-amber-500 text-slate-950 px-4 py-2.5 text-xs font-bold flex items-center justify-between shadow-md">
           <div className="flex items-center gap-2">
             <WifiOff className="w-4 h-4 shrink-0" />
             <span>ইন্টারনেট সংযোগ বিচ্ছিন্ন। সংযোগ ফিরলে পেমেন্ট স্বয়ংক্রিয়ভাবে যাচাই হবে।</span>
@@ -411,7 +426,7 @@ export function GatewayCheckoutView({
       )}
 
       {/* Main ZiniPay / Official bKash Card */}
-      <div className="w-full max-w-[440px] overflow-hidden rounded-2xl bg-white shadow-2xl border border-slate-200/90 flex flex-col">
+      <div className="w-full max-w-[440px] overflow-hidden rounded-lg bg-white shadow-2xl border border-slate-200/90 flex flex-col">
         {/* Top Bar: Method Switcher */}
         <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200/80 flex items-center justify-between gap-2">
           <button
@@ -434,7 +449,7 @@ export function GatewayCheckoutView({
                     key={m}
                     type="button"
                     onClick={() => setMethod(m)}
-                    className={`h-8 px-2.5 rounded-lg border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    className={`h-8 px-2.5 rounded-md border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                       active
                         ? 'border-slate-900 bg-white text-slate-900 shadow-2xs ring-1 ring-slate-900'
                         : 'border-slate-200/90 bg-white/60 text-slate-600 hover:bg-white'
@@ -541,12 +556,12 @@ export function GatewayCheckoutView({
                     if (senderError) setSenderError('');
                   }}
                   placeholder="e.g 01XXXXXXXXX"
-                  className="w-full h-12 rounded-lg bg-white px-4 text-center font-mono text-base font-bold text-slate-900 placeholder:font-sans placeholder:font-medium placeholder:text-slate-400 border-2 border-white focus:outline-none focus:ring-4 focus:ring-black/15 shadow-inner"
+                  className="w-full h-11 rounded-md bg-white px-4 text-center font-mono text-base font-bold text-slate-900 placeholder:font-sans placeholder:font-medium placeholder:text-slate-400 border-2 border-white focus:outline-none focus:ring-4 focus:ring-black/15 shadow-inner"
                 />
               </div>
 
               {senderError ? (
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/25 text-white text-xs font-bold">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-black/25 text-white text-xs font-bold">
                   <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                   <span>{senderError}</span>
                 </div>
@@ -563,7 +578,7 @@ export function GatewayCheckoutView({
               <button
                 type="button"
                 onClick={() => router.push(`/account?order=${orderId}`)}
-                className="h-11 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer border-0"
+                className="h-10 rounded-md bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -571,7 +586,7 @@ export function GatewayCheckoutView({
                 type="submit"
                 disabled={submittingSender}
                 style={{ backgroundColor: theme.brandBg }}
-                className="h-11 rounded-lg text-white font-bold text-xs hover:opacity-95 transition-opacity cursor-pointer border-0 flex items-center justify-center gap-2 disabled:opacity-60 shadow-sm"
+                className="h-10 rounded-md text-white font-bold text-xs hover:opacity-95 transition-opacity cursor-pointer border-0 flex items-center justify-center gap-2 disabled:opacity-60 shadow-sm"
               >
                 {submittingSender ? (
                   <>
@@ -586,16 +601,16 @@ export function GatewayCheckoutView({
           </form>
         ) : (
           /* ========================================================================
-             STEP 2: BENGALI INSTRUCTIONS + REAL APP SCREENSHOT + WAITING
+             STEP 2: BENGALI INSTRUCTIONS + COMPACT REAL APP ROW + WAITING
              ======================================================================== */
           <div className="flex flex-col">
             <div
-              className="p-5 text-white space-y-3.5"
+              className="p-5 text-white space-y-3"
               style={{ backgroundColor: theme.brandBg }}
             >
               {/* Registered Sender Pill with Change button */}
               {!isStrictTrxOnly && senderNumber && (
-                <div className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-black/15 text-xs">
+                <div className="flex items-center justify-between px-3 py-1.5 rounded-md bg-black/15 text-xs">
                   <span className="text-white/90">
                     প্রেরক নাম্বার: <strong className="font-mono">{senderNumber}</strong>
                   </span>
@@ -611,12 +626,12 @@ export function GatewayCheckoutView({
 
               {/* Copyable Merchant / Personal Number Box */}
               <div
-                className="rounded-xl p-3.5 border border-white/30 flex items-center justify-between gap-3"
+                className="rounded-md p-3.5 border border-white/30 flex items-center justify-between gap-3"
                 style={{ backgroundColor: theme.brandDarkBg }}
               >
                 <div>
                   <div className="text-[10px] font-bold uppercase tracking-wider text-white/80">
-                    {theme.type === 'Personal' ? 'PERSONAL NUMBER' : 'MERCHANT NUMBER'}
+                    {theme.type === 'Personal' ? 'PERSONAL NUMBER' : 'MERCHANT NUMBER'} (সেন্ড মানি করুন)
                   </div>
                   <div className="font-mono text-xl sm:text-2xl font-black text-white tracking-wide mt-0.5 select-all">
                     {theme.number}
@@ -626,24 +641,49 @@ export function GatewayCheckoutView({
                 <button
                   type="button"
                   onClick={() => handleCopy(theme.number, 'number')}
-                  className="h-10 px-3.5 rounded-lg bg-white/15 hover:bg-white/25 text-white font-bold text-xs flex items-center gap-1.5 border border-white/25 transition-colors cursor-pointer shrink-0"
+                  className="h-9 px-3 rounded-md bg-white/15 hover:bg-white/25 text-white font-bold text-xs flex items-center gap-1.5 border border-white/25 transition-colors cursor-pointer shrink-0"
                 >
                   {copiedNumber ? (
                     <>
-                      <Check className="w-4 h-4 text-emerald-300" />
+                      <Check className="w-3.5 h-3.5 text-emerald-300" />
                       <span>Copied</span>
                     </>
                   ) : (
                     <>
-                      <Copy className="w-4 h-4" />
+                      <Copy className="w-3.5 h-3.5" />
                       <span>Copy</span>
                     </>
                   )}
                 </button>
               </div>
 
-              {/* Step-by-Step Bengali Instructions + Real App Guide Image */}
-              <div className="space-y-2.5 text-xs font-semibold text-white">
+              {/* Amount Copy Strip right below Number Box (Restored as requested) */}
+              <div className="rounded-md px-3.5 py-2.5 bg-black/15 border border-white/15 flex items-center justify-between text-xs">
+                <div>
+                  <span className="text-white/85">পাঠাতে হবে (Send Exactly): </span>
+                  <strong className="font-mono text-sm font-black text-white">৳{totalBdt}</strong>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(String(totalBdt), 'amount')}
+                  className="h-7 px-2.5 rounded-md bg-white/15 hover:bg-white/25 text-white text-[11px] font-bold border border-white/20 cursor-pointer flex items-center gap-1 transition-colors"
+                >
+                  {copiedAmount ? (
+                    <>
+                      <Check className="w-3 h-3 text-emerald-300" />
+                      <span>Copied</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3 h-3" />
+                      <span>Copy ৳{totalBdt}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Step-by-Step Bengali Instructions + Compact Real App Icon Strip */}
+              <div className="space-y-2 text-xs font-semibold text-white pt-0.5">
                 <div className="flex items-center gap-2.5">
                   <span
                     className="w-5 h-5 rounded-full bg-white text-xs font-black flex items-center justify-center shrink-0"
@@ -668,66 +708,49 @@ export function GatewayCheckoutView({
                   </span>
                 </div>
 
-                {/* Real Cropped bKash / Nagad / Rocket App Screenshot with Animated Arrow & Ring */}
-                <div className="relative rounded-xl overflow-hidden bg-white shadow-lg border-2 border-white/40 mx-1 my-1.5">
+                {/* Compact Real Cropped Icon Row (No Personal Name/Header Shown) */}
+                <div className="relative rounded-md overflow-hidden bg-white shadow-md border border-white/40 mx-1 my-1">
                   <img
                     src={theme.guideImg}
                     alt={`${theme.name} Send Money Guide`}
                     className="w-full h-auto block select-none"
                   />
 
-                  {/* Curved Yellow Pointer Arrow & Highlight Circle pointing to "Send Money" (1st icon on bottom-left) */}
                   <svg
-                    viewBox="0 0 487 348"
+                    viewBox={theme.guideViewBox}
                     className="absolute inset-0 w-full h-full pointer-events-none"
                     fill="none"
                   >
-                    {/* Highlight Circle around "Send Money" icon */}
                     <circle
-                      cx={method === 'nagad' ? '68' : method === 'rocket' ? '68' : '64'}
-                      cy={method === 'nagad' ? '280' : method === 'rocket' ? '252' : '255'}
-                      r="52"
+                      cx={theme.circleCx}
+                      cy={theme.circleCy}
+                      r="50"
                       stroke="#FACC15"
                       strokeWidth="4"
-                      strokeDasharray="8 5"
+                      strokeDasharray="7 5"
                       fill="rgba(250, 204, 21, 0.14)"
                     />
-                    {/* Bold Curved Yellow Arrow pointing directly at Send Money */}
                     <path
-                      d="M 245 140 Q 145 130 92 205"
+                      d={theme.arrowPath}
                       stroke="#FACC15"
-                      strokeWidth="7"
+                      strokeWidth="6"
                       strokeLinecap="round"
                       fill="none"
                     />
-                    <polygon
-                      points="82,216 90,192 108,207"
-                      fill="#FACC15"
-                    />
+                    <polygon points={theme.arrowHead} fill="#FACC15" />
                   </svg>
                 </div>
 
-                <div className="flex items-center justify-between gap-2 pt-0.5">
-                  <div className="flex items-center gap-2.5">
-                    <span
-                      className="w-5 h-5 rounded-full bg-white text-xs font-black flex items-center justify-center shrink-0"
-                      style={{ color: theme.brandBg }}
-                    >
-                      3
-                    </span>
-                    <span>
-                      অ্যাকাউন্ট নম্বর পেস্ট করুন এবং <strong>৳{totalBdt}</strong> সেন্ড মানি করুন।
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleCopy(String(totalBdt), 'amount')}
-                    className="px-2 py-1 rounded bg-white/15 hover:bg-white/25 text-white text-[10px] font-bold border border-white/20 cursor-pointer shrink-0 flex items-center gap-1"
+                <div className="flex items-center gap-2.5 pt-0.5">
+                  <span
+                    className="w-5 h-5 rounded-full bg-white text-xs font-black flex items-center justify-center shrink-0"
+                    style={{ color: theme.brandBg }}
                   >
-                    {copiedAmount ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                    <span>{copiedAmount ? 'Copied' : `৳${totalBdt}`}</span>
-                  </button>
+                    3
+                  </span>
+                  <span>
+                    অ্যাকাউন্ট নম্বর পেস্ট করুন এবং <strong>৳{totalBdt}</strong> সেন্ড মানি করুন।
+                  </span>
                 </div>
               </div>
 
@@ -747,12 +770,12 @@ export function GatewayCheckoutView({
                       value={manualTrxId}
                       onChange={(e) => setManualTrxId(e.target.value.toUpperCase())}
                       placeholder="যেমন: BI829384KL"
-                      className="flex-1 h-10 rounded-lg bg-white px-3 font-mono text-sm font-bold text-slate-900 placeholder:text-slate-400 border-0 focus:outline-none"
+                      className="flex-1 h-10 rounded-md bg-white px-3 font-mono text-sm font-bold text-slate-900 placeholder:text-slate-400 border-0 focus:outline-none"
                     />
                     <button
                       type="submit"
                       disabled={submittingTrx}
-                      className="h-10 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs border-0 cursor-pointer flex items-center gap-1.5 shrink-0"
+                      className="h-10 px-4 rounded-md bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs border-0 cursor-pointer flex items-center gap-1.5 shrink-0"
                     >
                       {submittingTrx ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -770,7 +793,7 @@ export function GatewayCheckoutView({
                 </form>
               ) : (
                 <div
-                  className="rounded-xl px-4 py-3 flex items-center justify-between border border-white/20"
+                  className="rounded-md px-4 py-2.5 flex items-center justify-between border border-white/20"
                   style={{ backgroundColor: theme.brandDarkBg }}
                 >
                   <div className="flex items-center gap-2.5">
@@ -786,14 +809,14 @@ export function GatewayCheckoutView({
               )}
             </div>
 
-            {/* Clean Structured White Action Footer (Fixes Screenshot 5) */}
+            {/* Clean Structured White Action Footer (Less Rounded + Colored Cancel Button) */}
             <div className="p-4 bg-white border-t border-slate-100 space-y-3">
               {!isStrictTrxOnly && (
                 <div className="grid grid-cols-2 gap-2.5">
                   <button
                     type="button"
                     onClick={() => router.push(`/account?order=${orderId}`)}
-                    className="h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer border-0"
+                    className="h-9.5 rounded-md bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs transition-colors cursor-pointer"
                   >
                     Cancel Payment
                   </button>
@@ -803,16 +826,16 @@ export function GatewayCheckoutView({
                       setModalFeedback(null);
                       setShowTrxModal(true);
                     }}
-                    className="h-10 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800 font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                    className="h-9.5 rounded-md border border-slate-300 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                   >
-                    <KeyRound className="w-3.5 h-3.5" style={{ color: theme.brandBg }} />
+                    <KeyRound className="w-3.5 h-3.5 text-amber-400" />
                     <span>TrxID দিয়ে ভেরিফাই</span>
                   </button>
                 </div>
               )}
 
               {/* Subtle Integrated Security & Brand Bar */}
-              <div className="pt-1 flex items-center justify-between text-[11px] text-slate-400">
+              <div className="pt-0.5 flex items-center justify-between text-[11px] text-slate-400">
                 <div className="flex items-center gap-1.5">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                   <span className="font-medium text-slate-500">Instant Auto-Verification</span>
@@ -829,7 +852,7 @@ export function GatewayCheckoutView({
       {/* Manual TrxID Fallback Modal */}
       {showTrxModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
-          <div className="w-full max-w-[380px] rounded-2xl bg-white p-5 shadow-2xl space-y-4">
+          <div className="w-full max-w-[380px] rounded-lg bg-white p-5 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <img src={theme.icon} alt={theme.name} className="h-5 w-auto" />
@@ -840,7 +863,7 @@ export function GatewayCheckoutView({
               <button
                 type="button"
                 onClick={() => setShowTrxModal(false)}
-                className="p-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border-0 cursor-pointer"
+                className="p-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 border-0 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -858,7 +881,7 @@ export function GatewayCheckoutView({
                 value={manualTrxId}
                 onChange={(e) => setManualTrxId(e.target.value.toUpperCase())}
                 placeholder="e.g. DD08PXL5K8"
-                className="w-full h-11 rounded-xl border border-slate-300 bg-slate-50 px-3.5 font-mono text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-900 focus:bg-white transition-all"
+                className="w-full h-10 rounded-md border border-slate-300 bg-slate-50 px-3.5 font-mono text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-900 focus:bg-white transition-all"
               />
 
               <div className="text-[11px] text-slate-500 flex items-center justify-between font-mono">
@@ -868,7 +891,7 @@ export function GatewayCheckoutView({
 
               {modalFeedback && (
                 <div
-                  className={`p-2.5 rounded-xl text-xs font-semibold ${
+                  className={`p-2.5 rounded-md text-xs font-semibold ${
                     modalFeedback.type === 'ok'
                       ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                       : 'bg-rose-50 text-rose-700 border border-rose-200'
@@ -882,12 +905,12 @@ export function GatewayCheckoutView({
                 type="submit"
                 disabled={submittingTrx}
                 style={{ backgroundColor: theme.brandBg }}
-                className="w-full h-11 rounded-xl text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-opacity hover:opacity-95 border-0 disabled:opacity-50"
+                className="w-full h-10 rounded-md text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-opacity hover:opacity-95 border-0 disabled:opacity-50"
               >
                 {submittingTrx ? (
                   <Loader2 className="h-4 h-4 animate-spin" />
                 ) : (
-                  <Check className="h-4 h-4" />
+                  <Check className="w-4 h-4" />
                 )}
                 <span>{submittingTrx ? 'Verifying...' : 'Confirm & Verify'}</span>
               </button>
