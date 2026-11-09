@@ -6,6 +6,7 @@ export type AdminTab =
   | 'overview'
   | 'products'
   | 'product-add'
+  | 'product-view'
   | 'product-option'
   | 'warranties'
   | 'credential-types'
@@ -27,6 +28,8 @@ export type AdminTab =
   | 'media'
   | 'payments'
   | 'payment-methods'
+  | 'payment-devices'
+  | 'payment-logs'
   | 'coupons'
   | 'features'
   | 'email'
@@ -47,7 +50,14 @@ export type AdminTab =
   | 'security'
   | 'security-ips'
   | 'security-audit'
-  | 'security-rules';
+  | 'security-rules'
+  | 'activity'
+  | 'activity-payments'
+  | 'activity-orders'
+  | 'activity-catalog'
+  | 'activity-customers'
+  | 'activity-logins'
+  | 'activity-system';
 
 export interface AdminChatAttachment {
   id: string;

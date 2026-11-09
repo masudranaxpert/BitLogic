@@ -40,6 +40,11 @@ export function PaymentMethodConfigTab({
   onNavigateToDevices,
   devicesCount,
 }: MethodTabProps) {
+  const isDefaultMode =
+    draft.verifyModeSenderFifo &&
+    !draft.verifyModeReference &&
+    draft.verifyModeTrxId;
+
   const isStrictTrxOnly =
     draft.verifyModeTrxId &&
     !draft.verifyModeSenderFifo &&
@@ -49,6 +54,12 @@ export function PaymentMethodConfigTab({
     draft.verifyModeTrxId &&
     draft.verifyModeSenderFifo &&
     draft.verifyModeReference;
+
+  const enableDefaultMode = () => {
+    setField('verifyModeSenderFifo', true);
+    setField('verifyModeReference', false);
+    setField('verifyModeTrxId', true);
+  };
 
   const enableAllModes = () => {
     setField('verifyModeTrxId', true);
@@ -81,7 +92,18 @@ export function PaymentMethodConfigTab({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={enableDefaultMode}
+              className={`px-2.5 py-1.5 rounded-md text-xs font-semibold border transition cursor-pointer ${
+                isDefaultMode
+                  ? 'border-emerald-600 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
+                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300'
+              }`}
+            >
+              Default (Sender + TrxID)
+            </button>
             <button
               type="button"
               onClick={enableAllModes}
@@ -91,7 +113,7 @@ export function PaymentMethodConfigTab({
                   : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300'
               }`}
             >
-              All 3 Modes (Default)
+              All 3 Modes (+ Reference)
             </button>
             <button
               type="button"
@@ -136,7 +158,7 @@ export function PaymentMethodConfigTab({
               />
             </div>
             <p className="text-[11px] text-slate-500 leading-relaxed m-0">
-              Matches customer&apos;s MFS sender number + exact amount within 20-min window.
+              Default automatic mode: asks customer for their sender number on Step 1 &amp; matches SMS by sender + amount.
             </p>
           </label>
 
@@ -160,7 +182,7 @@ export function PaymentMethodConfigTab({
               />
             </div>
             <p className="text-[11px] text-slate-500 leading-relaxed m-0">
-              Matches Order ID typed in MFS Reference field + exact amount.
+              Shows Order ID (Reference Copy Box) in Gateway UI &amp; auto-verifies when typed in MFS Reference.
             </p>
           </label>
 
@@ -184,7 +206,7 @@ export function PaymentMethodConfigTab({
               />
             </div>
             <p className="text-[11px] text-slate-500 leading-relaxed m-0">
-              Verifies exact TrxID submitted by customer against received SMS log.
+              Records customer TrxID immediately (no waiting screen) &amp; verifies against present or incoming SMS.
             </p>
           </label>
         </div>

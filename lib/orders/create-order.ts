@@ -9,6 +9,7 @@ import { scheduleState } from '@/lib/catalog/schedule';
 import { planSupplyMap, supplyProblem } from '@/lib/suppliers/supply';
 import { decryptSecret, encryptSecret } from '@/lib/crypto/secrets';
 import { generateOrderAccessToken } from '@/lib/orders/access-token';
+import { recordSystemActivity } from '@/lib/audit/record';
 
 /** Thrown for caller mistakes (4xx). Anything else is a 500. */
 export class OrderError extends Error {
@@ -238,10 +239,19 @@ export async function createOrder(
             coupon.discountType === 'percentage'
               ? Math.round((subtotal * coupon.discountValue) / 100)
               : Math.min(subtotal, coupon.discountValue);
-          await tx.couponCode.update({
-            where: { id: coupon.id },
+
+          const updatedCoupon = await tx.couponCode.updateMany({
+            where: {
+              id: coupon.id,
+              status: 'active',
+              ...(coupon.maxUses > 0 ? { usedCount: { lt: coupon.maxUses } } : {}),
+            },
             data: { usedCount: { increment: 1 } },
           });
+
+          if (updatedCoupon.count === 0) {
+            throw new OrderError('This coupon has reached its usage limit or is no longer active.');
+          }
         } else {
           throw new OrderError('Invalid coupon code.');
         }
@@ -538,6 +548,22 @@ export async function createOrder(
     trxId: txResult.trxId,
     accessToken: txResult.accessToken,
   }).catch((e) => console.error('[createOrder email dispatch]', e));
+
+  void recordSystemActivity({
+    action: 'order.create',
+    entityType: 'order',
+    entityId: txResult.orderId,
+    summary: `${isAdmin ? 'Admin created' : `${name} placed`} order ${txResult.orderId} · ${txResult.summary} (৳${txResult.totalBdt} via ${txResult.gateway})`,
+  });
+
+  if (input.couponCode?.trim()) {
+    void recordSystemActivity({
+      action: 'coupon.redeem',
+      entityType: 'coupon',
+      entityId: input.couponCode.trim().toUpperCase(),
+      summary: `Redeemed coupon ${input.couponCode.trim().toUpperCase()} on ${txResult.orderId} by ${email}`,
+    });
+  }
 
   return {
     orderId: txResult.orderId,

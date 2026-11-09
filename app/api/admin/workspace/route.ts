@@ -53,6 +53,14 @@ export async function GET() {
           out[key] = Array.isArray(out[key]) ? [] : out[key];
         }
       }
+      // Security defense-in-depth: Never expose decrypted vault passwords/secrets to staff lacking vault permission
+      if (!canAccessPermission(session.role, session.permissions, 'vault') && Array.isArray(out.deliveries)) {
+        out.deliveries = (out.deliveries as any[]).map((d) => ({
+          ...d,
+          credentialPayload: undefined,
+          credentialAudit: undefined,
+        }));
+      }
       return NextResponse.json(out);
     }
     return NextResponse.json(workspace);

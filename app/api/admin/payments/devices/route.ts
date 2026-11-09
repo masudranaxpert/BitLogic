@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getStoreSettings } from '@/lib/store-settings';
+import { requirePermission } from '@/lib/auth/require-admin';
+import { recordActivity, requestIp } from '@/lib/audit/record';
 import crypto from 'crypto';
 
 export async function GET(req: NextRequest) {
+  const { error } = await requirePermission('payments');
+  if (error) return error;
+
   try {
     const devices = await db.mfsDevice.findMany({
       orderBy: { createdAt: 'desc' },
@@ -19,6 +24,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const { session, error } = await requirePermission('payments');
+  if (error) return error;
+
   try {
     const body = await req.json();
     const { deviceName, phoneNumber, gateway = 'all', simSlot = 'SIM 1' } = body;
@@ -56,6 +64,15 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    await recordActivity({
+      userId: session.id,
+      action: 'device.create',
+      entityType: 'device',
+      entityId: device.id,
+      summary: `Registered Android Sync device "${device.deviceName}" (${device.gateway.toUpperCase()} · ${device.phoneNumber})`,
+      ip: requestIp(req),
+    });
+
     return NextResponse.json({ success: true, device });
   } catch (error: any) {
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });
@@ -63,12 +80,28 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const { session, error } = await requirePermission('payments');
+  if (error) return error;
+
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ success: false, message: 'ID required' }, { status: 400 });
 
+    const existing = await db.mfsDevice.findUnique({ where: { id } });
     await db.mfsDevice.delete({ where: { id } });
+
+    if (existing) {
+      await recordActivity({
+        userId: session.id,
+        action: 'device.delete',
+        entityType: 'device',
+        entityId: id,
+        summary: `Removed Android Sync device "${existing.deviceName}" (${existing.phoneNumber})`,
+        ip: requestIp(req),
+      });
+    }
+
     return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });

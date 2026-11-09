@@ -354,7 +354,7 @@ export default function PaymentsView({
                       ))}
                     </ul>
 
-                    {/* Gateway + Trx */}
+                    {/* Gateway + Trx + Sender */}
                     <div className="col-span-2 flex min-w-0 flex-wrap items-center gap-2 lg:col-span-1 lg:block">
                       <GatewayBadge gateway={pay.gateway} />
                       {trx ? (
@@ -362,15 +362,20 @@ export default function PaymentsView({
                           type="button"
                           onClick={() => copy(pay.id, trx)}
                           title="Copy TrxID"
-                          className="group inline-flex max-w-full items-center gap-1 font-mono text-xs text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 lg:mt-1.5 lg:flex cursor-pointer"
+                          className="group inline-flex max-w-full items-center gap-1 font-mono text-xs font-semibold text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100 lg:mt-1.5 lg:flex cursor-pointer"
                         >
-                          <span className="truncate">{trx}</span>
+                          <span className="truncate">Trx: {trx}</span>
                           {copied === pay.id ? (
                             <Check className="h-3 w-3 shrink-0 text-emerald-600" aria-hidden />
                           ) : (
                             <ClipboardCopy className="h-3 w-3 shrink-0 opacity-0 group-hover:opacity-60" aria-hidden />
                           )}
                         </button>
+                      ) : null}
+                      {pay.senderNumberOrRef ? (
+                        <div className="font-mono text-[11px] text-slate-500 lg:mt-0.5 truncate">
+                          From: {pay.senderNumberOrRef}
+                        </div>
                       ) : null}
                     </div>
 
@@ -379,7 +384,14 @@ export default function PaymentsView({
 
                     {/* Status + actions */}
                     <div className="flex items-center lg:block">
-                      <StatusIndicator tone={st.tone} label={st.label} />
+                      <StatusIndicator
+                        tone={st.tone}
+                        label={
+                          pay.status === 'pending_verification' && trx
+                            ? 'TrxID Submitted'
+                            : st.label
+                        }
+                      />
                     </div>
                     <div className="flex items-center justify-end gap-1">
                       {pay.status === 'pending_verification' ? (

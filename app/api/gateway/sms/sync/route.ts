@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
     for (const item of items) {
       const rawSms = item.rawSms || item.messageBody || item.text || '';
       const sender = item.sender || item.originatingAddress || '';
+      const timestamp = typeof item.timestamp === 'number' ? item.timestamp : undefined;
 
       if (!rawSms) continue;
 
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      const res = await processIncomingMfsSms(rawSms, sender, device.id);
+      const res = await processIncomingMfsSms(rawSms, sender, device.id, timestamp);
       results.push({ trxId: item.trxId, ...res });
     }
 

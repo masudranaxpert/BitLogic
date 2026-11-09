@@ -1,13 +1,10 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { getSession } from '@/lib/auth/session';
-import { ROLES } from '@/lib/auth/roles';
+import { requirePermission } from '@/lib/auth/require-admin';
 
 export async function GET(request: Request) {
-  const session = await getSession();
-  if (!session || (session.role !== ROLES.ADMIN && session.role !== ROLES.STAFF)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const { error } = await requirePermission('settings');
+  if (error) return error;
 
   const { searchParams } = new URL(request.url);
   const action = searchParams.get('action');

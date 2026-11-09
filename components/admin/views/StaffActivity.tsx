@@ -25,7 +25,26 @@ type StaffUser = {
   id: string;
   name: string | null;
   email: string;
-  role: 'ADMIN' | 'STAFF';
+  role: 'ADMIN' | 'STAFF' | 'CUSTOMER';
+};
+
+export type ActivityCategory =
+  | 'all'
+  | 'payments'
+  | 'orders'
+  | 'catalog'
+  | 'customers'
+  | 'logins'
+  | 'system';
+
+const CATEGORY_TITLES: Record<ActivityCategory, string> = {
+  all: 'Activity Logs',
+  payments: 'Payment Logs',
+  orders: 'Order Logs',
+  catalog: 'Catalog Logs',
+  customers: 'Customer Logs',
+  logins: 'Sign-In Logs',
+  system: 'System Logs',
 };
 
 type IpRow = {
@@ -77,8 +96,44 @@ function formatWhen(iso: string) {
   });
 }
 
-function roleBadgeTone(role?: string): 'emerald' | 'blue' {
-  return role === 'ADMIN' ? 'emerald' : 'blue';
+function roleBadgeTone(role?: string): 'emerald' | 'blue' | 'amber' {
+  if (role === 'ADMIN') return 'emerald';
+  if (role === 'CUSTOMER') return 'amber';
+  return 'blue';
+}
+
+function roleBadgeLabel(role?: string, hasUserId?: boolean, success?: boolean): string {
+  if (role === 'ADMIN') return 'Admin';
+  if (role === 'STAFF') return 'Staff';
+  if (!hasUserId && success === false) return 'Unknown';
+  return 'Customer';
+}
+
+function isAutomatedSystemAction(action?: string): boolean {
+  if (!action) return false;
+  return (
+    action === 'payment.auto_verified' ||
+    action === 'payment.sender_registered' ||
+    action === 'payment.trx_claimed' ||
+    action.startsWith('sms.')
+  );
+}
+
+function actionBadgeStyle(action?: string): string {
+  if (!action) return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
+  if (action === 'payment.auto_verified') {
+    return 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800';
+  }
+  if (action === 'payment.manual_verify' || action === 'payment.manual_match') {
+    return 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800';
+  }
+  if (action === 'payment.trx_claimed' || action === 'payment.sender_registered') {
+    return 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800';
+  }
+  if (action === 'payment.reject' || action === 'payment.refund' || action === 'sms.parse_failed') {
+    return 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800';
+  }
+  return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
 }
 
 function userInitials(name: string | null | undefined, email: string) {
@@ -124,7 +179,7 @@ function usePagination<T>(items: T[], initialSize = 15) {
 }
 
 // -------------------------------------------------------------
-// 1. ALL STAFF LOGINS VIEW
+// 1. ALL SIGN-IN ATTEMPTS VIEW (Admin, Staff, Customer & Unknown)
 // -------------------------------------------------------------
 export function StaffLoginsView({ userId }: { userId: string | null }) {
   const router = useRouter();
@@ -132,7 +187,9 @@ export function StaffLoginsView({ userId }: { userId: string | null }) {
   const [error, setError] = useState('');
   const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
   const [selectedStaffId, setSelectedStaffId] = useState<string>(userId || 'all');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'staff' | 'customer'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'success' | 'failed'>('all');
+  const [daysWindow, setDaysWindow] = useState<number>(30);
   const [searchQuery, setSearchQuery] = useState('');
 
   const [stats, setStats] = useState<ActivityStats>({
@@ -147,33 +204,42 @@ export function StaffLoginsView({ userId }: { userId: string | null }) {
   const [logins, setLogins] = useState<LoginItem[]>([]);
   const [ips, setIps] = useState<IpRow[]>([]);
 
-  const loadData = useCallback(async (uid?: string) => {
-    setLoading(true);
-    setError('');
-    try {
-      const targetParam = uid && uid !== 'all' ? `?userId=${encodeURIComponent(uid)}` : '';
-      const res = await fetch(`/api/admin/staff/activity${targetParam}`, { cache: 'no-store' });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error || 'Failed to load logins.');
+  const loadData = useCallback(
+    async (uid?: string, days = daysWindow) => {
+      setLoading(true);
+      setError('');
+      try {
+        const params = new URLSearchParams();
+        params.set('includeAllLogins', '1');
+        params.set('days', String(days));
+        if (uid && uid !== 'all') params.set('userId', uid);
 
-      setLogins(data.logins || []);
-      setIps(data.ips || []);
-      if (data.users) setStaffUsers(data.users);
-      if (data.stats) setStats(data.stats);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load logins.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+        const res = await fetch(`/api/admin/staff/activity?${params.toString()}`, { cache: 'no-store' });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(data?.error || 'Failed to load logins.');
+
+        setLogins(data.logins || []);
+        setIps(data.ips || []);
+        if (data.users) setStaffUsers(data.users);
+        if (data.stats) setStats(data.stats);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to load logins.');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [daysWindow],
+  );
 
   useEffect(() => {
-    void loadData(selectedStaffId);
-  }, [selectedStaffId, loadData]);
+    void loadData(selectedStaffId, daysWindow);
+  }, [selectedStaffId, daysWindow, loadData]);
 
   const filteredLogins = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return logins.filter((item) => {
+      if (roleFilter === 'staff' && item.user?.role === 'CUSTOMER') return false;
+      if (roleFilter === 'customer' && item.user?.role !== 'CUSTOMER') return false;
       if (statusFilter === 'success' && !item.success) return false;
       if (statusFilter === 'failed' && item.success) return false;
       if (!q) return true;
@@ -183,7 +249,7 @@ export function StaffLoginsView({ userId }: { userId: string | null }) {
       const uaText = (item.userAgent || '').toLowerCase();
       return userText.includes(q) || ipText.includes(q) || uaText.includes(q);
     });
-  }, [logins, statusFilter, searchQuery]);
+  }, [logins, roleFilter, statusFilter, searchQuery]);
 
   const paged = usePagination(filteredLogins, 20);
 
@@ -191,18 +257,29 @@ export function StaffLoginsView({ userId }: { userId: string | null }) {
     <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 m-0">
-            Total Staff Logins
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-0">
-            Audit history of all administrator and staff sign-in attempts (last 7 days).
-          </p>
-        </div>
+        <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 m-0">
+          Sign-In Logs
+        </h1>
         <div className="flex items-center gap-2">
+          <select
+            value={daysWindow}
+            onChange={(e) => {
+              setDaysWindow(Number(e.target.value));
+              paged.setPage(1);
+            }}
+            aria-label="Timeframe"
+            className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 focus:border-emerald-500 focus:outline-none"
+          >
+            <option value={7}>Last 7 Days</option>
+            <option value={30}>Last 30 Days</option>
+            <option value={90}>Last 90 Days</option>
+            <option value={365}>Last 365 Days</option>
+            <option value={0}>All Time</option>
+          </select>
+
           <button
             type="button"
-            onClick={() => void loadData(selectedStaffId)}
+            onClick={() => void loadData(selectedStaffId, daysWindow)}
             className="h-9 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-medium text-slate-700 dark:text-slate-300 hover:border-emerald-600 hover:text-emerald-700 dark:hover:text-emerald-400 cursor-pointer inline-flex items-center gap-1.5 transition-colors"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} aria-hidden />
@@ -220,9 +297,9 @@ export function StaffLoginsView({ userId }: { userId: string | null }) {
       {/* Metrics Cards */}
       <Card className="grid grid-cols-2 divide-x divide-y divide-slate-200/80 overflow-hidden dark:divide-slate-800 lg:grid-cols-4 lg:divide-y-0">
         <StatMetric
-          label="Total sign-ins"
+          label="Total attempts"
           value={stats.totalLogins}
-          hint="All attempts (7 days)"
+          hint={daysWindow === 0 ? 'All time' : `Last ${daysWindow} days`}
         />
         <StatMetric
           label="Successful"
@@ -230,9 +307,9 @@ export function StaffLoginsView({ userId }: { userId: string | null }) {
           hint="Authorized sessions"
         />
         <StatMetric
-          label="Failed"
+          label="Failed attempts"
           value={stats.failedLogins}
-          hint="Wrong password/denied"
+          hint="Wrong password / denied"
         />
         <StatMetric
           label="IP addresses"
@@ -245,8 +322,25 @@ export function StaffLoginsView({ userId }: { userId: string | null }) {
       <Card className="p-3.5">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2.5">
-            {/* Staff Filter Dropdown */}
+            {/* Role Filter */}
             <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-slate-500 shrink-0">Role:</span>
+              <select
+                value={roleFilter}
+                onChange={(e) => {
+                  setRoleFilter(e.target.value as 'all' | 'staff' | 'customer');
+                  paged.setPage(1);
+                }}
+                className="h-8 rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 focus:border-emerald-500 focus:outline-none"
+              >
+                <option value="all">All Users (Admin, Staff & Customer)</option>
+                <option value="staff">Admin & Staff Only</option>
+                <option value="customer">Customers & Unknown Only</option>
+              </select>
+            </div>
+
+            {/* Staff Filter Dropdown */}
+            <div className="flex items-center gap-2 border-l border-slate-200 dark:border-slate-800 pl-2.5">
               <span className="text-xs font-medium text-slate-500 shrink-0">Staff:</span>
               <select
                 value={selectedStaffId}
@@ -256,7 +350,7 @@ export function StaffLoginsView({ userId }: { userId: string | null }) {
                 }}
                 className="h-8 rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 focus:border-emerald-500 focus:outline-none"
               >
-                <option value="all">All Staff & Admins</option>
+                <option value="all">All Accounts</option>
                 {staffUsers.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.name || u.email} ({u.role === 'ADMIN' ? 'Admin' : 'Staff'})
@@ -326,7 +420,7 @@ export function StaffLoginsView({ userId }: { userId: string | null }) {
                 setSearchQuery(e.target.value);
                 paged.setPage(1);
               }}
-              placeholder="Search staff, IP, or browser…"
+              placeholder="Search email, name, IP, or browser…"
               aria-label="Search logins"
               className="h-8 w-full sm:w-64 rounded-md border border-slate-200 bg-white pl-8 pr-2.5 text-xs text-slate-800 placeholder-slate-400 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 focus:border-emerald-500 focus:outline-none"
             />
@@ -341,7 +435,7 @@ export function StaffLoginsView({ userId }: { userId: string | null }) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200/80 dark:border-slate-800 text-left text-xs text-slate-500">
-                  <th className="px-4 py-3 font-medium">Staff Member</th>
+                  <th className="px-4 py-3 font-medium">Account / Email</th>
                   <th className="px-4 py-3 font-medium">When</th>
                   <th className="px-4 py-3 font-medium">Result</th>
                   <th className="px-4 py-3 font-medium">IP Address</th>
@@ -364,14 +458,14 @@ export function StaffLoginsView({ userId }: { userId: string | null }) {
         ) : filteredLogins.length === 0 ? (
           <EmptyTableState
             title="No login records found"
-            description={searchQuery ? 'Try adjusting your search or filters.' : 'No logins recorded in the past 7 days.'}
+            description={searchQuery ? 'Try adjusting your search or filters.' : 'No sign-in attempts recorded in this timeframe.'}
           />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200/80 dark:border-slate-800 text-left text-xs text-slate-500">
-                  <th className="px-4 py-3 font-medium">Staff Member</th>
+                  <th className="px-4 py-3 font-medium">Account / Email</th>
                   <th className="px-4 py-3 font-medium">When</th>
                   <th className="px-4 py-3 font-medium">Result</th>
                   <th className="px-4 py-3 font-medium">IP Address</th>
@@ -384,7 +478,7 @@ export function StaffLoginsView({ userId }: { userId: string | null }) {
                     key={row.id}
                     className="border-b border-slate-100 dark:border-slate-800/80 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
                   >
-                    {/* Staff Person */}
+                    {/* Account / Email */}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
                         <div
@@ -394,20 +488,26 @@ export function StaffLoginsView({ userId }: { userId: string | null }) {
                           {userInitials(row.user?.name, row.user?.email || '')}
                         </div>
                         <div className="min-w-0">
-                          <button
-                            type="button"
-                            onClick={() => router.push(`/admin/staff/view?id=${encodeURIComponent(row.user.id)}`)}
-                            className="cursor-pointer border-0 bg-transparent p-0 text-left font-medium text-slate-900 hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:text-slate-100 dark:hover:text-emerald-400 truncate block max-w-44 text-xs"
-                          >
-                            {row.user?.name || row.user?.email || 'Unknown'}
-                          </button>
+                          {row.user?.id && (row.user.role === 'ADMIN' || row.user.role === 'STAFF') ? (
+                            <button
+                              type="button"
+                              onClick={() => router.push(`/admin/staff/view?id=${encodeURIComponent(row.user.id)}`)}
+                              className="cursor-pointer border-0 bg-transparent p-0 text-left font-medium text-slate-900 hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:text-slate-100 dark:hover:text-emerald-400 truncate block max-w-44 text-xs"
+                            >
+                              {row.user?.name || row.user?.email || 'Unknown'}
+                            </button>
+                          ) : (
+                            <span className="font-medium text-slate-900 dark:text-slate-100 truncate block max-w-44 text-xs">
+                              {row.user?.name || row.user?.email || 'Unknown'}
+                            </span>
+                          )}
                           <div className="flex items-center gap-1.5 mt-0.5">
                             <span className="font-mono text-[11px] text-slate-400 truncate max-w-40">
                               {row.user?.email}
                             </span>
                             <StatusIndicator
                               tone={roleBadgeTone(row.user?.role)}
-                              label={row.user?.role === 'ADMIN' ? 'Admin' : 'Staff'}
+                              label={roleBadgeLabel(row.user?.role, Boolean(row.user?.id), row.success)}
                             />
                           </div>
                         </div>
@@ -423,7 +523,7 @@ export function StaffLoginsView({ userId }: { userId: string | null }) {
                     <td className="px-4 py-3">
                       <StatusIndicator
                         tone={row.success ? 'emerald' : 'red'}
-                        label={row.success ? 'Signed in' : 'Failed'}
+                        label={row.method === 'register' ? 'Sign-up' : row.success ? 'Signed in' : 'Failed'}
                       />
                     </td>
 
@@ -460,7 +560,7 @@ export function StaffLoginsView({ userId }: { userId: string | null }) {
           <div className="border-b border-slate-200/80 px-4 py-3 dark:border-slate-800 flex items-center justify-between">
             <h2 className="m-0 text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
               <Globe className="w-4 h-4 text-emerald-600" />
-              IP Addresses (Last 7 Days)
+              IP Addresses ({daysWindow === 0 ? 'All Time' : `Last ${daysWindow} Days`})
             </h2>
             <span className="text-xs text-slate-400">{ips.length} unique networks</span>
           </div>
@@ -503,15 +603,23 @@ export function StaffLoginsView({ userId }: { userId: string | null }) {
 }
 
 // -------------------------------------------------------------
-// 2. ALL STAFF ACTIVITY VIEW
+// 2. CATEGORIZED ACTIVITY LOGS VIEW
 // -------------------------------------------------------------
-export function StaffActionsView({ userId }: { userId: string | null }) {
+export function StaffActionsView({
+  userId,
+  category = 'all',
+}: {
+  userId: string | null;
+  category?: ActivityCategory;
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
   const [selectedStaffId, setSelectedStaffId] = useState<string>(userId || 'all');
   const [actionFilter, setActionFilter] = useState<string>('all');
+  const [daysWindow, setDaysWindow] = useState<number>(90);
+  const [totalStoredLogs, setTotalStoredLogs] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState('');
 
   const [stats, setStats] = useState<ActivityStats>({
@@ -525,28 +633,38 @@ export function StaffActionsView({ userId }: { userId: string | null }) {
   });
   const [activity, setActivity] = useState<ActionItem[]>([]);
 
-  const loadData = useCallback(async (uid?: string) => {
-    setLoading(true);
-    setError('');
-    try {
-      const targetParam = uid && uid !== 'all' ? `?userId=${encodeURIComponent(uid)}` : '';
-      const res = await fetch(`/api/admin/staff/activity${targetParam}`, { cache: 'no-store' });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error || 'Failed to load activity logs.');
+  const loadData = useCallback(
+    async (uid?: string, cat: ActivityCategory = category, days = daysWindow) => {
+      setLoading(true);
+      setError('');
+      try {
+        const params = new URLSearchParams();
+        if (uid && uid !== 'all') params.set('userId', uid);
+        if (cat && cat !== 'all') params.set('category', cat);
+        params.set('days', String(days));
 
-      setActivity(data.activity || []);
-      if (data.users) setStaffUsers(data.users);
-      if (data.stats) setStats(data.stats);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load activity logs.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+        const res = await fetch(`/api/admin/staff/activity?${params.toString()}`, {
+          cache: 'no-store',
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(data?.error || 'Failed to load activity logs.');
+
+        setActivity(data.activity || []);
+        if (data.users) setStaffUsers(data.users);
+        if (data.stats) setStats(data.stats);
+        if (typeof data.totalStoredLogs === 'number') setTotalStoredLogs(data.totalStoredLogs);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to load activity logs.');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [category, daysWindow],
+  );
 
   useEffect(() => {
-    void loadData(selectedStaffId);
-  }, [selectedStaffId, loadData]);
+    void loadData(selectedStaffId, category, daysWindow);
+  }, [selectedStaffId, category, daysWindow, loadData]);
 
   // Distinct modules/action prefixes for filter
   const actionCategories = useMemo(() => {
@@ -584,23 +702,39 @@ export function StaffActionsView({ userId }: { userId: string | null }) {
   }, [activity, actionFilter, searchQuery]);
 
   const paged = usePagination(filteredActivity, 20);
+  const pageTitle = CATEGORY_TITLES[category] || CATEGORY_TITLES.all;
+
+  if (category === 'logins') {
+    return <StaffLoginsView userId={userId} />;
+  }
 
   return (
     <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 m-0">
-            Total Staff Activity
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-0">
-            Complete audit trail of all staff and admin actions taken across the system (last 90 days).
-          </p>
-        </div>
+        <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 m-0">
+          {pageTitle}
+        </h1>
         <div className="flex items-center gap-2">
+          <select
+            value={daysWindow}
+            onChange={(e) => {
+              setDaysWindow(Number(e.target.value));
+              paged.setPage(1);
+            }}
+            aria-label="Retention timeframe"
+            className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 focus:border-emerald-500 focus:outline-none"
+          >
+            <option value={7}>Last 7 Days</option>
+            <option value={30}>Last 30 Days</option>
+            <option value={90}>Last 90 Days</option>
+            <option value={365}>Last 365 Days</option>
+            <option value={0}>All Time</option>
+          </select>
+
           <button
             type="button"
-            onClick={() => void loadData(selectedStaffId)}
+            onClick={() => void loadData(selectedStaffId, category, daysWindow)}
             className="h-9 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-medium text-slate-700 dark:text-slate-300 hover:border-emerald-600 hover:text-emerald-700 dark:hover:text-emerald-400 cursor-pointer inline-flex items-center gap-1.5 transition-colors"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} aria-hidden />
@@ -618,9 +752,9 @@ export function StaffActionsView({ userId }: { userId: string | null }) {
       {/* Metrics Cards */}
       <Card className="grid grid-cols-2 divide-x divide-y divide-slate-200/80 overflow-hidden dark:divide-slate-800 lg:grid-cols-4 lg:divide-y-0">
         <StatMetric
-          label="Total actions"
-          value={stats.totalActivity}
-          hint="Last 90 days"
+          label="Matching events"
+          value={filteredActivity.length}
+          hint={daysWindow === 0 ? 'All time' : `Last ${daysWindow} days`}
         />
         <StatMetric
           label="Last 24 hours"
@@ -628,9 +762,9 @@ export function StaffActionsView({ userId }: { userId: string | null }) {
           hint="Recent operations"
         />
         <StatMetric
-          label="Active staff"
+          label="Active actors"
           value={stats.activeStaffCount}
-          hint="Performed actions"
+          hint="Users & system"
         />
         <StatMetric
           label="IP addresses"
@@ -761,34 +895,65 @@ export function StaffActionsView({ userId }: { userId: string | null }) {
                     key={row.id}
                     className="border-b border-slate-100 dark:border-slate-800/80 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
                   >
-                    {/* Staff Person */}
+                    {/* Staff Person / System Actor */}
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2.5">
-                        <div
-                          className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-slate-100 font-display text-[10px] font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 shrink-0"
-                          aria-hidden
-                        >
-                          {userInitials(row.user?.name, row.user?.email || '')}
-                        </div>
-                        <div className="min-w-0">
-                          <button
-                            type="button"
-                            onClick={() => router.push(`/admin/staff/view?id=${encodeURIComponent(row.user.id)}`)}
-                            className="cursor-pointer border-0 bg-transparent p-0 text-left font-medium text-slate-900 hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:text-slate-100 dark:hover:text-emerald-400 truncate block max-w-44 text-xs"
+                      {isAutomatedSystemAction(row.action) ? (
+                        <div className="flex items-center gap-2.5">
+                          <div
+                            className="flex h-7 w-7 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 font-display text-[10px] font-bold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 shrink-0"
+                            aria-hidden
                           >
-                            {row.user?.name || row.user?.email || 'Unknown'}
-                          </button>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <span className="font-mono text-[11px] text-slate-400 truncate max-w-40">
-                              {row.user?.email}
+                            SYS
+                          </div>
+                          <div className="min-w-0">
+                            <span className="font-semibold text-slate-900 dark:text-slate-100 block text-xs">
+                              Auto-Verification Engine
                             </span>
-                            <StatusIndicator
-                              tone={roleBadgeTone(row.user?.role)}
-                              label={row.user?.role === 'ADMIN' ? 'Admin' : 'Staff'}
-                            />
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <StatusIndicator tone="emerald" label="System Auto" />
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="flex items-center gap-2.5">
+                          <div
+                            className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-slate-100 font-display text-[10px] font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 shrink-0"
+                            aria-hidden
+                          >
+                            {userInitials(row.user?.name, row.user?.email || '')}
+                          </div>
+                          <div className="min-w-0">
+                            <button
+                              type="button"
+                              onClick={() => router.push(`/admin/staff/view?id=${encodeURIComponent(row.user.id)}`)}
+                              className="cursor-pointer border-0 bg-transparent p-0 text-left font-medium text-slate-900 hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:text-slate-100 dark:hover:text-emerald-400 truncate block max-w-44 text-xs"
+                            >
+                              {row.user?.name || row.user?.email || 'Unknown'}
+                            </button>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="font-mono text-[11px] text-slate-400 truncate max-w-40">
+                                {row.user?.email}
+                              </span>
+                              <StatusIndicator
+                                tone={
+                                  row.user?.role === 'ADMIN'
+                                    ? 'emerald'
+                                    : row.user?.role === 'CUSTOMER'
+                                      ? 'amber'
+                                      : 'blue'
+                                }
+                                label={
+                                  row.user?.role === 'ADMIN'
+                                    ? 'Admin'
+                                    : row.user?.role === 'CUSTOMER'
+                                      ? 'Customer'
+                                      : 'Staff'
+                                }
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </td>
 
                     {/* When */}
@@ -798,7 +963,7 @@ export function StaffActionsView({ userId }: { userId: string | null }) {
 
                     {/* Action Tag */}
                     <td className="px-4 py-3">
-                      <span className="inline-block px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                      <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-mono font-semibold ${actionBadgeStyle(row.action)}`}>
                         {row.action || row.entityType || 'action'}
                       </span>
                     </td>

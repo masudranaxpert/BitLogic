@@ -70,3 +70,9 @@ next-env.d.ts.bak
 coverage/
 .nyc_output/
 .next-test/
+.nd/
+
+payment-app/.gradle/
+payment-app/app/build/
+payment-app/build/
+payment-app/local.properties

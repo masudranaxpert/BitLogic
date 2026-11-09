@@ -14,11 +14,34 @@ interface WarrantiesViewProps {
   onChange: (next: WarrantyPlan[]) => void;
 }
 
-const emptyDraft = (): Omit<WarrantyPlan, 'id' | 'kind'> => ({
+type DurationUnit = 'hours' | 'days' | 'months';
+
+function unitFromDays(days: number): { value: number; unit: DurationUnit } {
+  if (days <= 0) return { value: 0, unit: 'days' };
+  if (days >= 30 && days % 30 === 0) {
+    return { value: Math.round(days / 30), unit: 'months' };
+  }
+  if (days < 1) {
+    const hours = Math.round(days * 24);
+    if (hours > 0) return { value: hours, unit: 'hours' };
+  }
+  return { value: days, unit: 'days' };
+}
+
+function calculateDays(value: number, unit: DurationUnit): number {
+  const val = Math.max(0, value);
+  if (unit === 'hours') return Number((val / 24).toFixed(3));
+  if (unit === 'months') return Math.round(val * 30);
+  return val;
+}
+
+const emptyDraft = (): Omit<WarrantyPlan, 'id' | 'kind'> & { unit: DurationUnit; unitValue: number } => ({
   name: '',
   badge: '',
   headline: '',
   days: 25,
+  unitValue: 25,
+  unit: 'days',
 });
 
 function kindFromDays(days: number): WarrantyPlan['kind'] {
@@ -47,7 +70,7 @@ export default function WarrantiesView({ warranties, onChange }: WarrantiesViewP
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSave) return;
-    const days = Math.max(0, draft.days);
+    const days = calculateDays(draft.unitValue, draft.unit);
     const next: WarrantyPlan = {
       id: `wrn-${Date.now()}`,
       name: draft.name.trim(),
@@ -121,18 +144,41 @@ export default function WarrantiesView({ warranties, onChange }: WarrantiesViewP
               />
             </div>
             <div>
-              <label className="admin-label block mb-1.5">Days</label>
-              <input
-                type="number"
-                min={0}
-                value={draft.days}
-                onChange={(e) =>
-                  setDraft((d) => ({ ...d, days: Number(e.target.value) }))
-                }
-                className={`${fieldClass} font-mono`}
-              />
+              <label className="admin-label block mb-1.5">Warranty Duration</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={0}
+                  value={draft.unitValue}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setDraft((d) => ({
+                      ...d,
+                      unitValue: val,
+                      days: calculateDays(val, d.unit),
+                    }));
+                  }}
+                  className={`${fieldClass} font-mono flex-1`}
+                />
+                <select
+                  value={draft.unit}
+                  onChange={(e) => {
+                    const u = e.target.value as DurationUnit;
+                    setDraft((d) => ({
+                      ...d,
+                      unit: u,
+                      days: calculateDays(d.unitValue, u),
+                    }));
+                  }}
+                  className="h-10 px-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-medium cursor-pointer"
+                >
+                  <option value="hours">Hours</option>
+                  <option value="days">Days</option>
+                  <option value="months">Months</option>
+                </select>
+              </div>
               <p className="m-0 mt-1 text-[11px] text-slate-500">
-                0 = login-only
+                0 = login-only ({draft.days} equivalent days)
               </p>
             </div>
             <div className="sm:col-span-2">
@@ -177,7 +223,7 @@ export default function WarrantiesView({ warranties, onChange }: WarrantiesViewP
                   <th className="py-3 px-4">Name</th>
                   <th className="py-3 px-3">Badge</th>
                   <th className="py-3 px-3">Headline</th>
-                  <th className="py-3 px-3">Days</th>
+                  <th className="py-3 px-3">Duration (Unit)</th>
                   <th className="py-3 px-4 text-right"> </th>
                 </tr>
               </thead>
@@ -206,15 +252,35 @@ export default function WarrantiesView({ warranties, onChange }: WarrantiesViewP
                       />
                     </td>
                     <td className="py-2.5 px-3">
-                      <input
-                        type="number"
-                        min={0}
-                        value={w.days}
-                        onChange={(e) =>
-                          handleUpdate(w.id, { days: Number(e.target.value) })
-                        }
-                        className="w-20 h-8 px-2 font-mono bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md"
-                      />
+                      {(() => {
+                        const parsed = unitFromDays(w.days);
+                        return (
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="number"
+                              min={0}
+                              value={parsed.value}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                handleUpdate(w.id, { days: calculateDays(val, parsed.unit) });
+                              }}
+                              className="w-16 h-8 px-2 font-mono bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md text-xs"
+                            />
+                            <select
+                              value={parsed.unit}
+                              onChange={(e) => {
+                                const u = e.target.value as DurationUnit;
+                                handleUpdate(w.id, { days: calculateDays(parsed.value, u) });
+                              }}
+                              className="h-8 px-1.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md text-[11px] font-medium"
+                            >
+                              <option value="hours">Hours</option>
+                              <option value="days">Days</option>
+                              <option value="months">Months</option>
+                            </select>
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="py-2.5 px-4 text-right">
                       <button

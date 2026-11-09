@@ -19,6 +19,7 @@ import type {
 import OverviewView from '@/components/admin/views/OverviewView';
 import ProductsView from '@/components/admin/views/ProductsView';
 import ProductAddView from '@/components/admin/views/ProductAddView';
+import ProductDetailView from '@/components/admin/views/ProductDetailView';
 import WarrantiesView from '@/components/admin/views/WarrantiesView';
 import CredentialSchemesView from '@/components/admin/views/CredentialSchemesView';
 import CategoriesView from '@/components/admin/views/CategoriesView';
@@ -92,6 +93,7 @@ export type AdminViewRouterProps = {
   setActiveTab: (tab: AdminTab) => void;
   openProductOptionPage: (productId?: string, variantId?: string) => void;
   openProductEditPage: (productId: string, variantId?: string) => void;
+  openProductViewPage: (productId: string, variantId?: string) => void;
   products: DigitalProduct[];
   warranties: WarrantyPlan[];
   onWarrantiesChange: (next: WarrantyPlan[]) => void;
@@ -182,6 +184,7 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
     setActiveTab,
     openProductOptionPage,
     openProductEditPage,
+    openProductViewPage,
     products,
     warranties,
     onWarrantiesChange,
@@ -269,6 +272,9 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
               onOpenEditOptionPage={(productId, variantId) =>
                 openProductEditPage(productId, variantId)
               }
+              onOpenViewOptionPage={(productId, variantId) =>
+                openProductViewPage(productId, variantId)
+              }
               onOpenQuickRestock={handleOpenQuickRestock}
             />
           )}
@@ -294,6 +300,22 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
               onOpenWarranties={() => setActiveTab('warranties')}
               onOpenCredentialTypes={() => setActiveTab('credential-types')}
               onOpenCategories={() => setActiveTab('categories')}
+            />
+          )}
+
+          {activeTab === 'product-view' && (
+            <ProductDetailView
+              key={searchParams.get('productId') ?? 'product-view-none'}
+              product={
+                searchParams.get('productId')
+                  ? products.find((p) => p.id === searchParams.get('productId')) ||
+                    null
+                  : null
+              }
+              selectedVariantId={searchParams.get('variantId')}
+              vault={vault}
+              onBack={() => setActiveTab('products')}
+              onEdit={(prodId, varId) => openProductEditPage(prodId, varId)}
             />
           )}
 
@@ -509,7 +531,9 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
             />
           )}
 
-          {activeTab === 'payment-methods' && <PaymentMethodsView />}
+          {activeTab === 'payment-methods' && <PaymentMethodsView initialTab="methods" />}
+          {activeTab === 'payment-devices' && <PaymentMethodsView initialTab="devices" />}
+          {activeTab === 'payment-logs' && <PaymentMethodsView initialTab="logs" />}
 
           {activeTab === 'coupons' && (
             <CouponsView
@@ -562,7 +586,30 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
             <StaffActionsView
               key={searchParams.get('id') ?? 'none'}
               userId={searchParams.get('id')}
+              category="all"
             />
+          )}
+
+          {activeTab === 'activity' && (
+            <StaffActionsView key="activity-all" userId={null} category="all" />
+          )}
+          {activeTab === 'activity-payments' && (
+            <StaffActionsView key="activity-payments" userId={null} category="payments" />
+          )}
+          {activeTab === 'activity-orders' && (
+            <StaffActionsView key="activity-orders" userId={null} category="orders" />
+          )}
+          {activeTab === 'activity-catalog' && (
+            <StaffActionsView key="activity-catalog" userId={null} category="catalog" />
+          )}
+          {activeTab === 'activity-customers' && (
+            <StaffActionsView key="activity-customers" userId={null} category="customers" />
+          )}
+          {activeTab === 'activity-logins' && (
+            <StaffActionsView key="activity-logins" userId={null} category="logins" />
+          )}
+          {activeTab === 'activity-system' && (
+            <StaffActionsView key="activity-system" userId={null} category="system" />
           )}
 
           {activeTab === 'staff-add' && (

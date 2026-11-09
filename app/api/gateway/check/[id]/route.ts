@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { guardRateLimit } from '@/lib/auth/rate-limit';
 import { claimTransactionIdForOrder, registerSenderIntentForOrder } from '@/lib/gateway/verification-engine';
+import { extractCleanTrxId } from '@/lib/gateway/mfs-parser';
 
 export async function GET(
   req: NextRequest,
@@ -40,6 +42,13 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const rl = guardRateLimit(req, '/api/gateway/check', 20, 10 * 60_000);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { success: false, message: rl.blocked ? 'Access denied from your IP address.' : 'Too many verification attempts. Please wait a few minutes.' },
+      { status: rl.blocked ? 403 : 429 },
+    );
+  }
   try {
     const { id: orderId } = await params;
     const body = await req.json();
@@ -53,11 +62,12 @@ export async function POST(
       return NextResponse.json(res);
     }
 
-    if (!trxId || typeof trxId !== 'string') {
-      return NextResponse.json({ success: false, message: 'Transaction ID is required' }, { status: 400 });
+    const cleanedTrxId = extractCleanTrxId(trxId || '');
+    if (!cleanedTrxId || cleanedTrxId.length < 4) {
+      return NextResponse.json({ success: false, message: 'সঠিক Transaction ID (TrxID) লিখুন।' }, { status: 400 });
     }
 
-    const result = await claimTransactionIdForOrder(orderId, trxId, senderNumber, gateway);
+    const result = await claimTransactionIdForOrder(orderId, cleanedTrxId, senderNumber, gateway);
     return NextResponse.json(result);
   } catch (error: any) {
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });

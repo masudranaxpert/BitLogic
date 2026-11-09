@@ -17,7 +17,7 @@ import {
 } from '@/lib/email/templates';
 import type { OutgoingEmail } from '@/lib/email/send';
 
-export type TemplateMeta = {
+type TemplateMeta = {
   id: string;
   name: string;
   category: 'Orders' | 'Payments' | 'Auth' | 'System';
@@ -28,7 +28,7 @@ export type TemplateMeta = {
   defaultVariables: string[];
 };
 
-export const TEMPLATES_META: TemplateMeta[] = [
+const TEMPLATES_META: TemplateMeta[] = [
   {
     id: 'order_placed_customer',
     name: 'Order Placed (Customer)',

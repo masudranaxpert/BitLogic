@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { getEmailConfig } from '@/lib/email/config';
 import { sendEmail } from '@/lib/email/send';
+import { decryptSecret } from '@/lib/crypto/secrets';
 import {
   orderPlacedCustomerMail,
   orderPlacedAdminMail,
@@ -118,10 +119,12 @@ export async function dispatchPaymentStatusEmail(payment: {
         .filter((d) => d.vaultCredentialId || d.status === 'delivered')
         .map((d) => {
           const v = d.vaultCredentialId ? vaultMap.get(d.vaultCredentialId) : null;
+          const plainPassword = v?.password ? decryptSecret(v.password) : undefined;
+          const plainSecret = v?.secretValue ? decryptSecret(v.secretValue) : undefined;
           return {
             label: `${d.productName} · ${d.variantName}`,
-            email: v?.email || undefined,
-            password: v?.password || undefined,
+            email: v?.email || (plainSecret && !v?.email ? 'License Key' : undefined),
+            password: plainPassword || plainSecret || undefined,
             pin: v?.profilePin || undefined,
             note: v?.noteBBCode || undefined,
           };

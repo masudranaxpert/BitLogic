@@ -16,6 +16,7 @@ interface ProductsViewProps {
   onOpenAddProductPage: () => void;
   onOpenAddOptionPage: (productId?: string) => void;
   onOpenEditOptionPage: (productId: string, variantId: string) => void;
+  onOpenViewOptionPage: (productId: string, variantId: string) => void;
   onOpenQuickRestock: (productId: string, variantId: string) => void;
 }
 
@@ -27,6 +28,7 @@ export default function ProductsView({
   onOpenAddProductPage,
   onOpenAddOptionPage,
   onOpenEditOptionPage,
+  onOpenViewOptionPage,
   onOpenQuickRestock,
 }: ProductsViewProps) {
   const [tabFilter, setTabFilter] = useState<ProductTab>('all');
@@ -107,6 +109,7 @@ export default function ProductsView({
       onOpenAddProductPage={onOpenAddProductPage}
       onOpenAddOptionPage={onOpenAddOptionPage}
       onOpenEditOptionPage={onOpenEditOptionPage}
+      onOpenViewOptionPage={onOpenViewOptionPage}
       onOpenQuickRestock={onOpenQuickRestock}
       onResetFilters={() => {
         setTabFilter('all');

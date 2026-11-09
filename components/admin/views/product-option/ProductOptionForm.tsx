@@ -154,17 +154,38 @@ export function ProductOptionForm({
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-slate-200 dark:border-slate-800">
         <div>
-          <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-            Duration (Days)
-          </label>
-          <input
-            type="number"
-            required
-            min={1}
-            value={values.durationDays}
-            onChange={(e) => onChange('durationDays', Number(e.target.value))}
-            className="w-full h-9 px-3 font-mono bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg"
-          />
+          <div className="flex items-center justify-between mb-1">
+            <label className="block font-semibold text-slate-700 dark:text-slate-300">
+              Duration
+            </label>
+            <div className="flex items-center gap-1">
+              {(['Hours', 'Days', 'Month'] as const).map((unit) => (
+                <button
+                  key={unit}
+                  type="button"
+                  onClick={() => {
+                    const days =
+                      unit === 'Hours' ? 1 : unit === 'Month' ? 30 : 28;
+                    onChange('durationDays', days);
+                  }}
+                  className="px-1.5 py-0.2 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800 hover:text-emerald-600 cursor-pointer"
+                >
+                  +{unit}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              required
+              min={1}
+              value={values.durationDays}
+              onChange={(e) => onChange('durationDays', Number(e.target.value))}
+              className="w-full h-9 px-3 font-mono bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg"
+            />
+            <span className="text-xs text-slate-400 font-medium">days</span>
+          </div>
         </div>
         <div>
           <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">

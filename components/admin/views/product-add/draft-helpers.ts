@@ -142,16 +142,17 @@ export const FULFILLMENT_DEFAULTS = {
   stockDisplayMode: 'exact_count' as const,
 };
 
-/** Best-effort parse of buyer-facing duration labels like "1 Month", "30 Days". */
+/** Best-effort parse of buyer-facing duration labels like "1 Month", "30 Days", "24 Hours". */
 export function parseDurationDays(label: string, fallback = 30): number {
   const raw = label.trim().toLowerCase();
   if (!raw) return fallback || 30;
-  const num = Number.parseInt(raw.replace(/[^\d]/g, ''), 10);
+  const num = Number.parseFloat(raw.replace(/[^\d.]/g, ''));
   if (!Number.isFinite(num) || num <= 0) return fallback || 30;
-  if (/\bmonth/.test(raw)) return num * 30;
-  if (/\byear/.test(raw)) return num * 365;
-  if (/\bweek/.test(raw)) return num * 7;
-  return num;
+  if (/\b(hour|hr|h)\b/.test(raw)) return Math.max(1, Math.round(num / 24)) || 1;
+  if (/\bmonth/.test(raw)) return Math.round(num * 30);
+  if (/\byear/.test(raw)) return Math.round(num * 365);
+  if (/\bweek/.test(raw)) return Math.round(num * 7);
+  return Math.round(num);
 }
 
 export function defaultLoginStepsForScheme(

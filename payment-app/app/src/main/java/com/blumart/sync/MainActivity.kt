@@ -171,7 +171,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Scan Last 30 Minutes Inbox MFS SMS
+        // Scan Last 24 Hours Inbox MFS SMS
         btnScanInbox.setOnClickListener {
             if (!hasSmsPermissions()) {
                 requestAppPermissions()
@@ -182,17 +182,17 @@ class MainActivity : AppCompatActivity() {
 
             btnScanInbox.isEnabled = false
             btnScanInbox.text = "Scanning..."
-            SyncApiClient.broadcastLog(this, "Scanning phone SMS inbox (last 30 mins)...")
+            SyncApiClient.broadcastLog(this, "Scanning phone SMS inbox (last 24 hours)...")
 
             CoroutineScope(Dispatchers.IO).launch {
-                val synced = SyncApiClient.scanRecentInboxMfsSms(this@MainActivity, 30)
+                val synced = SyncApiClient.scanRecentInboxMfsSms(this@MainActivity, 1440, onlyUnsynced = false)
                 withContext(Dispatchers.Main) {
                     btnScanInbox.isEnabled = true
-                    btnScanInbox.text = "Scan Last 30m SMS"
+                    btnScanInbox.text = "Scan Inbox (24h)"
                     refreshStatsAndLogs()
                     Toast.makeText(
                         this@MainActivity,
-                        if (synced > 0) "Synced $synced MFS SMS!" else "No new MFS SMS found in last 30m",
+                        if (synced > 0) "Synced $synced MFS SMS from last 24h!" else "No MFS SMS found in last 24h",
                         Toast.LENGTH_SHORT
                     ).show()
                 }

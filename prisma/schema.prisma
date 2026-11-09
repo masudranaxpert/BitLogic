@@ -7,7 +7,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -52,7 +52,7 @@ model LoginEvent {
   @@index([email, createdAt])
 }
 
-/// Who did what. userId is the staff or admin who acted.
+/// Who did what. userId is the staff, admin, or customer who acted.
 model ActivityLog {
   id         String   @id @default(cuid())
   userId     String
@@ -65,6 +65,8 @@ model ActivityLog {
   createdAt  DateTime @default(now())
 
   @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@index([createdAt])
   @@index([entityType, entityId])
 }
 
@@ -716,7 +718,7 @@ model SecurityEvent {
 model MfsDevice {
   id          String      @id @default(cuid())
   deviceName  String
-  phoneNumber String      @unique
+  phoneNumber String
   apiKey      String      @unique
   gateway     String      // all, bkash, nagad, rocket, upay
   status      String      @default("active") // active, paused, offline
@@ -730,6 +732,7 @@ model MfsDevice {
 
   @@index([apiKey])
   @@index([status])
+  @@index([phoneNumber])
 }
 
 model MfsSmsLog {
@@ -745,9 +748,9 @@ model MfsSmsLog {
   reference        String?
   rawSms           String
   receivedAt       DateTime    @default(now())
-  status           String      @default("unmatched") // unmatched, matched, ignored
+  status           String      @default("unmatched") // unmatched, matched, parse_failed
   matchedOrderId   String?
-  verificationMode String?     // fifo_time_window, ref_order_id, trx_id, unique_amount, manual
+  verificationMode String?     // fifo_time_window, ref_order_id, trx_id, manual
   createdAt        DateTime    @default(now())
 
   @@index([trxId])
@@ -756,5 +759,6 @@ model MfsSmsLog {
   @@index([senderNumber])
   @@index([amount])
   @@index([matchedOrderId])
+  @@index([createdAt])
 }
 

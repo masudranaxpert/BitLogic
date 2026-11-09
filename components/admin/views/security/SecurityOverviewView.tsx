@@ -109,7 +109,7 @@ export function SecurityOverviewView({
             {data?.metrics.events24h ?? '—'}
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">
-            <span className="text-emerald-600 font-semibold">Sub-0.1ms</span> latency
+            Recorded in the last 24 hours
           </p>
         </Card>
 
@@ -126,7 +126,7 @@ export function SecurityOverviewView({
             {data?.timeline.reduce((acc, curr) => acc + curr.rateLimited, 0) ?? '—'}
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Throttled by sliding window
+            Requests throttled by endpoint limits
           </p>
         </Card>
 
@@ -143,7 +143,7 @@ export function SecurityOverviewView({
             {data?.metrics.blockedIps ?? '—'}
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Zero DB access drop
+            Rejected at in-memory IP guard
           </p>
         </Card>
 
@@ -160,20 +160,20 @@ export function SecurityOverviewView({
             {data?.metrics.flaggedIps ?? '—'}
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Under auto-escalation watch
+            Auto-blocks at 15 rate-limit hits
           </p>
         </Card>
       </div>
 
-      {/* EvilCharts Signature Glowing Area Chart */}
+      {/* 24-Hour Traffic & Security Telemetry Chart */}
       <Card className="p-5 sm:p-6 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200/80 dark:border-slate-800">
           <div>
             <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50">
-              24-Hour Traffic Defense & Threat Pulse
+              24-Hour Traffic &amp; Security Telemetry
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Visual telemetry of normal requests vs 429 throttles vs 403 blacklisted blocks
+              Real hourly database counts of normal operations vs. 429 rate-limit hits vs. 403 IP blocks
             </p>
           </div>
 

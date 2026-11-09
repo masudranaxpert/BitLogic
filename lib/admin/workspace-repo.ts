@@ -15,6 +15,7 @@ import type {
 import { loadAdminCatalog } from '@/lib/admin/catalog-repo';
 import { decryptSecret, encryptSecret } from '@/lib/crypto/secrets';
 import { parseJson } from '@/lib/utils';
+import { fulfillPaidOrderDeliveries } from '@/lib/gateway/verification-engine';
 
 
 
@@ -798,8 +799,13 @@ export async function replacePayments(items: PaymentTransaction[]) {
     }
   });
 
-  // Dispatch payment email notifications outside the db transaction
+  // Dispatch payment email notifications and auto-fulfill vault/supplier units outside the db transaction
   for (const item of statusChangesToNotify) {
+    if (item.status === 'verified') {
+      void fulfillPaidOrderDeliveries(item.orderId).catch((err) =>
+        console.error('[replacePayments fulfillPaidOrderDeliveries error]', err),
+      );
+    }
     void dispatchPaymentStatusEmail(item).catch((err) =>
       console.error('[replacePayments email dispatch error]', err),
     );

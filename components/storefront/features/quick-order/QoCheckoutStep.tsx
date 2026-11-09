@@ -53,16 +53,30 @@ export function QoCheckoutStep({
   const warrantyBadgeText = plan.warrantyBadge || '25D Warranty';
   const isLoginOnly = plan.warrantyType === 'login-only';
 
-  const applyCoupon = () => {
-    if (!coupon.trim()) {
+  const applyCoupon = async () => {
+    const clean = coupon.trim();
+    if (!clean) {
+      setCouponDiscount(0);
       setCouponNote('Enter a coupon code.');
       return;
     }
-    if (coupon.trim().toUpperCase() === 'BITLOGIC' || coupon.trim().toUpperCase() === 'SPECIAL') {
-      setCouponDiscount(Math.round(subtotal * 0.1));
-      setCouponNote('10% discount applied.');
-    } else {
-      setCouponNote('Invalid coupon code.');
+    try {
+      const res = await fetch('/api/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: clean, subtotalBdt: subtotal }),
+      });
+      const data = await res.json();
+      if (res.ok && data.valid) {
+        setCouponDiscount(Number(data.discountBdt) || 0);
+        setCouponNote(data.message || 'Discount applied.');
+      } else {
+        setCouponDiscount(0);
+        setCouponNote(data.message || 'Invalid coupon code.');
+      }
+    } catch {
+      setCouponDiscount(0);
+      setCouponNote('Could not verify coupon right now.');
     }
   };
 

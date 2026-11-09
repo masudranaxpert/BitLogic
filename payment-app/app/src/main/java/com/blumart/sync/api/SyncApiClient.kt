@@ -10,6 +10,7 @@ import org.json.JSONObject
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.MessageDigest
 
 object SyncApiClient {
     private const val TAG = "SyncApiClient"
@@ -17,6 +18,30 @@ object SyncApiClient {
     const val EXTRA_LOG_MESSAGE = "extra_log_message"
 
     private val WHITELIST = listOf("bkash", "16216", "nagad", "16167", "rocket", "16221", "dbbl", "upay", "16268")
+
+    private fun computeSmsKey(sender: String, body: String, date: Long): String {
+        val raw = "${sender.trim().lowercase()}|${body.trim()}|${date / 60000L}"
+        return try {
+            val md = MessageDigest.getInstance("SHA-256")
+            md.digest(raw.toByteArray()).joinToString("") { "%02x".format(it) }.take(16)
+        } catch (_: Exception) {
+            raw.hashCode().toString()
+        }
+    }
+
+    private fun getSyncedHashes(context: Context): MutableSet<String> {
+        val prefs = context.getSharedPreferences("blumart_sync_prefs", Context.MODE_PRIVATE)
+        val raw = prefs.getString("synced_sms_hashes", "") ?: ""
+        if (raw.isEmpty()) return mutableSetOf()
+        return raw.split(",").filter { it.isNotEmpty() }.toMutableSet()
+    }
+
+    private fun recordSyncedHashes(context: Context, newHashes: Collection<String>) {
+        if (newHashes.isEmpty()) return
+        val prefs = context.getSharedPreferences("blumart_sync_prefs", Context.MODE_PRIVATE)
+        val combined = (getSyncedHashes(context) + newHashes).toList().takeLast(300)
+        prefs.edit().putString("synced_sms_hashes", combined.joinToString(",")).apply()
+    }
 
     fun broadcastLog(context: Context, message: String) {
         val prefs = context.getSharedPreferences("blumart_sync_prefs", Context.MODE_PRIVATE)
@@ -33,7 +58,7 @@ object SyncApiClient {
         context.sendBroadcast(intent)
     }
 
-    fun uploadSms(context: Context, rawSms: String, sender: String): Boolean {
+    fun uploadSms(context: Context, rawSms: String, sender: String, timestamp: Long = System.currentTimeMillis()): Boolean {
         val prefs = context.getSharedPreferences("blumart_sync_prefs", Context.MODE_PRIVATE)
         val serverUrl = prefs.getString("server_url", "")?.trim() ?: ""
         val apiKey = prefs.getString("api_key", "")?.trim() ?: ""
@@ -47,11 +72,14 @@ object SyncApiClient {
         val item = JSONObject().apply {
             put("rawSms", rawSms)
             put("sender", sender)
-            put("timestamp", System.currentTimeMillis())
+            put("timestamp", timestamp)
         }
 
         val ok = sendBatchToServer(context, serverUrl, apiKey, JSONArray().apply { put(item) })
         if (ok) {
+            if (!sender.equals("TEST_PING", ignoreCase = true)) {
+                recordSyncedHashes(context, listOf(computeSmsKey(sender, rawSms, timestamp)))
+            }
             val syncedCount = prefs.getInt("synced_count", 0) + 1
             val timeStr = android.text.format.DateFormat.format("hh:mm a", java.util.Date()).toString()
             prefs.edit()
@@ -62,8 +90,12 @@ object SyncApiClient {
             // Also flush any pending offline queue items
             flushQueue(context)
         } else {
-            enqueueFailedSms(context, item)
-            broadcastLog(context, "⏳ Network unavailable. Saved [$sender] to Offline Retry Queue.")
+            if (!sender.equals("TEST_PING", ignoreCase = true)) {
+                enqueueFailedSms(context, item)
+                broadcastLog(context, "⏳ Network unavailable. Saved [$sender] to Offline Retry Queue.")
+            } else {
+                broadcastLog(context, "✕ Connection test failed: Server unreachable.")
+            }
         }
         return ok
     }
@@ -87,6 +119,19 @@ object SyncApiClient {
         val count = queueArray.length()
         val ok = sendBatchToServer(context, serverUrl, apiKey, queueArray)
         return if (ok) {
+            val hashes = mutableListOf<String>()
+            for (i in 0 until queueArray.length()) {
+                val obj = queueArray.optJSONObject(i) ?: continue
+                hashes.add(
+                    computeSmsKey(
+                        obj.optString("sender", ""),
+                        obj.optString("rawSms", ""),
+                        obj.optLong("timestamp", System.currentTimeMillis())
+                    )
+                )
+            }
+            recordSyncedHashes(context, hashes)
+
             val syncedCount = prefs.getInt("synced_count", 0) + count
             val timeStr = android.text.format.DateFormat.format("hh:mm a", java.util.Date()).toString()
             prefs.edit()
@@ -114,14 +159,21 @@ object SyncApiClient {
 
     /**
      * Scans the phone's SMS inbox for MFS messages received in the last [minutesBack] minutes
-     * and uploads them in a single batch so no payment is ever missed if the phone was off.
+     * (default 24 hours = 1440m) and uploads any unsynced messages in a single batch so no payment
+     * is ever missed if the phone was off overnight or disconnected.
      */
-    fun scanRecentInboxMfsSms(context: Context, minutesBack: Int = 30): Int {
+    fun scanRecentInboxMfsSms(
+        context: Context,
+        minutesBack: Int = 1440,
+        onlyUnsynced: Boolean = false
+    ): Int {
         val prefs = context.getSharedPreferences("blumart_sync_prefs", Context.MODE_PRIVATE)
         val serverUrl = prefs.getString("server_url", "")?.trim() ?: ""
         val apiKey = prefs.getString("api_key", "")?.trim() ?: ""
         if (serverUrl.isEmpty() || apiKey.isEmpty()) return -1
 
+        val knownHashes = getSyncedHashes(context)
+        val newHashes = mutableListOf<String>()
         val cutoff = System.currentTimeMillis() - (minutesBack * 60 * 1000L)
         val foundBatch = JSONArray()
 
@@ -147,6 +199,11 @@ object SyncApiClient {
 
                     val isMfs = WHITELIST.any { lowerAddr == it || lowerAddr.contains(it) }
                     if (isMfs && body.isNotBlank()) {
+                        val hashKey = computeSmsKey(address, body, date)
+                        if (onlyUnsynced && knownHashes.contains(hashKey)) {
+                            continue
+                        }
+                        newHashes.add(hashKey)
                         foundBatch.put(JSONObject().apply {
                             put("rawSms", body)
                             put("sender", address)
@@ -157,27 +214,34 @@ object SyncApiClient {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error scanning SMS inbox", e)
-            broadcastLog(context, "✕ Inbox scan error: ${e.message}")
+            if (!onlyUnsynced) {
+                broadcastLog(context, "✕ Inbox scan error: ${e.message}")
+            }
             return 0
         }
 
         if (foundBatch.length() == 0) {
-            broadcastLog(context, "ℹ Inbox scan complete: 0 MFS SMS in last ${minutesBack}m.")
+            if (!onlyUnsynced) {
+                broadcastLog(context, "ℹ Inbox scan complete: 0 MFS SMS in last ${minutesBack / 60}h.")
+            }
             return 0
         }
 
         val ok = sendBatchToServer(context, serverUrl, apiKey, foundBatch)
         return if (ok) {
+            recordSyncedHashes(context, newHashes)
             val syncedCount = prefs.getInt("synced_count", 0) + foundBatch.length()
             val timeStr = android.text.format.DateFormat.format("hh:mm a", java.util.Date()).toString()
             prefs.edit()
                 .putInt("synced_count", syncedCount)
                 .putString("last_sync_time", timeStr)
                 .apply()
-            broadcastLog(context, "✓ Inbox Scan: Synced ${foundBatch.length()} MFS SMS from last ${minutesBack}m.")
+            broadcastLog(context, "✓ Inbox Recovery: Synced ${foundBatch.length()} MFS SMS (last ${minutesBack / 60}h).")
             foundBatch.length()
         } else {
-            broadcastLog(context, "✕ Inbox Scan upload failed (check connection).")
+            if (!onlyUnsynced) {
+                broadcastLog(context, "✕ Inbox Scan upload failed (check connection).")
+            }
             0
         }
     }
@@ -189,6 +253,13 @@ object SyncApiClient {
             JSONArray(rawQueue)
         } catch (e: Exception) {
             JSONArray()
+        }
+        // Prevent duplicate queue entries for the exact same SMS
+        val candidateRaw = item.optString("rawSms", "")
+        for (i in 0 until arr.length()) {
+            if (arr.optJSONObject(i)?.optString("rawSms", "") == candidateRaw) {
+                return
+            }
         }
         arr.put(item)
         prefs.edit().putString("offline_queue_json", arr.toString()).apply()

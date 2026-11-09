@@ -276,14 +276,6 @@ export function DeliveriesListPanel({
 
         <div className="hidden sm:block shrink-0">
           <SwitchToggle
-            checked={groupByOrder}
-            onChange={setGroupByOrder}
-            label="Grouped"
-          />
-        </div>
-
-        <div className="hidden sm:block shrink-0">
-          <SwitchToggle
             checked={showStatistics}
             onChange={setShowStatistics}
             label="Stats"

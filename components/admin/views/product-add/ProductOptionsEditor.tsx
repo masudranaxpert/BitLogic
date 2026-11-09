@@ -162,7 +162,32 @@ export default function ProductOptionsEditor({
             </div>
 
             <div>
-              <label className="admin-label block mb-1.5">Duration</label>
+              <div className="flex items-center justify-between gap-1 mb-1.5">
+                <label className="admin-label m-0">Duration</label>
+                <div className="flex items-center gap-1">
+                  {(['Hours', 'Days', 'Month'] as const).map((unit) => (
+                    <button
+                      key={unit}
+                      type="button"
+                      onClick={() => {
+                        const num = Number.parseInt(dv.durationLabel.replace(/[^\d]/g, ''), 10) || 1;
+                        const label =
+                          unit === 'Hours'
+                            ? `${num} Hours`
+                            : unit === 'Days'
+                            ? `${num} Days`
+                            : num === 1
+                            ? '1 Month'
+                            : `${num} Months`;
+                        onUpdate(dv.tempId, 'durationLabel', label);
+                      }}
+                      className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 dark:bg-slate-800 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-300 text-slate-600 dark:text-slate-400 cursor-pointer"
+                    >
+                      +{unit}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <input
                 type="text"
                 required
@@ -170,8 +195,8 @@ export default function ProductOptionsEditor({
                 onChange={(e) =>
                   onUpdate(dv.tempId, 'durationLabel', e.target.value)
                 }
-                placeholder="1 Month"
-                className="w-full h-9 px-3 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg"
+                placeholder="e.g. 1 Month, 28 Days, 24 Hours"
+                className="w-full h-9 px-3 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs"
               />
             </div>
 

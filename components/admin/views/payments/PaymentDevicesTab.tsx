@@ -14,6 +14,10 @@ import {
   CheckCircle2,
   HelpCircle,
   AlertTriangle,
+  RefreshCw,
+  Clock,
+  Wifi,
+  Zap,
 } from 'lucide-react';
 
 export interface MfsDevice {
@@ -35,11 +39,29 @@ interface DevicesTabProps {
   devices: MfsDevice[];
   loading: boolean;
   onRefresh: () => void;
+  onManualSync?: () => void;
+  reconciling?: boolean;
   configuredNumbers?: {
     bkash: string;
     nagad: string;
     rocket: string;
   };
+}
+
+function formatRelativeTime(iso: string | null): string {
+  if (!iso) return 'Never connected';
+  const diffMs = Date.now() - new Date(iso).getTime();
+  if (diffMs < 60_000) return 'Just now (< 1m ago)';
+  const mins = Math.floor(diffMs / 60_000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ${mins % 60}m ago`;
+  return new Date(iso).toLocaleString('en-BD', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 const inputClass =
@@ -49,6 +71,8 @@ export function PaymentDevicesTab({
   devices,
   loading,
   onRefresh,
+  onManualSync,
+  reconciling,
   configuredNumbers,
 }: DevicesTabProps) {
   const [isAddingDevice, setIsAddingDevice] = useState(false);
@@ -164,6 +188,74 @@ export function PaymentDevicesTab({
           </p>
         </div>
       )}
+
+      {/* Sync Schedule & Interval Telemetry Card */}
+      <Card className="p-4 border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-slate-200/80 dark:border-slate-800 pb-2.5">
+          <div>
+            <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+              <Clock className="w-4 h-4 text-emerald-600" />
+              Sync Frequency &amp; Verification Schedule
+            </h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              How often the Android Sync App and server check for incoming payments and match pending orders.
+            </p>
+          </div>
+          {onManualSync && (
+            <button
+              type="button"
+              onClick={onManualSync}
+              disabled={reconciling}
+              className="px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-2xs flex items-center gap-1.5 cursor-pointer shrink-0"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${reconciling ? 'animate-spin' : ''}`} />
+              {reconciling ? 'Matching Pending Orders...' : 'Manual Sync & Match Now'}
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+          <div className="p-2.5 rounded-lg bg-white dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800">
+            <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
+              <Zap className="w-3.5 h-3.5 text-emerald-600" />
+              <span>1. Real-Time SMS Push</span>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1 m-0">
+              <strong>Instant (&lt; 1 sec)</strong> whenever a new bKash, Nagad, Rocket, or Upay SMS arrives on the phone.
+            </p>
+          </div>
+
+          <div className="p-2.5 rounded-lg bg-white dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800">
+            <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
+              <Wifi className="w-3.5 h-3.5 text-blue-600" />
+              <span>2. Offline Recovery</span>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1 m-0">
+              <strong>Instant on Wi-Fi / Data reconnect</strong> — flushes queued offline SMS and sweeps 24h inbox automatically.
+            </p>
+          </div>
+
+          <div className="p-2.5 rounded-lg bg-white dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800">
+            <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
+              <Clock className="w-3.5 h-3.5 text-amber-600" />
+              <span>3. Background Sweep</span>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1 m-0">
+              <strong>Every 15 minutes</strong> via Android WorkManager + Foreground Service heartbeat &amp; 24h inbox check.
+            </p>
+          </div>
+
+          <div className="p-2.5 rounded-lg bg-white dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800">
+            <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
+              <RefreshCw className="w-3.5 h-3.5 text-purple-600" />
+              <span>4. Manual Re-Sync</span>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1 m-0">
+              <strong>On-Demand</strong> — click &quot;Manual Sync Now&quot; anytime to re-match all 72h unmatched SMS against pending orders.
+            </p>
+          </div>
+        </div>
+      </Card>
 
       {/* Action Row */}
       <div className="flex items-center justify-between">
@@ -297,6 +389,7 @@ export function PaymentDevicesTab({
                       <span>Gateway: <strong className="uppercase">{dev.gateway}</strong></span>
                       <span>SIM: <strong className="font-mono">{dev.phoneNumber}</strong></span>
                       <span>Synced: <strong>{dev._count?.smsLogs ?? 0} SMS</strong></span>
+                      <span>Last Sync: <strong className="text-slate-700 dark:text-slate-300">{formatRelativeTime(dev.lastSeenAt)}</strong></span>
                     </p>
                   </div>
                 </div>

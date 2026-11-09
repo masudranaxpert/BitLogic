@@ -39,14 +39,30 @@ export function CartPageView() {
 
   const empty = items.length === 0;
 
-  const handleApplyCoupon = () => {
-    if (!coupon.trim()) return;
-    if (coupon.trim().toUpperCase() === 'BITLOGIC' || coupon.trim().toUpperCase() === 'SPECIAL') {
-      const discount = Math.round(total * 0.1);
-      setCouponDiscount(discount);
-      setCouponMsg('10% discount applied.');
-    } else {
-      setCouponMsg('Invalid coupon code.');
+  const handleApplyCoupon = async () => {
+    const clean = coupon.trim();
+    if (!clean) {
+      setCouponDiscount(0);
+      setCouponMsg('Enter a coupon code.');
+      return;
+    }
+    try {
+      const res = await fetch('/api/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: clean, subtotalBdt: total }),
+      });
+      const data = await res.json();
+      if (res.ok && data.valid) {
+        setCouponDiscount(Number(data.discountBdt) || 0);
+        setCouponMsg(data.message || 'Discount applied.');
+      } else {
+        setCouponDiscount(0);
+        setCouponMsg(data.message || 'Invalid coupon code.');
+      }
+    } catch {
+      setCouponDiscount(0);
+      setCouponMsg('Could not verify coupon right now.');
     }
   };
 

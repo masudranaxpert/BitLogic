@@ -4,7 +4,7 @@ import { verifyPassword } from '@/lib/auth/password';
 import { attachSessionCookie, createSessionToken } from '@/lib/auth/session';
 import { ROLES, type Role } from '@/lib/auth/roles';
 import { parsePermissionsJson } from '@/lib/auth/permissions';
-import { clientIp, rateLimit } from '@/lib/auth/rate-limit';
+import { clientIp, guardRateLimit } from '@/lib/auth/rate-limit';
 import { recordLogin } from '@/lib/audit/record';
 import { getEmailConfig, isEmailReady } from '@/lib/email/config';
 
@@ -22,12 +22,16 @@ export async function POST(request: Request) {
     }
 
     const ip = clientIp(request);
-    const perPair = rateLimit(`login:${ip}:${email}`, 8, 15 * 60_000);
-    const perIp = rateLimit(`login-ip:${ip}`, 40, 15 * 60_000);
+    const perPair = guardRateLimit(request, `/api/auth/login:${email}`, 8, 15 * 60_000);
+    const perIp = guardRateLimit(request, '/api/auth/login', 40, 15 * 60_000);
     if (!perPair.ok || !perIp.ok) {
+      const blocked = perPair.blocked || perIp.blocked;
       return NextResponse.json(
-        { error: 'Too many attempts. Try again in a few minutes.' },
-        { status: 429, headers: { 'Retry-After': String(Math.max(perPair.retryAfterSec, perIp.retryAfterSec)) } },
+        { error: blocked ? 'Access denied from your IP address.' : 'Too many attempts. Try again in a few minutes.' },
+        {
+          status: blocked ? 403 : 429,
+          headers: { 'Retry-After': String(Math.max(perPair.retryAfterSec, perIp.retryAfterSec)) },
+        },
       );
     }
 

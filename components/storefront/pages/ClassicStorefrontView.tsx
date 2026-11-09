@@ -34,20 +34,7 @@ import { ContactPageView } from '@/components/storefront/pages/ContactPageView';
 import { LoginPageView } from '@/components/storefront/pages/LoginPageView';
 import { AccountPageView } from '@/components/storefront/pages/AccountPageView';
 
-const sideCards = [
-  {
-    id: 'stream',
-    code: 'STREAM' as const,
-    image: '/products/hero-side-stream.jpeg',
-    label: 'Top streaming tools',
-  },
-  {
-    id: 'ai',
-    code: 'AI' as const,
-    image: '/products/hero-side-ai.jpeg',
-    label: 'Top AI tools',
-  },
-];
+const sideCards: { id: string; code: 'STREAM' | 'AI'; image: string; label: string }[] = [];
 
 const trusts = [
   { title: 'Listed products', Icon: BadgeCheck },
@@ -143,20 +130,9 @@ function ClassicHomeView() {
           alt: p.name,
           onClick: () => navigateTo('product', { productId: p.id }),
         }));
-  const defaultSides: HeroImage[] = sideCards.map((c) => ({
-    id: c.id,
-    image: c.image,
-    alt: c.label,
-    onClick: () => navigateTo('shop', { code: c.code }),
-  }));
-
-  // Once an admin has set banners up, only those are shown; until then the built-in defaults.
-  const slides = homeBannersCustom
-    ? homeBanners.filter((b) => b.slot === 'main').map(resolve)
-    : defaultSlides;
-  const sides = homeBannersCustom
-    ? homeBanners.filter((b) => b.slot === 'side').map(resolve)
-    : defaultSides;
+  // Only show banners configured by admin in Storefront settings
+  const slides = homeBanners.filter((b) => b.slot === 'main').map(resolve);
+  const sides = homeBanners.filter((b) => b.slot === 'side').map(resolve);
   const slide = slides[Math.min(index, slides.length - 1)] ?? slides[0];
 
   const featured = products.slice(0, 7);

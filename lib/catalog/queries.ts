@@ -12,7 +12,7 @@ const include = {
   },
 };
 
-export async function listCatalogProducts(): Promise<Product[]> {
+export const listCatalogProducts = cache(async (): Promise<Product[]> => {
   const rows = await db.product.findMany({
     where: { isActive: true, status: 'active' },
     include,
@@ -21,12 +21,16 @@ export async function listCatalogProducts(): Promise<Product[]> {
   // One pass for own stock + supplier stock of every option (no per-product queries).
   const supply = await planSupplyMap(rows);
   return rows.map((row) => mapDbProductToCatalog(row, supply));
-}
+});
 
 export const getCatalogProductBySlug = cache(
-  async (slug: string): Promise<Product | null> => {
+  async (slugOrId: string): Promise<Product | null> => {
     const row = await db.product.findFirst({
-      where: { slug, isActive: true, status: 'active' },
+      where: {
+        OR: [{ slug: slugOrId }, { id: slugOrId }],
+        isActive: true,
+        status: 'active',
+      },
       include,
     });
     if (!row) return null;

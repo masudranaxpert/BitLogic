@@ -6,10 +6,20 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import android.util.Log
+import com.blumart.sync.api.SyncApiClient
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 class PaymentSyncService : Service() {
     companion object {
@@ -36,6 +46,9 @@ class PaymentSyncService : Service() {
     }
 
     private var wakeLock: PowerManager.WakeLock? = null
+    private var connectivityManager: ConnectivityManager? = null
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
         super.onCreate()
@@ -47,17 +60,68 @@ class PaymentSyncService : Service() {
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "BlumartSync::CpuWakeLock").apply {
             acquire(24 * 60 * 60 * 1000L)
         }
-        Log.i(TAG, "Foreground service started & WakeLock acquired")
+
+        registerAutoReconnectMonitor()
+        triggerRecoverySweep("Service startup")
+        Log.i(TAG, "Foreground service started, WakeLock & NetworkCallback registered")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         isRunning = true
+        triggerRecoverySweep("Service command")
         return START_STICKY
+    }
+
+    private fun registerAutoReconnectMonitor() {
+        try {
+            val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            connectivityManager = cm
+            val request = NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+
+            val callback = object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    super.onAvailable(network)
+                    Log.i(TAG, "Internet connection restored — running automatic queue flush & 24h inbox recovery")
+                    triggerRecoverySweep("Network restored")
+                }
+            }
+            networkCallback = callback
+            cm.registerNetworkCallback(request, callback)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to register NetworkCallback", e)
+        }
+    }
+
+    private fun triggerRecoverySweep(reason: String) {
+        serviceScope.launch {
+            try {
+                val flushed = SyncApiClient.flushQueue(applicationContext)
+                val recovered = SyncApiClient.scanRecentInboxMfsSms(
+                    context = applicationContext,
+                    minutesBack = 1440,
+                    onlyUnsynced = true
+                )
+                if (flushed > 0 || recovered > 0) {
+                    SyncApiClient.broadcastLog(
+                        applicationContext,
+                        "⚡ Auto-Recovery ($reason): Flushed $flushed queued, recovered $recovered inbox SMS."
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error during auto-recovery sweep ($reason)", e)
+            }
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
         isRunning = false
+        try {
+            networkCallback?.let { connectivityManager?.unregisterNetworkCallback(it) }
+        } catch (_: Exception) {
+        }
         try {
             if (wakeLock?.isHeld == true) {
                 wakeLock?.release()
@@ -65,6 +129,7 @@ class PaymentSyncService : Service() {
         } catch (e: Exception) {
             Log.e(TAG, "Error releasing wakeLock", e)
         }
+        serviceScope.cancel()
         Log.i(TAG, "Service destroyed")
     }
 
@@ -88,7 +153,7 @@ class PaymentSyncService : Service() {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, CHANNEL_ID)
                 .setContentTitle("Blumartbd Sync Active (24/7)")
-                .setContentText("Listening for bKash, Nagad & Rocket payment SMS...")
+                .setContentText("Auto-syncing bKash, Nagad & Rocket SMS with offline recovery")
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setOngoing(true)
                 .build()
@@ -96,7 +161,7 @@ class PaymentSyncService : Service() {
             @Suppress("DEPRECATION")
             Notification.Builder(this)
                 .setContentTitle("Blumartbd Sync Active (24/7)")
-                .setContentText("Listening for bKash, Nagad & Rocket payment SMS...")
+                .setContentText("Auto-syncing bKash, Nagad & Rocket SMS with offline recovery")
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setOngoing(true)
                 .build()

@@ -183,13 +183,32 @@ export default function AdminDashboard() {
     router.push(`/admin/products/add?${params.toString()}`);
   };
 
+  /** View opens the dedicated read-only product detail page. */
+  const openProductViewPage = (productId: string, variantId?: string) => {
+    const params = new URLSearchParams({ productId });
+    if (variantId) params.set('variantId', variantId);
+    router.push(`/admin/products/view?${params.toString()}`);
+  };
+
   /** Accordion: only the active section’s submenu stays open. */
   const navGroupForTab = (
     tab: AdminTab,
-  ): 'products' | 'vault' | 'users' | 'deliveries' | 'payments' | 'email' | 'suppliers' | 'security' | 'staff' | null => {
+  ):
+    | 'products'
+    | 'vault'
+    | 'users'
+    | 'deliveries'
+    | 'payments'
+    | 'email'
+    | 'suppliers'
+    | 'security'
+    | 'activity'
+    | 'staff'
+    | null => {
     if (
       tab === 'products' ||
       tab === 'product-add' ||
+      tab === 'product-view' ||
       tab === 'product-option' ||
       tab === 'warranties' ||
       tab === 'credential-types' ||
@@ -209,7 +228,15 @@ export default function AdminDashboard() {
     if (tab === 'users' || tab === 'user-detail' || tab === 'user-add') {
       return 'users';
     }
-    if (tab === 'payments' || tab === 'payment-methods' || tab === 'coupons') return 'payments';
+    if (
+      tab === 'payments' ||
+      tab === 'payment-methods' ||
+      tab === 'payment-devices' ||
+      tab === 'payment-logs' ||
+      tab === 'coupons'
+    ) {
+      return 'payments';
+    }
     if (
       tab === 'deliveries' ||
       tab === 'order-add' ||
@@ -240,6 +267,17 @@ export default function AdminDashboard() {
       return 'security';
     }
     if (
+      tab === 'activity' ||
+      tab === 'activity-payments' ||
+      tab === 'activity-orders' ||
+      tab === 'activity-catalog' ||
+      tab === 'activity-customers' ||
+      tab === 'activity-logins' ||
+      tab === 'activity-system'
+    ) {
+      return 'activity';
+    }
+    if (
       tab === 'staff' ||
       tab === 'staff-add' ||
       tab === 'staff-logins' ||
@@ -262,35 +300,38 @@ export default function AdminDashboard() {
       email: open === 'email',
       suppliers: open === 'suppliers',
       security: open === 'security',
+      activity: open === 'activity',
       staff: open === 'staff',
     };
   });
+
+  // Ensure the active tab's parent group remains expanded whenever the URL/tab changes
+  useEffect(() => {
+    const grp = navGroupForTab(activeTab);
+    if (grp) {
+      setExpandedGroups((prev) => (prev[grp] ? prev : { ...prev, [grp]: true }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const initialCached = getCachedAdminWorkspace();
-  const [products, setProducts] = useState<DigitalProduct[]>(() => initialCached?.products ?? []);
-  const [warranties, setWarranties] = useState<WarrantyPlan[]>(() => initialCached?.warranties ?? []);
-  const [credentialSchemes, setCredentialSchemes] = useState<CredentialScheme[]>(
-    () => initialCached?.credentialSchemes ?? [],
-  );
-  const [productCategories, setProductCategories] = useState<ProductCategory[]>(
-    () => initialCached?.productCategories ?? [],
-  );
-  const [catalogHydrated, setCatalogHydrated] = useState(() => Boolean(initialCached));
+  const [products, setProducts] = useState<DigitalProduct[]>([]);
+  const [warranties, setWarranties] = useState<WarrantyPlan[]>([]);
+  const [credentialSchemes, setCredentialSchemes] = useState<CredentialScheme[]>([]);
+  const [productCategories, setProductCategories] = useState<ProductCategory[]>([]);
+  const [catalogHydrated, setCatalogHydrated] = useState(false);
   const [workspaceError, setWorkspaceError] = useState(false);
-  const [vault, setVaultState] = useState<VaultCredential[]>(() => initialCached?.vault ?? []);
-  const [deliveries, setDeliveriesState] = useState<DigitalDelivery[]>(() => initialCached?.deliveries ?? []);
-  const [tickets, setTicketsState] = useState<AdminSupportTicket[]>(() => initialCached?.tickets ?? []);
-  const [adminNotifications, setAdminNotificationsState] = useState<
-    AdminNotificationItem[]
-  >(() => initialCached?.adminNotifications ?? []);
-  const [subscribers, setSubscribersState] = useState<SubscriberUser[]>(() => initialCached?.subscribers ?? []);
-  const [payments, setPaymentsState] = useState<PaymentTransaction[]>(() => initialCached?.payments ?? []);
-  const [coupons, setCouponsState] = useState<CouponCode[]>(() => initialCached?.coupons ?? []);
-  const [mediaAssets, setMediaAssetsState] = useState<MediaAsset[]>(() => initialCached?.mediaAssets ?? []);
+  const [vault, setVaultState] = useState<VaultCredential[]>([]);
+  const [deliveries, setDeliveriesState] = useState<DigitalDelivery[]>([]);
+  const [tickets, setTicketsState] = useState<AdminSupportTicket[]>([]);
+  const [adminNotifications, setAdminNotificationsState] = useState<AdminNotificationItem[]>([]);
+  const [subscribers, setSubscribersState] = useState<SubscriberUser[]>([]);
+  const [payments, setPaymentsState] = useState<PaymentTransaction[]>([]);
+  const [coupons, setCouponsState] = useState<CouponCode[]>([]);
+  const [mediaAssets, setMediaAssetsState] = useState<MediaAsset[]>([]);
 
   const [selectedChatDeliveryId, setSelectedChatDeliveryId] = useState<string | null>(null);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
@@ -391,6 +432,12 @@ export default function AdminDashboard() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // Immediately hydrate from client cache on mount without causing SSR mismatch
+      const cached = getCachedAdminWorkspace();
+      if (!cancelled && cached) {
+        applyWorkspace(cached);
+        setCatalogHydrated(true);
+      }
       const workspace = await fetchAdminWorkspace();
       if (cancelled) return;
       if (workspace) {
@@ -1693,6 +1740,7 @@ export default function AdminDashboard() {
         email: groupId === 'email' ? nextOpen : false,
         suppliers: groupId === 'suppliers' ? nextOpen : false,
         security: groupId === 'security' ? nextOpen : false,
+        activity: groupId === 'activity' ? nextOpen : false,
         staff: groupId === 'staff' ? nextOpen : false,
       };
     });
@@ -1710,6 +1758,7 @@ export default function AdminDashboard() {
       email: open === 'email',
       suppliers: open === 'suppliers',
       security: open === 'security',
+      activity: open === 'activity',
       staff: open === 'staff',
     });
   }, [activeTab]);
@@ -1822,6 +1871,7 @@ export default function AdminDashboard() {
             setActiveTab={setActiveTab}
             openProductOptionPage={openProductOptionPage}
             openProductEditPage={openProductEditPage}
+            openProductViewPage={openProductViewPage}
             products={products}
             warranties={warranties}
             onWarrantiesChange={handleWarrantiesChange}

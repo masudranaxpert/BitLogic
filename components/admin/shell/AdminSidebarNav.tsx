@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { X, Sun, Moon, ChevronRight, ChevronDown, Send } from 'lucide-react';
 import { BrandLogo } from '@/components/brand/BrandLogo';
 import type { AdminTab } from '@/lib/admin-data';
@@ -39,18 +39,20 @@ export function AdminSidebarNav({
   const isGroupActive = (item: NavGroupItem) =>
     isAdminNavGroupActive(item, activeTab);
   const menuRef = useRef<HTMLDivElement>(null);
-  const showStaffSub = useCallback((node: HTMLDivElement | null) => {
-    if (!node || !menuRef.current) return;
+
+  useEffect(() => {
     const menu = menuRef.current;
-    const top = node.offsetTop;
-    const bottom = top + node.offsetHeight;
-    if (top < menu.scrollTop || bottom > menu.scrollTop + menu.clientHeight) {
-      menu.scrollTop = Math.min(
-        menu.scrollHeight - menu.clientHeight,
-        bottom - menu.clientHeight + 12,
-      );
+    if (!menu) return;
+    const activeEl =
+      menu.querySelector<HTMLElement>('[data-sidebar-sub-active="true"]') ||
+      menu.querySelector<HTMLElement>('[data-sidebar-group-active="true"]');
+    if (!activeEl) return;
+    const menuRect = menu.getBoundingClientRect();
+    const elRect = activeEl.getBoundingClientRect();
+    if (elRect.top < menuRect.top + 8 || elRect.bottom > menuRect.bottom - 8) {
+      activeEl.scrollIntoView({ block: 'nearest' });
     }
-  }, []);
+  }, [activeTab, expandedGroups]);
 
   return (
     <aside
@@ -96,6 +98,7 @@ export function AdminSidebarNav({
                 <div key={item.id} className="space-y-0.5">
                   <button
                     type="button"
+                    data-sidebar-group-active={active ? 'true' : undefined}
                     aria-current={active ? 'page' : undefined}
                     onClick={() => {
                       if (hasSubs) {
@@ -128,6 +131,7 @@ export function AdminSidebarNav({
                     <span className="flex items-center gap-1.5 shrink-0">
                       {typeof item.count === 'number' && (
                         <span
+                          suppressHydrationWarning
                           className={`px-1.5 py-0.5 rounded text-[11px] font-mono tabular-nums ${
                             active
                               ? 'bg-emerald-100/80 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 font-semibold'
@@ -182,6 +186,7 @@ export function AdminSidebarNav({
                           <button
                             key={sub.id}
                             type="button"
+                            data-sidebar-sub-active={subActive ? 'true' : undefined}
                             onClick={() => {
                               setActiveTab(sub.id);
                               setMobileMenuOpen(false);
@@ -216,14 +221,23 @@ export function AdminSidebarNav({
               const Icon = item.icon;
               const active = isGroupActive(item);
               const hasSubs = Boolean(item.subItems && item.subItems.length > 0);
+              const isExpanded = Boolean(expandedGroups[item.id] || active);
               return (
                 <div key={item.id} className="space-y-0.5">
                   <button
                     type="button"
+                    data-sidebar-group-active={active ? 'true' : undefined}
                     aria-current={activeTab === item.id ? 'page' : undefined}
                     onClick={() => {
-                      if (!active || !hasSubs) setActiveTab(item.id);
-                      setMobileMenuOpen(false);
+                      if (hasSubs) {
+                        toggleGroupExpand(item.id);
+                        if (!active) {
+                          setActiveTab(item.id);
+                        }
+                      } else {
+                        setActiveTab(item.id);
+                        setMobileMenuOpen(false);
+                      }
                     }}
                     className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 ${
                       active
@@ -244,26 +258,24 @@ export function AdminSidebarNav({
                     {hasSubs ? (
                       <ChevronDown
                         className={`w-3.5 h-3.5 text-slate-400 transition-transform ${
-                          active ? 'rotate-0' : '-rotate-90'
+                          isExpanded ? 'rotate-0' : '-rotate-90'
                         }`}
                       />
                     ) : typeof item.count === 'number' && item.count > 0 ? (
-                      <span className="px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/60 text-[11px] font-mono tabular-nums font-semibold text-amber-700 dark:text-amber-400">
+                      <span suppressHydrationWarning className="px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/60 text-[11px] font-mono tabular-nums font-semibold text-amber-700 dark:text-amber-400">
                         {item.count}
                       </span>
                     ) : null}
                   </button>
-                  {hasSubs && active ? (
-                    <div
-                      ref={showStaffSub}
-                      className="ml-5 pl-3 border-l border-slate-200 dark:border-slate-800 space-y-0.5 py-0.5"
-                    >
+                  {hasSubs && isExpanded ? (
+                    <div className="ml-5 pl-3 border-l border-slate-200 dark:border-slate-800 space-y-0.5 py-0.5">
                       {item.subItems?.map((sub) => {
                         const subActive = activeTab === sub.id || (sub.id === 'staff' && (activeTab === 'staff-add' || activeTab === 'staff-view'));
                         return (
                           <button
                             key={sub.id}
                             type="button"
+                            data-sidebar-sub-active={subActive ? 'true' : undefined}
                             onClick={() => {
                               setActiveTab(sub.id);
                               setMobileMenuOpen(false);
@@ -307,7 +319,7 @@ export function AdminSidebarNav({
               <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">
                 Orders Queue
               </div>
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
+              <div suppressHydrationWarning className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
                 {pendingDeliveriesBadge} pending action
               </div>
             </div>

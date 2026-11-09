@@ -9,7 +9,27 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: 'Secure Payment Gateway | Blumartbd',
   description: 'Complete your instant MFS payment securely on Blumartbd.',
+  robots: { index: false, follow: false },
 };
+
+function maskEmail(email?: string | null): string {
+  if (!email) return '';
+  const parts = email.split('@');
+  if (parts.length !== 2) return '***';
+  const name = parts[0];
+  const domain = parts[1];
+  const maskedName = name.length > 2 ? `${name.slice(0, 2)}***${name.slice(-1)}` : `${name}***`;
+  return `${maskedName}@${domain}`;
+}
+
+function maskPhone(phone?: string | null): string {
+  if (!phone) return '';
+  const clean = phone.replace(/\s+/g, '');
+  if (clean.length >= 7) {
+    return `${clean.slice(0, 3)}****${clean.slice(-3)}`;
+  }
+  return '***';
+}
 
 export default async function PaymentGatewayPage({
   params,
@@ -52,9 +72,9 @@ export default async function PaymentGatewayPage({
       itemsSummary={order.items.map((i) => `${i.product.name} (${i.plan.label})`).join(', ')}
       paymentStatus={order.paymentStatus}
       customerName={order.user?.name || 'Customer'}
-      customerEmail={order.user?.email || ''}
-      customerPhone={order.user?.phone || ''}
-      registeredSenderNumber={latestTxn?.senderNumberOrRef || ''}
+      customerEmail={maskEmail(order.user?.email)}
+      customerPhone={maskPhone(order.user?.phone)}
+      registeredSenderNumber={latestTxn?.senderNumberOrRef ? maskPhone(latestTxn.senderNumberOrRef) : ''}
       settings={{
         bkashEnabled: settings.bkashEnabled !== false,
         bkashNumber: settings.bkashNumber || '01700-123456',

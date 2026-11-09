@@ -10,6 +10,39 @@ export type ActivityInput = {
   ip?: string;
 };
 
+export type SystemActivityInput = Omit<ActivityInput, 'userId'> & {
+  userId?: string | null;
+};
+
+let cachedSystemUserId: string | null = null;
+
+async function resolveSystemActorId(explicitUserId?: string | null): Promise<string | null> {
+  if (explicitUserId) return explicitUserId;
+  if (cachedSystemUserId) return cachedSystemUserId;
+  try {
+    const admin = await db.user.findFirst({
+      where: { role: 'ADMIN' },
+      select: { id: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (admin?.id) {
+      cachedSystemUserId = admin.id;
+      return admin.id;
+    }
+    const anyUser = await db.user.findFirst({
+      select: { id: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (anyUser?.id) {
+      cachedSystemUserId = anyUser.id;
+      return anyUser.id;
+    }
+  } catch {
+    // Ignore DB lookup errors
+  }
+  return null;
+}
+
 function clip(value: string, max: number) {
   return value.replace(/\s+/g, ' ').trim().slice(0, max);
 }
@@ -30,6 +63,24 @@ export async function recordActivity(input: ActivityInput) {
     });
   } catch (err) {
     console.error('[audit]', err instanceof Error ? err.message : err);
+  }
+}
+
+/**
+ * Records system/automated/customer events into ActivityLog by attributing them
+ * to the explicit userId if provided, or falling back to the primary ADMIN user
+ * so 100% of platform events appear in the Admin Activity Logs view.
+ */
+export async function recordSystemActivity(input: SystemActivityInput) {
+  try {
+    const actorId = await resolveSystemActorId(input.userId);
+    if (!actorId) return;
+    await recordActivity({
+      ...input,
+      userId: actorId,
+    });
+  } catch (err) {
+    console.error('[audit system]', err instanceof Error ? err.message : err);
   }
 }
 

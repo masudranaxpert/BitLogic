@@ -121,6 +121,7 @@ export async function POST(request: Request) {
       }
       const res = await fetch(remoteUrl, {
         headers: { Accept: 'image/*,*/*' },
+        redirect: 'error',
         signal: AbortSignal.timeout(15000),
       });
       if (!res.ok) {

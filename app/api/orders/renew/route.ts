@@ -7,7 +7,8 @@ import { accessTokensMatch } from '@/lib/orders/access-token';
 import { getStoreSettings } from '@/lib/store-settings';
 import { renewWindow, warrantyState } from '@/lib/warranty';
 import { planSupplyMap } from '@/lib/suppliers/supply';
-import { clientIp, rateLimit } from '@/lib/auth/rate-limit';
+import { clientIp, guardRateLimit } from '@/lib/auth/rate-limit';
+import { recordSystemActivity } from '@/lib/audit/record';
 
 function stamp(d = new Date()) {
   const p = (n: number) => String(n).padStart(2, '0');
@@ -186,10 +187,11 @@ export async function GET(request: Request) {
  */
 export async function POST(request: Request) {
   const ip = clientIp(request);
-  if (!rateLimit(`renew:${ip}`, 15, 10 * 60_000).ok) {
+  const rl = guardRateLimit(request, '/api/orders/renew', 15, 10 * 60_000);
+  if (!rl.ok) {
     return NextResponse.json(
-      { error: 'Too many renewal attempts. Please wait a few minutes.' },
-      { status: 429 },
+      { error: rl.blocked ? 'Access denied from your IP address.' : 'Too many renewal attempts. Please wait a few minutes.' },
+      { status: rl.blocked ? 403 : 429 },
     );
   }
 
@@ -284,6 +286,13 @@ export async function POST(request: Request) {
       timeLabel: 'Just now',
       read: false,
     },
+  });
+  await recordSystemActivity({
+    action: 'order.renew',
+    entityType: 'order',
+    entityId: orderId,
+    summary: `${first.buyerName} requested renewal on ${orderId} · ${summary} (৳${amount} via ${gateway}, TrxID ${trxId})`,
+    ip,
   });
   return NextResponse.json({ ok: true, amountBdt: amount, paymentId: payment.id });
 }

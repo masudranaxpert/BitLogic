@@ -5,11 +5,12 @@ import { hashPassword } from '@/lib/auth/password';
 import { attachSessionCookie, createSessionToken } from '@/lib/auth/session';
 import { ROLES } from '@/lib/auth/roles';
 import { passwordProblem, validateCustomerEmail } from '@/lib/auth/password-policy';
-import { clientIp, rateLimit } from '@/lib/auth/rate-limit';
+import { clientIp, guardRateLimit } from '@/lib/auth/rate-limit';
 import { appUrl, issueAuthToken } from '@/lib/auth/tokens';
 import { getEmailConfig, isEmailReady } from '@/lib/email/config';
 import { sendEmail } from '@/lib/email/send';
 import { verifyEmailMail } from '@/lib/email/templates';
+import { recordLogin, recordSystemActivity } from '@/lib/audit/record';
 
 export async function POST(request: Request) {
   try {
@@ -24,8 +25,13 @@ export async function POST(request: Request) {
     const name = String(body.name ?? '').trim().slice(0, 80) || null;
     const phone = String(body.phone ?? '').trim().slice(0, 20) || null;
 
-    if (!rateLimit(`register:${clientIp(request)}`, 10, 60 * 60_000).ok) {
-      return NextResponse.json({ error: 'Too many sign-ups from this network. Try again later.' }, { status: 429 });
+    const ip = clientIp(request);
+    const rl = guardRateLimit(request, '/api/auth/register', 10, 60 * 60_000);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: rl.blocked ? 'Access denied from your IP address.' : 'Too many sign-ups from this network. Try again later.' },
+        { status: rl.blocked ? 403 : 429 },
+      );
     }
 
     const emailCheck = validateCustomerEmail(email);
@@ -81,6 +87,15 @@ export async function POST(request: Request) {
         .catch((e) => console.error('CRM row on register failed', e));
     }
 
+    await recordSystemActivity({
+      userId: user.id,
+      action: 'customer.register',
+      entityType: 'user',
+      entityId: user.id,
+      summary: `New customer account registered: ${name ? `${name} (${email})` : email}`,
+      ip,
+    });
+
     if (mustVerify) {
       const token = await issueAuthToken(user.id, 'verify_email');
       const sent = await sendEmail(
@@ -103,6 +118,15 @@ export async function POST(request: Request) {
       permissions: [],
       sessionVersion: user.sessionVersion,
     });
+    await recordLogin({
+      userId: user.id,
+      email: user.email,
+      success: true,
+      ip,
+      userAgent: request.headers.get('user-agent') || '',
+      method: 'register',
+    });
+
     const response = NextResponse.json({
       user: { id: user.id, email: user.email, name: user.name, phone: user.phone, role },
     });

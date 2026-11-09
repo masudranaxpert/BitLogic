@@ -1,14 +1,12 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { getSession } from '@/lib/auth/session';
-import { ROLES } from '@/lib/auth/roles';
+import { requirePermission } from '@/lib/auth/require-admin';
 import { updateIpCacheMemory, removeIpFromCacheMemory } from '@/lib/security/ip-rules';
+import { recordActivity, requestIp } from '@/lib/audit/record';
 
 export async function GET(request: Request) {
-  const session = await getSession();
-  if (!session || (session.role !== ROLES.ADMIN && session.role !== ROLES.STAFF)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const { error } = await requirePermission('settings');
+  if (error) return error;
 
   const { searchParams } = new URL(request.url);
   const search = searchParams.get('search')?.trim();
@@ -35,10 +33,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const session = await getSession();
-  if (!session || (session.role !== ROLES.ADMIN && session.role !== ROLES.STAFF)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const { session, error } = await requirePermission('settings');
+  if (error) return error;
 
   const body = (await request.json().catch(() => null)) as {
     ip?: string;
@@ -78,14 +74,21 @@ export async function POST(request: Request) {
 
   updateIpCacheMemory(ip, status, expiresAt ? expiresAt.getTime() : null);
 
+  await recordActivity({
+    userId: session.id,
+    action: status === 'whitelisted' ? 'security.ip_whitelist' : 'security.ip_block',
+    entityType: 'security',
+    entityId: ip,
+    summary: `${status === 'whitelisted' ? 'Whitelisted' : 'Blocked'} IP ${ip} (${reason})${body?.expiresInHours ? ` for ${body.expiresInHours}h` : ''}`,
+    ip: requestIp(request),
+  });
+
   return NextResponse.json({ success: true, rule });
 }
 
 export async function PATCH(request: Request) {
-  const session = await getSession();
-  if (!session || (session.role !== ROLES.ADMIN && session.role !== ROLES.STAFF)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const { session, error } = await requirePermission('settings');
+  if (error) return error;
 
   const body = (await request.json().catch(() => null)) as {
     id?: string;
@@ -111,14 +114,21 @@ export async function PATCH(request: Request) {
     updated.expiresAt ? updated.expiresAt.getTime() : null,
   );
 
+  await recordActivity({
+    userId: session.id,
+    action: 'security.ip_status',
+    entityType: 'security',
+    entityId: updated.ip,
+    summary: `Updated IP rule ${updated.ip} status to ${updated.status}`,
+    ip: requestIp(request),
+  });
+
   return NextResponse.json({ success: true, rule: updated });
 }
 
 export async function DELETE(request: Request) {
-  const session = await getSession();
-  if (!session || (session.role !== ROLES.ADMIN && session.role !== ROLES.STAFF)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const { session, error } = await requirePermission('settings');
+  if (error) return error;
 
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
@@ -128,6 +138,14 @@ export async function DELETE(request: Request) {
   if (existing) {
     await db.ipRule.delete({ where: { id } });
     removeIpFromCacheMemory(existing.ip);
+    await recordActivity({
+      userId: session.id,
+      action: 'security.ip_delete',
+      entityType: 'security',
+      entityId: existing.ip,
+      summary: `Removed IP access rule for ${existing.ip} (was ${existing.status})`,
+      ip: requestIp(request),
+    });
   }
 
   return NextResponse.json({ success: true });

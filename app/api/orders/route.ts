@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { clientIp, rateLimit } from '@/lib/auth/rate-limit';
+import { guardRateLimit } from '@/lib/auth/rate-limit';
 import { db } from '@/lib/db';
 import { warrantyState } from '@/lib/warranty';
 import { createOrder, OrderError } from '@/lib/orders/create-order';
@@ -42,8 +42,12 @@ function parseGuestProofs(raw: string | null): Map<string, string> {
 }
 
 export async function POST(request: Request) {
-  if (!rateLimit(`orders:${clientIp(request)}`, 15, 10 * 60_000).ok) {
-    return NextResponse.json({ error: 'Too many requests. Please wait a few minutes.' }, { status: 429 });
+  const rl = guardRateLimit(request, '/api/orders', 15, 10 * 60_000);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: rl.blocked ? 'Access denied from your IP address.' : 'Too many requests. Please wait a few minutes.' },
+      { status: rl.blocked ? 403 : 429 },
+    );
   }
   let body: any;
   try {
@@ -59,9 +63,9 @@ export async function POST(request: Request) {
     const result = await createOrder({
       source: 'storefront',
       buyer: {
-        name: String(body.customerName ?? ''),
-        email: String(body.customerEmail ?? ''),
-        phone: String(body.customerPhone ?? ''),
+        name: String(body.customerName || body.buyer?.name || ''),
+        email: String(body.customerEmail || body.buyer?.email || ''),
+        phone: String(body.customerPhone || body.buyer?.phone || ''),
       },
       items: body.items.map((it: any) => ({
         productId: String(it?.productId ?? ''),

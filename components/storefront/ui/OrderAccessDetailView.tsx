@@ -560,7 +560,7 @@ export function OrderAccessDetailView({
                             </div>
                           )}
 
-                          {unit.secretValue && (!unit.email || !unit.password || ![unit.email, `${unit.email}:${unit.password}`, `${unit.email}|${unit.password}`].includes(unit.secretValue.replace(/s+/g, ''))) && (
+                          {unit.secretValue && (!unit.email || !unit.password || ![unit.email, `${unit.email}:${unit.password}`, `${unit.email}|${unit.password}`].includes(unit.secretValue.replace(/\s+/g, ''))) && (
                             <div className="flex items-center justify-between gap-2 p-2 rounded bg-slate-50 border border-slate-200 text-xs">
                               <div className="min-w-0">
                                 <span className="text-[11px] font-semibold text-slate-500 block">Key / Secret</span>
@@ -720,6 +720,72 @@ export function OrderAccessDetailView({
                       }
                     >
                       {copiedId === `${order.id}-pin` ? (
+                        <Check size={14} className="text-emerald-600" />
+                      ) : (
+                        <Copy size={14} />
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {order.secretText && (
+                  <div className="px-3.5 py-2.5 flex items-center justify-between gap-3 bg-white">
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold text-slate-600">
+                        License Key / Secret
+                      </div>
+                      <div className="text-[13px] font-mono font-bold text-slate-900 select-all truncate mt-0.5">
+                        {order.secretText}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onCopy(`${order.id}-secret`, order.secretText!)
+                      }
+                      className="w-8 h-8 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 inline-flex items-center justify-center cursor-pointer shrink-0 transition-colors"
+                      aria-label="Copy license key or secret"
+                      title={
+                        copiedId === `${order.id}-secret` ? "Copied" : "Copy"
+                      }
+                    >
+                      {copiedId === `${order.id}-secret` ? (
+                        <Check size={14} className="text-emerald-600" />
+                      ) : (
+                        <Copy size={14} />
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {order.accessUrl && (
+                  <div className="px-3.5 py-2.5 flex items-center justify-between gap-3 bg-white">
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold text-slate-600">
+                        Access Link
+                      </div>
+                      <a
+                        href={order.accessUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[13px] font-medium text-blue-600 hover:underline select-all truncate mt-0.5 inline-flex items-center gap-1"
+                      >
+                        {order.accessUrl}
+                        <ExternalLink size={12} />
+                      </a>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onCopy(`${order.id}-url`, order.accessUrl!)
+                      }
+                      className="w-8 h-8 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 inline-flex items-center justify-center cursor-pointer shrink-0 transition-colors"
+                      aria-label="Copy access link"
+                      title={
+                        copiedId === `${order.id}-url` ? "Copied" : "Copy"
+                      }
+                    >
+                      {copiedId === `${order.id}-url` ? (
                         <Check size={14} className="text-emerald-600" />
                       ) : (
                         <Copy size={14} />

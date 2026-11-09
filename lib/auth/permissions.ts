@@ -66,6 +66,7 @@ const TAB_TO_PERMISSION: Record<AdminTab, StaffPermissionKey | 'staff' | null> =
     overview: 'overview',
     products: 'products',
     'product-add': 'products',
+    'product-view': 'products',
     'product-option': 'products',
     warranties: 'products',
     'credential-types': 'products',
@@ -87,6 +88,8 @@ const TAB_TO_PERMISSION: Record<AdminTab, StaffPermissionKey | 'staff' | null> =
     media: 'media',
     payments: 'payments',
     'payment-methods': 'payments',
+    'payment-devices': 'payments',
+    'payment-logs': 'payments',
     coupons: 'payments',
     features: 'settings',
     email: 'settings',
@@ -108,6 +111,13 @@ const TAB_TO_PERMISSION: Record<AdminTab, StaffPermissionKey | 'staff' | null> =
     'security-ips': 'settings',
     'security-audit': 'settings',
     'security-rules': 'settings',
+    activity: 'staff',
+    'activity-payments': 'staff',
+    'activity-orders': 'staff',
+    'activity-catalog': 'staff',
+    'activity-customers': 'staff',
+    'activity-logins': 'staff',
+    'activity-system': 'staff',
   };
 
 export function parsePermissionsJson(raw: string | null | undefined): StaffPermissionKey[] {

@@ -75,13 +75,16 @@ export function GatewayCheckoutView({
     !settings.verifyModeSenderFifo &&
     !settings.verifyModeReference;
 
+  // Skip Step 1 if Sender FIFO mode is disabled OR if customer already registered a valid sender number
   const hasRegisteredValidSender = Boolean(
     registeredSenderNumber &&
       /^01\d{9}$/.test(registeredSenderNumber.replace(/\D/g, '').slice(-11))
   );
 
   const [step, setStep] = useState<'sender_input' | 'payment_instructions'>(
-    hasRegisteredValidSender || isStrictTrxOnly ? 'payment_instructions' : 'sender_input'
+    hasRegisteredValidSender || !settings.verifyModeSenderFifo
+      ? 'payment_instructions'
+      : 'sender_input'
   );
 
   const [senderNumber, setSenderNumber] = useState(
@@ -93,8 +96,10 @@ export function GatewayCheckoutView({
   const [copiedNumber, setCopiedNumber] = useState(false);
   const [copiedAmount, setCopiedAmount] = useState(false);
   const [copiedInv, setCopiedInv] = useState(false);
+  const [copiedRef, setCopiedRef] = useState(false);
 
   const [isPaid, setIsPaid] = useState(initialStatus === 'paid');
+  const [isSubmittedPending, setIsSubmittedPending] = useState(false);
   const [redirectCountdown, setRedirectCountdown] = useState(2);
 
   const [showTrxModal, setShowTrxModal] = useState(false);
@@ -166,21 +171,22 @@ export function GatewayCheckoutView({
     };
   }, [orderId, isPaid]);
 
-  // 2-second automatic redirect on success
+  // 2-second automatic redirect on success or TrxID submission
   useEffect(() => {
-    if (!isPaid) return;
+    if (!isPaid && !isSubmittedPending) return;
     const interval = setInterval(() => {
       setRedirectCountdown((c) => {
         if (c <= 1) {
           clearInterval(interval);
-          router.push(`/account?order=${orderId}&paid=1`);
+          const param = isPaid ? 'paid=1' : 'submitted=1';
+          router.push(`/account?order=${orderId}&${param}`);
           return 0;
         }
         return c - 1;
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [isPaid, orderId, router]);
+  }, [isPaid, isSubmittedPending, orderId, router]);
 
   const getMethodTheme = (m: GatewayMethod = method) => {
     switch (m) {
@@ -241,7 +247,7 @@ export function GatewayCheckoutView({
 
   const theme = getMethodTheme();
 
-  const handleCopy = (text: string, type: 'number' | 'amount' | 'inv') => {
+  const handleCopy = (text: string, type: 'number' | 'amount' | 'inv' | 'ref') => {
     navigator.clipboard.writeText(text);
     if (type === 'number') {
       setCopiedNumber(true);
@@ -249,6 +255,9 @@ export function GatewayCheckoutView({
     } else if (type === 'amount') {
       setCopiedAmount(true);
       setTimeout(() => setCopiedAmount(false), 2000);
+    } else if (type === 'ref') {
+      setCopiedRef(true);
+      setTimeout(() => setCopiedRef(false), 2000);
     } else {
       setCopiedInv(true);
       setTimeout(() => setCopiedInv(false), 2000);
@@ -311,12 +320,16 @@ export function GatewayCheckoutView({
       });
       const data = await res.json();
       if (data.success) {
-        setIsPaid(true);
         setShowTrxModal(false);
+        if (data.verified || data.matchedBy) {
+          setIsPaid(true);
+        } else {
+          setIsSubmittedPending(true);
+        }
       } else {
         setModalFeedback({
           type: 'err',
-          text: data.message || 'পেমেন্ট এসএমএস পাওয়া মাত্রই অটোমেটিক ভেরিফাই হবে।',
+          text: data.message || 'সঠিক Transaction ID (TrxID) লিখুন।',
         });
       }
     } catch {
@@ -330,9 +343,9 @@ export function GatewayCheckoutView({
   };
 
   // ============================================================================
-  // STEP 3: AUTHENTIC BRANDED PAYMENT SUCCESSFUL SCREEN
+  // STEP 3: AUTHENTIC BRANDED PAYMENT SUCCESSFUL OR TRXID SUBMITTED SCREEN
   // ============================================================================
-  if (isPaid) {
+  if (isPaid || isSubmittedPending) {
     return (
       <div className="min-h-screen bg-[#ECEEF1] flex items-center justify-center p-3 sm:p-6 font-sans">
         <div className="w-full max-w-[440px] overflow-hidden rounded-lg bg-white shadow-2xl border border-slate-200/80 animate-in zoom-in-95 duration-200">
@@ -381,10 +394,18 @@ export function GatewayCheckoutView({
 
             <div className="space-y-1.5">
               <h2 className="text-2xl font-black tracking-tight text-white">
-                Payment Successful
+                {isPaid ? 'Payment Successful' : 'Payment Submitted'}
               </h2>
-              <p className="text-xs font-medium text-white/90">
-                Your payment of <strong className="font-black">৳{totalBdt}</strong> has been confirmed.
+              <p className="text-xs font-medium text-white/90 max-w-[320px] mx-auto leading-relaxed">
+                {isPaid ? (
+                  <>
+                    Your payment of <strong className="font-black">৳{totalBdt}</strong> has been confirmed.
+                  </>
+                ) : (
+                  <>
+                    আপনার Transaction ID (<strong className="font-mono font-black">{manualTrxId}</strong>) সফলভাবে রেকর্ড করা হয়েছে।
+                  </>
+                )}
               </p>
             </div>
 
@@ -607,7 +628,7 @@ export function GatewayCheckoutView({
               style={{ backgroundColor: theme.brandBg }}
             >
               {/* Registered Sender Pill with Change button */}
-              {!isStrictTrxOnly && senderNumber && (
+              {settings.verifyModeSenderFifo && senderNumber && (
                 <div className="flex items-center justify-between px-3 py-1.5 rounded-md bg-black/15 text-xs">
                   <span className="text-white/90">
                     প্রেরক নাম্বার: <strong className="font-mono">{senderNumber}</strong>
@@ -655,7 +676,7 @@ export function GatewayCheckoutView({
                 </button>
               </div>
 
-              {/* Amount Copy Strip right below Number Box (Restored as requested) */}
+              {/* Amount Copy Strip right below Number Box */}
               <div className="rounded-md px-3.5 py-2.5 bg-black/15 border border-white/15 flex items-center justify-between text-xs">
                 <div>
                   <span className="text-white/85">পাঠাতে হবে (Send Exactly): </span>
@@ -679,6 +700,35 @@ export function GatewayCheckoutView({
                   )}
                 </button>
               </div>
+
+              {/* Reference Copy Strip (Shown when Mode 2 Reference Verification is Enabled in Admin) */}
+              {settings.verifyModeReference && (
+                <div className="rounded-md px-3.5 py-2.5 bg-black/20 border border-amber-300/40 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="text-white/90">রেফারেন্স কোড (Reference বক্সে দিন): </span>
+                    <strong className="font-mono text-sm font-black text-amber-300 select-all">
+                      {orderId}
+                    </strong>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(orderId, 'ref')}
+                    className="h-7 px-2.5 rounded-md bg-white/15 hover:bg-white/25 text-white text-[11px] font-bold border border-white/20 cursor-pointer flex items-center gap-1 transition-colors shrink-0"
+                  >
+                    {copiedRef ? (
+                      <>
+                        <Check className="w-3 h-3 text-emerald-300" />
+                        <span>Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" />
+                        <span>Copy Ref</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
 
               {/* Step-by-Step Bengali Instructions + Compact Real App Icon Strip */}
               <div className="space-y-2 text-xs font-semibold text-white pt-0.5">
@@ -739,15 +789,24 @@ export function GatewayCheckoutView({
                   </svg>
                 </div>
 
-                <div className="flex items-center gap-2.5 pt-0.5">
+                <div className="flex items-start gap-2.5 pt-0.5">
                   <span
-                    className="w-5 h-5 rounded-full bg-white text-xs font-black flex items-center justify-center shrink-0"
+                    className="w-5 h-5 rounded-full bg-white text-xs font-black flex items-center justify-center shrink-0 mt-0.5"
                     style={{ color: theme.brandBg }}
                   >
                     3
                   </span>
-                  <span>
-                    অ্যাকাউন্ট নম্বর পেস্ট করুন এবং <strong>৳{totalBdt}</strong> সেন্ড মানি করুন।
+                  <span className="leading-relaxed">
+                    {settings.verifyModeReference ? (
+                      <>
+                        অ্যাকাউন্ট নম্বর পেস্ট করুন, <strong>৳{totalBdt}</strong> লিখুন এবং রেফারেন্স (Reference) বক্সে{' '}
+                        <strong className="font-mono underline">{orderId}</strong> লিখে সেন্ড মানি করুন।
+                      </>
+                    ) : (
+                      <>
+                        অ্যাকাউন্ট নম্বর পেস্ট করুন এবং <strong>৳{totalBdt}</strong> সেন্ড মানি করুন।
+                      </>
+                    )}
                   </span>
                 </div>
               </div>

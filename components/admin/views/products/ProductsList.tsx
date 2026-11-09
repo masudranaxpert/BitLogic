@@ -126,6 +126,7 @@ interface ProductsListProps {
   onOpenAddProductPage: () => void;
   onOpenAddOptionPage: (productId?: string) => void;
   onOpenEditOptionPage: (productId: string, variantId: string) => void;
+  onOpenViewOptionPage: (productId: string, variantId: string) => void;
   onOpenQuickRestock: (productId: string, variantId: string) => void;
   onResetFilters: () => void;
 }
@@ -151,6 +152,7 @@ export function ProductsList({
   onOpenAddProductPage,
   onOpenAddOptionPage,
   onOpenEditOptionPage,
+  onOpenViewOptionPage,
   onOpenQuickRestock,
   onResetFilters,
 }: ProductsListProps) {
@@ -400,7 +402,7 @@ export function ProductsList({
                               title="View product"
                               aria-label="View product"
                               onClick={() =>
-                                onOpenEditOptionPage(product.id, variant.id)
+                                onOpenViewOptionPage(product.id, variant.id)
                               }
                               className={iconBtnClass}
                             >
@@ -480,7 +482,7 @@ export function ProductsList({
                       aria-label="View product"
                       onClick={() =>
                         defaultVar
-                          ? onOpenEditOptionPage(product.id, defaultVar.id)
+                          ? onOpenViewOptionPage(product.id, defaultVar.id)
                           : onOpenAddOptionPage(product.id)
                       }
                       className={iconBtnClass}
@@ -535,7 +537,7 @@ export function ProductsList({
                             type="button"
                             title="View product"
                             aria-label="View product"
-                            onClick={() => onOpenEditOptionPage(product.id, v.id)}
+                            onClick={() => onOpenViewOptionPage(product.id, v.id)}
                             className={iconBtnClass}
                           >
                             <Eye className="w-3.5 h-3.5" strokeWidth={2.2} />

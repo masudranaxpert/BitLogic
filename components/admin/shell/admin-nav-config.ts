@@ -14,6 +14,7 @@ import {
   PanelTop,
   Network,
   ShieldAlert,
+  Activity,
 } from 'lucide-react';
 import type { AdminTab } from '@/lib/admin/types';
 import type { NavGroupItem } from '@/components/admin/shell/admin-nav-types';
@@ -89,6 +90,8 @@ export function buildAdminNavMenus(
       subItems: [
         { id: 'payments', label: 'All Payments' },
         { id: 'payment-methods', label: 'Payment Methods' },
+        { id: 'payment-devices', label: 'Sync Devices' },
+        { id: 'payment-logs', label: 'SMS Logs' },
         { id: 'coupons', label: 'Coupons' },
       ],
     },
@@ -162,6 +165,21 @@ export function buildAdminNavMenus(
     ...(opts.isFullAdmin
       ? ([
           {
+            id: 'activity' as AdminTab,
+            label: 'Activity',
+            shortLabel: 'Activity',
+            icon: Activity,
+            subItems: [
+              { id: 'activity', label: 'All Logs' },
+              { id: 'activity-payments', label: 'Payments' },
+              { id: 'activity-orders', label: 'Orders' },
+              { id: 'activity-catalog', label: 'Catalog' },
+              { id: 'activity-customers', label: 'Customers' },
+              { id: 'activity-logins', label: 'Sign-Ins' },
+              { id: 'activity-system', label: 'System' },
+            ],
+          },
+          {
             id: 'staff' as AdminTab,
             label: 'Staff',
             shortLabel: 'Staff',
@@ -200,6 +218,28 @@ export function isAdminNavGroupActive(
     return true;
   }
   if (
+    item.id === 'payments' &&
+    (activeTab === 'payments' ||
+      activeTab === 'payment-methods' ||
+      activeTab === 'payment-devices' ||
+      activeTab === 'payment-logs' ||
+      activeTab === 'coupons')
+  ) {
+    return true;
+  }
+  if (
+    item.id === 'activity' &&
+    (activeTab === 'activity' ||
+      activeTab === 'activity-payments' ||
+      activeTab === 'activity-orders' ||
+      activeTab === 'activity-catalog' ||
+      activeTab === 'activity-customers' ||
+      activeTab === 'activity-logins' ||
+      activeTab === 'activity-system')
+  ) {
+    return true;
+  }
+  if (
     item.id === 'security' &&
     (activeTab === 'security' ||
       activeTab === 'security-ips' ||
@@ -219,7 +259,9 @@ export function isAdminNavGroupActive(
   }
   if (
     item.id === 'products' &&
-    (activeTab === 'product-add' || activeTab === 'product-option')
+    (activeTab === 'product-add' ||
+      activeTab === 'product-view' ||
+      activeTab === 'product-option')
   ) {
     return true;
   }
