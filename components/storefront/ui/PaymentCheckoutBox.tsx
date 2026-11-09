@@ -1,163 +1,86 @@
 'use client';
 
-import React, { useEffect, useMemo } from 'react';
+import React from 'react';
+import { ShieldCheck, Smartphone, Check } from 'lucide-react';
 import { useStoreSettings } from '@/context/StoreSettingsContext';
 
-export const STORE_PAYMENT_METHODS = [
-  { id: 'bkash', label: 'bKash', icon: '/payments/bkash-icon.svg' },
-  { id: 'nagad', label: 'Nagad', icon: '/payments/nagad-icon.png' },
-  { id: 'rocket', label: 'Rocket', icon: '/payments/bkash-icon.svg' },
-] as const;
-
-export type StorePaymentMethodId = 'bkash' | 'nagad' | 'rocket';
+export type StorePaymentMethodId = 'bkash' | 'nagad' | 'rocket' | 'upay';
 
 type PaymentMethodSelectorProps = {
   selectedMethod: StorePaymentMethodId;
   onSelectMethod: (method: StorePaymentMethodId) => void;
   formattedTotal: string;
-  trxId: string;
-  onChangeTrxId: (val: string) => void;
 };
 
 export function PaymentMethodSelector({
   selectedMethod,
   onSelectMethod,
   formattedTotal,
-  trxId,
-  onChangeTrxId,
 }: PaymentMethodSelectorProps) {
   const settings = useStoreSettings();
 
-  const availableMethods = useMemo(() => {
-    const list: Array<{
-      id: StorePaymentMethodId;
-      label: string;
-      icon: string;
-      number: string;
-      type: string;
-      instructions: string;
-    }> = [];
+  const methods: Array<{ id: StorePaymentMethodId; label: string; icon: string }> = [
+    { id: 'bkash', label: 'bKash', icon: '/payments/bkash-icon.svg' },
+    { id: 'nagad', label: 'Nagad', icon: '/payments/nagad.svg' },
+  ];
 
-    if (settings.bkashEnabled !== false) {
-      list.push({
-        id: 'bkash',
-        label: 'bKash',
-        icon: '/payments/bkash-icon.svg',
-        number: settings.bkashNumber || '01700-123456',
-        type: settings.bkashType || 'Personal',
-        instructions:
-          settings.bkashInstructions ||
-          'Send Money to our personal bKash number and enter TrxID below.',
-      });
-    }
-
-    if (settings.nagadEnabled !== false) {
-      list.push({
-        id: 'nagad',
-        label: 'Nagad',
-        icon: '/payments/nagad-icon.svg',
-        number: settings.nagadNumber || '01700-123456',
-        type: settings.nagadType || 'Personal',
-        instructions:
-          settings.nagadInstructions ||
-          'Send Money to our personal Nagad number and enter TrxID below.',
-      });
-    }
-
-    if (settings.rocketEnabled) {
-      list.push({
-        id: 'rocket',
-        label: 'Rocket',
-        icon: '/payments/rocket.png',
-        number: settings.rocketNumber || '',
-        type: settings.rocketType || 'Personal',
-        instructions:
-          settings.rocketInstructions ||
-          'Send Money to our Rocket number and enter TrxID below.',
-      });
-    }
-
-    return list.length > 0
-      ? list
-      : [
-          {
-            id: 'bkash' as StorePaymentMethodId,
-            label: 'bKash',
-            icon: '/payments/bkash-icon.svg',
-            number: settings.bkashNumber || '01700-123456',
-            type: 'Personal',
-            instructions: 'Send Money and enter TrxID below.',
-          },
-        ];
-  }, [settings]);
-
-  // Keep selection synchronized with available methods
-  useEffect(() => {
-    if (!availableMethods.some((m) => m.id === selectedMethod) && availableMethods.length > 0) {
-      onSelectMethod(availableMethods[0].id);
-    }
-  }, [availableMethods, selectedMethod, onSelectMethod]);
-
-  const activeMethod =
-    availableMethods.find((m) => m.id === selectedMethod) || availableMethods[0];
+  if (settings.rocketEnabled) {
+    methods.push({ id: 'rocket', label: 'Rocket', icon: '/payments/rocket.png' });
+  }
 
   return (
-    <div className="space-y-2.5 pt-0.5">
-      <label className="block text-xs font-bold text-slate-700">
-        Payment method
-      </label>
-      <div
-        className={`grid gap-2.5 ${
-          availableMethods.length === 1
-            ? 'grid-cols-1'
-            : availableMethods.length === 2
-            ? 'grid-cols-2'
-            : 'grid-cols-3'
-        }`}
-      >
-        {availableMethods.map((m) => {
+    <div className="space-y-3 pt-1">
+      <div className="flex items-center justify-between text-xs">
+        <span className="font-extrabold text-slate-900">Payment Gateway</span>
+        <span className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1">
+          <ShieldCheck className="w-3.5 h-3.5" />
+          Automated Instant Verification
+        </span>
+      </div>
+
+      {/* Branded Gateway Cards Selection */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+        {methods.map((m) => {
           const active = selectedMethod === m.id;
           return (
             <button
               key={m.id}
               type="button"
               onClick={() => onSelectMethod(m.id)}
-              className={`h-10 px-3 rounded-md border font-extrabold text-xs transition-all cursor-pointer flex items-center justify-center gap-2 ${
+              className={`h-12 px-3 rounded-xl border font-bold text-xs transition-all cursor-pointer flex items-center justify-between gap-2 ${
                 active
-                  ? 'border-[#0F172A] bg-[#0F172A] text-white shadow-xs'
-                  : 'border-slate-200 bg-white text-[#0F172A] hover:border-slate-300 hover:bg-slate-50'
+                  ? 'border-indigo-600 bg-indigo-50/50 text-indigo-950 shadow-xs ring-1 ring-indigo-600'
+                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
               }`}
             >
-              <span className="w-6 h-6 rounded bg-white p-0.5 flex items-center justify-center shrink-0 shadow-2xs">
-                <img
-                  src={m.icon}
-                  alt={m.label}
-                  className="w-full h-full object-contain"
-                />
-              </span>
-              <span>{m.label}</span>
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-7 h-7 rounded-lg bg-white border border-slate-100 p-1 flex items-center justify-center shrink-0 shadow-2xs">
+                  <img src={m.icon} alt={m.label} className="w-full h-full object-contain" />
+                </span>
+                <span className="truncate">{m.label}</span>
+              </div>
+
+              {active && (
+                <div className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center shrink-0">
+                  <Check className="w-2.5 h-2.5 stroke-[3]" />
+                </div>
+              )}
             </button>
           );
         })}
       </div>
 
-      <div className="p-3 bg-slate-50 rounded-lg border border-slate-200/80 text-xs text-slate-600 leading-relaxed flex items-center justify-between">
-        <div>
-          <span>Selected Gateway: </span>
-          <strong className="text-slate-900">{activeMethod.label}</strong>
-          <span className="text-[11px] text-slate-400 block mt-0.5">Instant automated payment verification</span>
+      {/* Gateway Transition Notice */}
+      <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 text-xs text-slate-600 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Smartphone className="w-4 h-4 text-slate-400 shrink-0" />
+          <span className="text-[11px] text-slate-500">
+            Clicking <strong>Place Order</strong> will redirect directly to the secure <strong>{selectedMethod.toUpperCase()}</strong> gateway.
+          </span>
         </div>
-        <span className="font-mono text-sm font-black text-slate-900">{formattedTotal}</span>
-      </div>
-
-      <div className="relative">
-        <input
-          type="text"
-          value={trxId}
-          onChange={(e) => onChangeTrxId(e.target.value)}
-          placeholder="Optional: Enter TrxID if already paid (or leave empty to pay now)"
-          className="w-full h-9.5 px-3 rounded-md border border-slate-200 bg-white text-xs font-mono text-[#0F172A] placeholder:font-sans placeholder:text-slate-400 focus:outline-none focus:border-[#FF5E5B] focus:ring-2 focus:ring-[#FF5E5B]/15 transition-all"
-        />
+        <span className="font-mono text-xs font-black text-slate-900 shrink-0 ml-2">
+          {formattedTotal}
+        </span>
       </div>
     </div>
   );

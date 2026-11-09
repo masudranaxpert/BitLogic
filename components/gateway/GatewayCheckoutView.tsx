@@ -10,9 +10,8 @@ import {
   AlertCircle,
   Loader2,
   CheckCircle2,
-  ArrowRight,
-  RefreshCw,
   Smartphone,
+  ArrowLeft,
   Lock,
 } from 'lucide-react';
 import { BrandLogo } from '@/components/brand/BrandLogo';
@@ -48,8 +47,8 @@ export function GatewayCheckoutView({
   const router = useRouter();
   const [method, setMethod] = useState<'bkash' | 'nagad' | 'rocket' | 'upay'>(initialMethod);
   const [senderNumber, setSenderNumber] = useState(customerPhone || '');
-  const [step, setStep] = useState<1 | 2>(customerPhone ? 2 : 1);
-  const [copied, setCopied] = useState(false);
+  const [copiedNumber, setCopiedNumber] = useState(false);
+  const [copiedAmount, setCopiedAmount] = useState(false);
   const [isPaid, setIsPaid] = useState(initialStatus === 'paid');
   const [redirectCountdown, setRedirectCountdown] = useState(2);
   const [showTrxModal, setShowTrxModal] = useState(false);
@@ -61,99 +60,101 @@ export function GatewayCheckoutView({
   const [timeLeft, setTimeLeft] = useState(15 * 60);
 
   useEffect(() => {
-    if (isPaid) return;
-    const timer = setInterval(() => {
+    if (isPaid || timeLeft <= 0) return;
+    const interval = setInterval(() => {
       setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
     }, 1000);
-    return () => clearInterval(timer);
-  }, [isPaid]);
+    return () => clearInterval(interval);
+  }, [isPaid, timeLeft]);
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
 
-  // Real-time Polling for Payment Verification
+  // Active polling to check if payment received via Android Sync APK
   useEffect(() => {
     if (isPaid) return;
+    let timer: NodeJS.Timeout;
 
-    const pollInterval = setInterval(async () => {
+    const poll = async () => {
       try {
-        const res = await fetch(`/api/gateway/check/${orderId}`);
-        const data = await res.json();
-        if (data.isPaid) {
-          setIsPaid(true);
+        const res = await fetch(`/api/gateway/check/${orderId}?t=${Date.now()}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.status === 'paid') {
+            setIsPaid(true);
+            return;
+          }
         }
-      } catch (e) {
-        console.error('Polling error:', e);
+      } catch {
+        // silent polling failure
       }
-    }, 2500);
+      timer = setTimeout(poll, 3000);
+    };
 
-    return () => clearInterval(pollInterval);
+    timer = setTimeout(poll, 3000);
+    return () => clearTimeout(timer);
   }, [orderId, isPaid]);
 
-  // Handle 2-second auto-redirect once paid
+  // 2-second automatic redirect on success
   useEffect(() => {
     if (!isPaid) return;
     const interval = setInterval(() => {
-      setRedirectCountdown((prev) => {
-        if (prev <= 1) {
+      setRedirectCountdown((c) => {
+        if (c <= 1) {
           clearInterval(interval);
-          router.push(`/account?order=${orderId}`);
+          router.push(`/account?order=${orderId}&paid=1`);
           return 0;
         }
-        return prev - 1;
+        return c - 1;
       });
     }, 1000);
     return () => clearInterval(interval);
   }, [isPaid, orderId, router]);
 
-  // Dynamic Theme Colors based on MFS Provider
-  const theme = {
-    bkash: {
-      brand: '#D12053',
-      headerBg: '#D12053',
-      badgeBg: 'bg-[#D12053]/10',
-      text: 'text-[#D12053]',
-      name: 'bKash',
-      number: settings.bkashNumber,
-      type: settings.bkashType,
-      icon: '/payments/bkash-icon.png',
-    },
-    nagad: {
-      brand: '#F7941D',
-      headerBg: '#EA1D25',
-      badgeBg: 'bg-orange-50',
-      text: 'text-[#EA1D25]',
-      name: 'Nagad',
-      number: settings.nagadNumber,
-      type: settings.nagadType,
-      icon: '/payments/nagad.png',
-    },
-    rocket: {
-      brand: '#8C3494',
-      headerBg: '#8C3494',
-      badgeBg: 'bg-purple-50',
-      text: 'text-[#8C3494]',
-      name: 'Rocket',
-      number: settings.rocketNumber,
-      type: settings.rocketType,
-      icon: '/payments/rocket.png',
-    },
-    upay: {
-      brand: '#0057B8',
-      headerBg: '#0057B8',
-      badgeBg: 'bg-blue-50',
-      text: 'text-[#0057B8]',
-      name: 'Upay',
-      number: settings.bkashNumber,
-      type: 'Personal',
-      icon: '/payments/bkash.svg',
-    },
-  }[method];
+  const getMethodTheme = () => {
+    switch (method) {
+      case 'nagad':
+        return {
+          name: 'Nagad',
+          icon: '/payments/nagad.svg',
+          color: '#EA580C',
+          bgColor: '#FFF7ED',
+          number: settings.nagadNumber || '018XXXXXXXX',
+          type: settings.nagadType || 'Personal',
+        };
+      case 'rocket':
+        return {
+          name: 'Rocket',
+          icon: '/payments/rocket.png',
+          color: '#8B5CF6',
+          bgColor: '#FAF5FF',
+          number: settings.rocketNumber || '01XXXXXXXXX-X',
+          type: settings.rocketType || 'Personal',
+        };
+      case 'bkash':
+      default:
+        return {
+          name: 'bKash',
+          icon: '/payments/bkash-icon.svg',
+          color: '#E11D48',
+          bgColor: '#FFF1F2',
+          number: settings.bkashNumber || '017XXXXXXXX',
+          type: settings.bkashType || 'Personal',
+        };
+    }
+  };
 
-  const handleCopyNumber = () => {
-    navigator.clipboard.writeText(theme.number);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const theme = getMethodTheme();
+
+  const handleCopy = (text: string, type: 'number' | 'amount') => {
+    navigator.clipboard.writeText(text);
+    if (type === 'number') {
+      setCopiedNumber(true);
+      setTimeout(() => setCopiedNumber(false), 2000);
+    } else {
+      setCopiedAmount(true);
+      setTimeout(() => setCopiedAmount(false), 2000);
+    }
   };
 
   const handleManualTrxSubmit = async (e: React.FormEvent) => {
@@ -166,7 +167,11 @@ export function GatewayCheckoutView({
       const res = await fetch(`/api/gateway/check/${orderId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trxId: manualTrxId.trim(), senderNumber }),
+        body: JSON.stringify({
+          trxId: manualTrxId.trim(),
+          senderNumber: senderNumber.trim(),
+          gateway: theme.name,
+        }),
       });
       const data = await res.json();
       if (data.success) {
@@ -210,197 +215,179 @@ export function GatewayCheckoutView({
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-3 sm:p-6 font-sans">
-      <div className="w-full max-w-[440px] overflow-hidden rounded-2xl bg-white shadow-xl border border-slate-200/80 flex flex-col">
-        {/* Gateway Provider Top Header */}
+    <div className="min-h-screen bg-slate-50/80 flex items-center justify-center p-3 sm:p-6 font-sans">
+      <div className="w-full max-w-[500px] overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200/90 flex flex-col">
+        {/* Top Header */}
         <div className="px-6 py-4 flex items-center justify-between border-b border-slate-100 bg-white">
-          <BrandLogo size="sm" />
+          <div className="flex items-center gap-3">
+            <BrandLogo size="sm" />
+            <div className="h-4 w-px bg-slate-200" />
+            <span className="text-xs font-bold text-slate-700">Checkout</span>
+          </div>
+
           <div className="text-right">
-            <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Invoice</div>
-            <div className="font-mono text-xs font-bold text-slate-800">#{orderId}</div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Due</div>
+            <div className="font-mono text-base font-black text-slate-900">৳{totalBdt} BDT</div>
           </div>
         </div>
 
-        {/* Amount & Items Header Banner */}
-        <div className="px-6 py-3.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
-          <div>
-            <div className="text-xs font-bold text-slate-900 truncate max-w-[240px]">{itemsSummary}</div>
-            <div className="text-[11px] text-slate-500">{customerEmail}</div>
+        {/* Order Details Accordion/Summary */}
+        <div className="px-6 py-3 bg-slate-50/70 border-b border-slate-100 flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2 text-slate-600 truncate max-w-[300px]">
+            <span className="font-semibold text-slate-900 truncate">{itemsSummary}</span>
+            <span className="text-slate-400">({orderId})</span>
           </div>
-          <div className="font-mono text-lg font-black text-slate-900">
-            ৳{totalBdt}
-          </div>
+          <span className="font-mono text-[11px] text-slate-400 shrink-0">
+            {minutes}m {seconds}s left
+          </span>
         </div>
 
-        {/* Provider Switcher Tabs */}
-        <div className="grid grid-cols-4 p-2 gap-1.5 bg-slate-100/70 border-b border-slate-200/70">
-          {(['bkash', 'nagad', 'rocket', 'upay'] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => {
-                setMethod(m);
-                setStep(2);
-              }}
-              className={`h-9 rounded-lg font-bold text-xs flex items-center justify-center transition-all cursor-pointer ${
-                method === m
-                  ? 'bg-white text-slate-900 shadow-sm border border-slate-200'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              <span className="capitalize">{m}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* MAIN BODY (Matching Uploaded Screen Reference) */}
-        <div
-          style={{ backgroundColor: theme.headerBg }}
-          className="p-6 text-white flex-1 transition-colors duration-200 flex flex-col justify-between"
-        >
-          {step === 1 ? (
-            /* STEP 1: Enter Sender Mobile Number */
-            <div className="space-y-4 py-4 text-center">
-              <h3 className="text-base font-bold text-white">Your {theme.name} Account Number</h3>
-              <p className="text-xs text-white/80">
-                Enter the mobile number you will pay from for instant automatic matching:
-              </p>
-              <div className="relative">
-                <input
-                  type="tel"
-                  value={senderNumber}
-                  onChange={(e) => setSenderNumber(e.target.value)}
-                  placeholder="e.g. 017XXXXXXXX"
-                  className="w-full h-11 rounded-xl bg-white px-4 text-center font-mono text-base font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 pt-2">
+        {/* Provider Switcher Tabs (Paymently / ZiniPay Reference Style) */}
+        <div className="p-4 bg-white border-b border-slate-100 space-y-2">
+          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+            Payment Options
+          </span>
+          <div className="grid grid-cols-3 gap-2">
+            {(['bkash', 'nagad', 'rocket'] as const).map((m) => {
+              const active = method === m;
+              return (
                 <button
+                  key={m}
                   type="button"
-                  onClick={() => setStep(2)}
-                  className="w-full h-10 rounded-xl bg-white font-bold text-xs cursor-pointer hover:bg-slate-100 transition-colors"
-                  style={{ color: theme.headerBg }}
+                  onClick={() => setMethod(m)}
+                  className={`h-12 px-3 rounded-xl border font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    active
+                      ? 'border-indigo-600 bg-indigo-50/40 text-indigo-900 shadow-xs ring-1 ring-indigo-600'
+                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
                 >
-                  Confirm and Proceed
+                  <img
+                    src={m === 'bkash' ? '/payments/bkash-icon.svg' : m === 'nagad' ? '/payments/nagad.svg' : '/payments/rocket.png'}
+                    alt={m}
+                    className="h-5 w-auto object-contain"
+                  />
+                  <span className="capitalize">{m}</span>
                 </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* MAIN PAYMENT INSTRUCTION & NUMBER BOX */}
+        <div className="p-6 space-y-4">
+          {/* Instruction Pill */}
+          <div className="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200/70 text-xs text-amber-900 leading-relaxed">
+            Open your <strong>{theme.name}</strong> app, choose <strong>Send Money</strong>, then send exactly{' '}
+            <strong className="font-mono font-bold text-slate-900">৳{totalBdt} BDT</strong>.
+          </div>
+
+          {/* Account Number Box with Copy */}
+          <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 flex items-center justify-between">
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                SEND MONEY TO THIS NUMBER ({theme.type.toUpperCase()})
               </div>
-            </div>
-          ) : (
-            /* STEP 2: Instructions, Merchant Number, Live Timer & Auto Verify */
-            <div className="space-y-4 py-2">
-              {/* Copyable Merchant/Personal Number Card */}
-              <div className="rounded-xl bg-black/20 p-3 border border-white/10 flex items-center justify-between">
-                <div>
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-white/70">
-                    {theme.type.toUpperCase()} ACCOUNT NUMBER
-                  </div>
-                  <div className="font-mono text-lg font-black tracking-wide text-white">
-                    {theme.number}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleCopyNumber}
-                  className="h-8 px-3 rounded-lg bg-white/20 hover:bg-white/30 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  {copied ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : <Copy className="h-3.5 w-3.5" />}
-                  <span>{copied ? 'Copied' : 'Copy'}</span>
-                </button>
+              <div className="font-mono text-lg font-black text-slate-900 tracking-wide mt-0.5">
+                {theme.number}
               </div>
-
-              {/* Instructions steps with visuals */}
-              <div className="space-y-2 text-xs text-white/95 leading-relaxed bg-black/10 p-3.5 rounded-xl border border-white/10">
-                <div className="flex items-start gap-2">
-                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-black" style={{ color: theme.headerBg }}>
-                    1
-                  </span>
-                  <span>উপরের একাউন্ট নম্বর কপি করে আপনার {theme.name} অ্যাপে যান।</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-black" style={{ color: theme.headerBg }}>
-                    2
-                  </span>
-                  <span>
-                    <strong>'Send Money'</strong> নির্বাচন করে <strong>৳{totalBdt}</strong> টাকা পাঠিয়ে দিন।
-                  </span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-black" style={{ color: theme.headerBg }}>
-                    3
-                  </span>
-                  <span>টাকা পাঠানোর সাথে সাথে স্বয়ংক্রিয়ভাবে পেমেন্ট কনফার্ম হয়ে যাবে।</span>
-                </div>
-              </div>
-
-              {/* Live Polling Status & Countdown */}
-              <div className="py-2 text-center space-y-2">
-                <div className="flex items-center justify-center gap-2 text-xs font-bold text-white">
-                  <Loader2 className="h-4 w-4 animate-spin text-white" />
-                  <span>Waiting for payment...</span>
-                </div>
-
-                <div className="inline-flex items-center gap-1 rounded-full bg-black/25 px-3 py-1 text-[11px] font-mono text-white/90">
-                  <Clock className="h-3 w-3" />
-                  <span>
-                    Expires in {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
-                  </span>
-                </div>
-
-                {/* Manual TrxID Link as requested */}
-                <div>
-                  <button
-                    type="button"
-                    onClick={() => setShowTrxModal(true)}
-                    className="text-xs font-semibold text-white/90 underline hover:text-white cursor-pointer bg-transparent border-0"
-                  >
-                    Not verified? Submit Txn ID
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Footer Safe Guard */}
-          <div className="mt-4 pt-3 border-t border-white/15 flex items-center justify-between text-[11px] text-white/70">
-            <div className="flex items-center gap-1">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
-              <span>100% Secure MFS Verification</span>
             </div>
             <button
               type="button"
-              onClick={() => router.push(`/account?order=${orderId}`)}
-              className="text-white/80 hover:text-white underline cursor-pointer bg-transparent border-0"
+              onClick={() => handleCopy(theme.number, 'number')}
+              className="h-9 px-4 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-800 font-bold text-xs flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
             >
-              Pay Later
+              {copiedNumber ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copiedNumber ? 'Copied' : 'Copy'}</span>
             </button>
           </div>
+
+          {/* Amount Box with Copy */}
+          <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 flex items-center justify-between">
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                SEND EXACTLY
+              </div>
+              <div className="font-mono text-lg font-black text-indigo-600 tracking-wide mt-0.5">
+                {totalBdt} BDT
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleCopy(String(totalBdt), 'amount')}
+              className="h-9 px-4 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-800 font-bold text-xs flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+            >
+              {copiedAmount ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copiedAmount ? 'Copied' : 'Copy'}</span>
+            </button>
+          </div>
+
+          {/* Live Automatic Detection Status */}
+          <div className="p-3.5 rounded-2xl bg-indigo-50/60 border border-indigo-100 text-xs flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-indigo-600" />
+              </span>
+              <span className="font-bold text-indigo-950">Waiting for your payment...</span>
+            </div>
+            <span className="font-mono text-[11px] font-semibold text-indigo-600">
+              {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')} left
+            </span>
+          </div>
+
+          <div className="text-center pt-1 space-y-1">
+            <p className="text-[11px] text-slate-500">
+              Please wait. Your payment will be verified automatically.
+            </p>
+            <p className="text-[11px] text-slate-500">
+              Taking too long to verify?{' '}
+              <button
+                type="button"
+                onClick={() => setShowTrxModal(true)}
+                className="font-bold text-indigo-600 underline hover:text-indigo-800 cursor-pointer border-0 bg-transparent p-0"
+              >
+                Submit {theme.name} Transaction ID
+              </button>
+            </p>
+          </div>
+        </div>
+
+        {/* Footer Bar */}
+        <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+          <div className="flex items-center gap-1.5">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <span className="text-[11px] font-medium">Secured with 256-bit encryption</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => router.push(`/account?order=${orderId}`)}
+            className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 underline cursor-pointer"
+          >
+            Cancel and return
+          </button>
         </div>
       </div>
 
-      {/* MANUAL TrxID MODAL (Matching Uploaded Screenshot 5) */}
+      {/* Manual TrxID Input Modal */}
       {showTrxModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div
-            style={{ backgroundColor: theme.headerBg }}
-            className="w-full max-w-[360px] rounded-2xl p-6 text-white shadow-2xl animate-in zoom-in-95 duration-150 space-y-4"
-          >
+          <div className="w-full max-w-[380px] rounded-3xl bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-150 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-amber-300" />
-                <h4 className="font-bold text-sm">Payment Not Detected?</h4>
+                <AlertCircle className="h-5 w-5 text-amber-500" />
+                <h4 className="font-bold text-sm text-slate-900">Submit Transaction ID</h4>
               </div>
               <button
                 type="button"
                 onClick={() => setShowTrxModal(false)}
-                className="text-xs px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 text-white border-0 cursor-pointer"
+                className="text-xs px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border-0 cursor-pointer font-semibold"
               >
                 Close
               </button>
             </div>
 
-            <p className="text-xs text-white/85 leading-relaxed">
-              Enter your transaction ID from your payment provider SMS or app:
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Enter the transaction ID received in your {theme.name} confirmation SMS:
             </p>
 
             <form onSubmit={handleManualTrxSubmit} className="space-y-3">
@@ -410,18 +397,18 @@ export function GatewayCheckoutView({
                 value={manualTrxId}
                 onChange={(e) => setManualTrxId(e.target.value.toUpperCase())}
                 placeholder="e.g. DD08PXL5K8"
-                className="w-full h-10 rounded-xl bg-white px-3 font-mono text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none"
+                className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-3.5 font-mono text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-600 focus:bg-white transition-all"
               />
 
-              <div className="text-[11px] text-white/75 flex items-center justify-between">
+              <div className="text-[11px] text-slate-500 flex items-center justify-between">
                 <span>Amount: ৳{totalBdt}</span>
                 <span>Order: #{orderId}</span>
               </div>
 
               {modalFeedback && (
                 <div
-                  className={`p-2.5 rounded-lg text-xs font-medium ${
-                    modalFeedback.type === 'ok' ? 'bg-emerald-500/30 text-emerald-100' : 'bg-red-900/40 text-red-100'
+                  className={`p-2.5 rounded-xl text-xs font-medium ${
+                    modalFeedback.type === 'ok' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
                   }`}
                 >
                   {modalFeedback.text}
@@ -431,16 +418,12 @@ export function GatewayCheckoutView({
               <button
                 type="submit"
                 disabled={submittingTrx}
-                className="w-full h-10 rounded-xl bg-white/90 hover:bg-white text-slate-900 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-colors disabled:opacity-50"
+                className="w-full h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-colors disabled:opacity-50 shadow-sm"
               >
                 {submittingTrx ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                <span>{submittingTrx ? 'Submitting...' : 'Submit Transaction ID'}</span>
+                <span>{submittingTrx ? 'Submitting...' : 'Confirm & Verify'}</span>
               </button>
             </form>
-
-            <p className="text-[10px] text-white/60 text-center">
-              Add your Txn ID now — we'll verify your payment instantly or as soon as network delivers SMS.
-            </p>
           </div>
         </div>
       )}

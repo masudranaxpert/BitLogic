@@ -20,7 +20,6 @@ export {
 } from './StoreSearchableSelect';
 export { WhatsAppIcon } from './BrandIcons';
 export {
-  STORE_PAYMENT_METHODS,
   PaymentMethodSelector,
   CouponInputBox,
   type StorePaymentMethodId,

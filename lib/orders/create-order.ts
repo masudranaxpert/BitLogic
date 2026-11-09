@@ -131,9 +131,7 @@ export async function createOrder(
   }
 
   const trxId = (input.payment.trxId ?? '').trim();
-  if (!isAdmin && !trxId) {
-    throw new OrderError('Transaction ID is required.');
-  }
+  // We allow order creation without upfront TrxID so customer can be redirected to the Autonomous Payment Gateway (/payment/[id])
 
   // Per-option stock (own + supplier), read before the write transaction.
   const supplyProducts = await db.product.findMany({

@@ -93,9 +93,7 @@ export function CartPageView() {
       rememberOrderId(data.orderId, data.accessToken);
       setPlacedOrderId(data.orderId);
       clear();
-      setTimeout(() => {
-        navigateTo('account', { accountTab: 'orders' });
-      }, 1600);
+      window.location.href = `/payment/${data.orderId}?method=${selectedMethod}`;
     } catch (err: unknown) {
       setErrorMessage(err instanceof Error ? err.message : 'Checkout failed');
       setIsSubmitting(false);
@@ -307,8 +305,6 @@ export function CartPageView() {
                 selectedMethod={selectedMethod}
                 onSelectMethod={setSelectedMethod}
                 formattedTotal={formatPrice(finalTotal)}
-                trxId={trxId}
-                onChangeTrxId={setTrxId}
               />
 
               {/* Coupon: Reusable CouponInputBox */}
