@@ -7,13 +7,11 @@ import {
   Check,
   AlertCircle,
   Loader2,
-  CheckCircle2,
   ArrowLeft,
   ShoppingCart,
   WifiOff,
-  Send,
-  Smartphone,
   ShieldCheck,
+  KeyRound,
   X,
 } from 'lucide-react';
 import { BrandLogo } from '@/components/brand/BrandLogo';
@@ -59,7 +57,7 @@ export function GatewayCheckoutView({
 }: GatewayCheckoutProps) {
   const router = useRouter();
 
-  // Compute strictly enabled methods
+  // Strictly enabled methods from Admin
   const enabledMethods: GatewayMethod[] = [];
   if (settings.bkashEnabled) enabledMethods.push('bkash');
   if (settings.nagadEnabled) enabledMethods.push('nagad');
@@ -72,17 +70,16 @@ export function GatewayCheckoutView({
 
   const [method, setMethod] = useState<GatewayMethod>(safeInitialMethod);
 
-  // Strict TrxID Only mode check: when only TrxID mode is enabled and all auto-modes are off
+  // Strict TrxID Only mode check
   const isStrictTrxOnly =
     settings.verifyModeTrxId &&
     !settings.verifyModeSenderFifo &&
     !settings.verifyModeReference &&
     !settings.verifyModeUniqueAmount;
 
-  // Step 1: Enter Sender Account Number (ZiniPay / bKash official style)
-  // Step 2: Send Money Instructions + Live Waiting (or TrxID input if strict mode)
   const hasRegisteredValidSender = Boolean(
-    registeredSenderNumber && /^01\d{9}$/.test(registeredSenderNumber.replace(/\D/g, '').slice(-11))
+    registeredSenderNumber &&
+      /^01\d{9}$/.test(registeredSenderNumber.replace(/\D/g, '').slice(-11))
   );
 
   const [step, setStep] = useState<'sender_input' | 'payment_instructions'>(
@@ -105,9 +102,11 @@ export function GatewayCheckoutView({
   const [showTrxModal, setShowTrxModal] = useState(false);
   const [manualTrxId, setManualTrxId] = useState('');
   const [submittingTrx, setSubmittingTrx] = useState(false);
-  const [modalFeedback, setModalFeedback] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [modalFeedback, setModalFeedback] = useState<{
+    type: 'ok' | 'err';
+    text: string;
+  } | null>(null);
 
-  // Network connection state for resilient UX
   const [isOffline, setIsOffline] = useState(false);
   const [timeLeft, setTimeLeft] = useState(15 * 60);
 
@@ -155,7 +154,7 @@ export function GatewayCheckoutView({
           }
         }
       } catch {
-        // Network hiccup — keep trying silently
+        // Silent retry on temporary network hiccup
       }
       if (!cancelled) {
         timer = setTimeout(poll, 2500);
@@ -169,7 +168,7 @@ export function GatewayCheckoutView({
     };
   }, [orderId, isPaid]);
 
-  // 2-second automatic redirect on success (ZiniPay / bKash style)
+  // 2-second automatic redirect on success
   useEffect(() => {
     if (!isPaid) return;
     const interval = setInterval(() => {
@@ -193,9 +192,9 @@ export function GatewayCheckoutView({
           name: 'Nagad',
           bnName: 'নগদ',
           icon: '/payments/nagad.svg',
-          brandBg: '#EA580C',
-          brandDarkBg: '#C2410C',
-          brandLightBg: '#FFF7ED',
+          guideImg: '/payments/guides/nagad-guide.jpg',
+          brandBg: '#E3262E',
+          brandDarkBg: '#B81B22',
           number: settings.nagadNumber || '01700-123456',
           type: settings.nagadType || 'Personal',
         };
@@ -205,9 +204,9 @@ export function GatewayCheckoutView({
           name: 'Rocket',
           bnName: 'রকেট',
           icon: '/payments/rocket.png',
+          guideImg: '/payments/guides/rocket-guide.jpg',
           brandBg: '#7E22CE',
-          brandDarkBg: '#6B21A8',
-          brandLightBg: '#FAF5FF',
+          brandDarkBg: '#581C87',
           number: settings.rocketNumber || '01700-123456',
           type: settings.rocketType || 'Personal',
         };
@@ -218,9 +217,9 @@ export function GatewayCheckoutView({
           name: 'bKash',
           bnName: 'বিকাশ',
           icon: '/payments/bkash-icon.svg',
+          guideImg: '/payments/guides/bkash-guide.jpg',
           brandBg: '#D12053',
-          brandDarkBg: '#B01642',
-          brandLightBg: '#FDF2F6',
+          brandDarkBg: '#A6153F',
           number: settings.bkashNumber || '01700-123456',
           type: settings.bkashType || 'Personal',
         };
@@ -269,13 +268,11 @@ export function GatewayCheckoutView({
       setSenderNumber(normalized);
 
       if (data.success && data.matchedBy) {
-        // Retroactively matched an SMS that already arrived!
         setIsPaid(true);
         return;
       }
       setStep('payment_instructions');
     } catch {
-      // Even if offline briefly, let user see instructions and keep polling
       setSenderNumber(normalized);
       setStep('payment_instructions');
     } finally {
@@ -320,13 +317,12 @@ export function GatewayCheckoutView({
   };
 
   // ============================================================================
-  // STEP 3: AUTHENTIC BRANDED PAYMENT SUCCESSFUL SCREEN (Matches Screenshot 8)
+  // STEP 3: AUTHENTIC BRANDED PAYMENT SUCCESSFUL SCREEN
   // ============================================================================
   if (isPaid) {
     return (
       <div className="min-h-screen bg-[#ECEEF1] flex items-center justify-center p-3 sm:p-6 font-sans">
         <div className="w-full max-w-[440px] overflow-hidden rounded-xl bg-white shadow-2xl border border-slate-200/80 animate-in zoom-in-95 duration-200">
-          {/* Top White Provider Logo Header */}
           <div className="py-5 px-6 flex items-center justify-center border-b border-slate-100 bg-white">
             <div className="flex items-center gap-2.5">
               <img
@@ -340,7 +336,6 @@ export function GatewayCheckoutView({
             </div>
           </div>
 
-          {/* Merchant & Invoice Strip */}
           <div className="px-6 py-4 bg-white flex items-center justify-between border-b border-slate-100">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-10 h-10 rounded-full bg-amber-50 border border-amber-200/70 flex items-center justify-center text-amber-600 shrink-0">
@@ -360,7 +355,6 @@ export function GatewayCheckoutView({
             </div>
           </div>
 
-          {/* Branded Pink/Orange/Purple Success Body */}
           <div
             className="px-6 py-10 text-center text-white space-y-5"
             style={{ backgroundColor: theme.brandBg }}
@@ -407,7 +401,6 @@ export function GatewayCheckoutView({
 
   return (
     <div className="min-h-screen bg-[#ECEEF1] flex flex-col items-center justify-center p-3 sm:p-6 font-sans">
-      {/* Offline Connection Warning Banner */}
       {isOffline && (
         <div className="w-full max-w-[440px] mb-3 rounded-xl bg-amber-500 text-slate-950 px-4 py-2.5 text-xs font-bold flex items-center justify-between shadow-md">
           <div className="flex items-center gap-2">
@@ -418,9 +411,9 @@ export function GatewayCheckoutView({
       )}
 
       {/* Main ZiniPay / Official bKash Card */}
-      <div className="w-full max-w-[440px] overflow-hidden rounded-xl bg-white shadow-2xl border border-slate-200/90 flex flex-col">
-        {/* Top Bar: Method Switcher (Only shows if >1 gateway is enabled in Admin) */}
-        <div className="px-4 py-3 bg-slate-50 border-b border-slate-200/80 flex items-center justify-between gap-2">
+      <div className="w-full max-w-[440px] overflow-hidden rounded-2xl bg-white shadow-2xl border border-slate-200/90 flex flex-col">
+        {/* Top Bar: Method Switcher */}
+        <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200/80 flex items-center justify-between gap-2">
           <button
             type="button"
             onClick={() => router.push(`/account?order=${orderId}`)}
@@ -460,18 +453,18 @@ export function GatewayCheckoutView({
           ) : (
             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Secure MFS Checkout</span>
+              <span>Secure Checkout</span>
             </div>
           )}
         </div>
 
         {/* Official Brand Logo Header */}
-        <div className="py-4 px-6 flex items-center justify-center border-b border-slate-100 bg-white">
+        <div className="py-3.5 px-6 flex items-center justify-center border-b border-slate-100 bg-white">
           <div className="flex items-center gap-2.5">
             <img
               src={theme.icon}
               alt={theme.name}
-              className="h-10 w-auto object-contain"
+              className="h-9 w-auto object-contain"
             />
             <span className="text-2xl font-black tracking-tight text-slate-900">
               {theme.name}
@@ -479,14 +472,14 @@ export function GatewayCheckoutView({
           </div>
         </div>
 
-        {/* Product / Merchant & Invoice Info Bar (Matches ZiniPay Screenshot) */}
-        <div className="px-5 py-3.5 bg-white flex items-center justify-between gap-3 border-b border-slate-100">
+        {/* Product / Merchant & Invoice Info Bar */}
+        <div className="px-5 py-3 bg-white flex items-center justify-between gap-3 border-b border-slate-100">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-full bg-amber-50 border border-amber-200/60 flex items-center justify-center text-amber-600 shrink-0">
+            <div className="w-9 h-9 rounded-full bg-amber-50 border border-amber-200/60 flex items-center justify-center text-amber-600 shrink-0">
               <ShoppingCart className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <div className="text-sm font-bold text-slate-800 truncate">
+              <div className="text-xs sm:text-sm font-bold text-slate-800 truncate">
                 {itemsSummary || 'Blumartbd Order'}
               </div>
               <div className="flex items-center gap-1.5 mt-0.5">
@@ -515,7 +508,7 @@ export function GatewayCheckoutView({
         </div>
 
         {/* ========================================================================
-            STEP 1: SENDER ACCOUNT NUMBER INPUT (Matches Screenshot 4 & 6)
+            STEP 1: SENDER ACCOUNT NUMBER INPUT
            ======================================================================== */}
         {step === 'sender_input' ? (
           <form onSubmit={handleConfirmSenderNumber} className="flex flex-col">
@@ -560,12 +553,12 @@ export function GatewayCheckoutView({
               ) : (
                 <p className="text-xs font-semibold text-white/90 pt-1">
                   Confirm and proceed,{' '}
-                  <span className="underline opacity-90">instant auto-verification</span>
+                  <span className="underline opacity-90">terms &amp; conditions</span>
                 </p>
               )}
             </div>
 
-            {/* Bottom Cancel / Confirm Buttons (Matches Screenshot 6) */}
+            {/* Bottom Cancel / Confirm Buttons */}
             <div className="p-4 bg-white grid grid-cols-2 gap-3 border-t border-slate-100">
               <button
                 type="button"
@@ -593,11 +586,11 @@ export function GatewayCheckoutView({
           </form>
         ) : (
           /* ========================================================================
-             STEP 2: BENGALI INSTRUCTIONS + VISUAL GUIDE + WAITING (Matches Screenshot 7)
+             STEP 2: BENGALI INSTRUCTIONS + REAL APP SCREENSHOT + WAITING
              ======================================================================== */
           <div className="flex flex-col">
             <div
-              className="p-5 text-white space-y-4"
+              className="p-5 text-white space-y-3.5"
               style={{ backgroundColor: theme.brandBg }}
             >
               {/* Registered Sender Pill with Change button */}
@@ -623,7 +616,7 @@ export function GatewayCheckoutView({
               >
                 <div>
                   <div className="text-[10px] font-bold uppercase tracking-wider text-white/80">
-                    {theme.type.toUpperCase()} NUMBER (সেন্ড মানি করুন)
+                    {theme.type === 'Personal' ? 'PERSONAL NUMBER' : 'MERCHANT NUMBER'}
                   </div>
                   <div className="font-mono text-xl sm:text-2xl font-black text-white tracking-wide mt-0.5 select-all">
                     {theme.number}
@@ -649,23 +642,7 @@ export function GatewayCheckoutView({
                 </button>
               </div>
 
-              {/* Amount Copy Strip */}
-              <div className="rounded-lg px-3.5 py-2.5 bg-black/15 border border-white/15 flex items-center justify-between text-xs">
-                <div>
-                  <span className="text-white/80">পাঠাতে হবে (Send Exactly): </span>
-                  <strong className="font-mono text-sm font-black text-white">৳{totalBdt}</strong>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleCopy(String(totalBdt), 'amount')}
-                  className="px-2.5 py-1 rounded bg-white/15 hover:bg-white/25 text-white text-[11px] font-bold border-0 cursor-pointer flex items-center gap-1"
-                >
-                  {copiedAmount ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                  <span>{copiedAmount ? 'Copied' : 'Copy ৳'}</span>
-                </button>
-              </div>
-
-              {/* Step-by-Step Bengali Instructions + Visual Guide (Matches Screenshot 7) */}
+              {/* Step-by-Step Bengali Instructions + Real App Guide Image */}
               <div className="space-y-2.5 text-xs font-semibold text-white">
                 <div className="flex items-center gap-2.5">
                   <span
@@ -674,7 +651,9 @@ export function GatewayCheckoutView({
                   >
                     1
                   </span>
-                  <span>উপরের {theme.type === 'Personal' ? 'পার্সোনাল' : theme.type} অ্যাকাউন্ট নম্বর কপি করুন</span>
+                  <span>
+                    উপরের {theme.type === 'Personal' ? 'পার্সোনাল' : theme.type} অ্যাকাউন্ট নম্বর কপি করুন
+                  </span>
                 </div>
 
                 <div className="flex items-center gap-2.5">
@@ -684,75 +663,71 @@ export function GatewayCheckoutView({
                   >
                     2
                   </span>
-                  <span>{theme.bnName} অ্যাপ এ যান তারপর &lsquo;সেন্ড মানি&rsquo; নির্বাচন করুন</span>
-                </div>
-
-                {/* Clean Visual App Mockup Card (Matches Screenshot 7 Send Money visual) */}
-                <div className="rounded-xl overflow-hidden bg-white text-slate-800 shadow-md border border-white/40 mx-2 my-1">
-                  <div
-                    className="px-3.5 py-2.5 flex items-center justify-between text-white"
-                    style={{ backgroundColor: theme.brandDarkBg }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-bold">
-                        {theme.name[0]}
-                      </div>
-                      <span className="text-[11px] font-bold bg-white text-slate-900 px-2.5 py-0.5 rounded-full">
-                        ৳ ব্যালেন্স দেখুন
-                      </span>
-                    </div>
-                    <img
-                      src={theme.icon}
-                      alt={theme.name}
-                      className="h-5 w-5 rounded-full bg-white p-0.5 object-contain"
-                    />
-                  </div>
-
-                  <div className="p-3 grid grid-cols-4 gap-2 text-center bg-white">
-                    <div
-                      className="p-2 rounded-xl border-2 flex flex-col items-center justify-center gap-1 shadow-xs relative"
-                      style={{ borderColor: theme.brandBg, backgroundColor: theme.brandLightBg }}
-                    >
-                      <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-white"
-                        style={{ backgroundColor: theme.brandBg }}
-                      >
-                        <Send className="w-4 h-4" />
-                      </div>
-                      <span className="text-[10px] font-black text-slate-900">সেন্ড মানি</span>
-                    </div>
-
-                    <div className="p-2 rounded-xl flex flex-col items-center justify-center gap-1 opacity-55">
-                      <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                        <Smartphone className="w-4 h-4" />
-                      </div>
-                      <span className="text-[10px] font-semibold text-slate-600">রিচার্জ</span>
-                    </div>
-
-                    <div className="p-2 rounded-xl flex flex-col items-center justify-center gap-1 opacity-55">
-                      <div className="w-8 h-8 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center font-bold text-xs">
-                        ৳
-                      </div>
-                      <span className="text-[10px] font-semibold text-slate-600">ক্যাশ আউট</span>
-                    </div>
-
-                    <div className="p-2 rounded-xl flex flex-col items-center justify-center gap-1 opacity-55">
-                      <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center">
-                        <ShoppingCart className="w-4 h-4" />
-                      </div>
-                      <span className="text-[10px] font-semibold text-slate-600">পেমেন্ট</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2.5 pt-1">
-                  <span
-                    className="w-5 h-5 rounded-full bg-white text-xs font-black flex items-center justify-center shrink-0"
-                    style={{ color: theme.brandBg }}
-                  >
-                    3
+                  <span>
+                    {theme.bnName} অ্যাপ এ যান তারপর &lsquo;সেন্ড মানি&rsquo; নির্বাচন করুন
                   </span>
-                  <span>অ্যাকাউন্ট নম্বর পেস্ট করুন এবং ৳{totalBdt} সেন্ড মানি করুন।</span>
+                </div>
+
+                {/* Real Cropped bKash / Nagad / Rocket App Screenshot with Animated Arrow & Ring */}
+                <div className="relative rounded-xl overflow-hidden bg-white shadow-lg border-2 border-white/40 mx-1 my-1.5">
+                  <img
+                    src={theme.guideImg}
+                    alt={`${theme.name} Send Money Guide`}
+                    className="w-full h-auto block select-none"
+                  />
+
+                  {/* Curved Yellow Pointer Arrow & Highlight Circle pointing to "Send Money" (1st icon on bottom-left) */}
+                  <svg
+                    viewBox="0 0 487 348"
+                    className="absolute inset-0 w-full h-full pointer-events-none"
+                    fill="none"
+                  >
+                    {/* Highlight Circle around "Send Money" icon */}
+                    <circle
+                      cx={method === 'nagad' ? '68' : method === 'rocket' ? '68' : '64'}
+                      cy={method === 'nagad' ? '280' : method === 'rocket' ? '252' : '255'}
+                      r="52"
+                      stroke="#FACC15"
+                      strokeWidth="4"
+                      strokeDasharray="8 5"
+                      fill="rgba(250, 204, 21, 0.14)"
+                    />
+                    {/* Bold Curved Yellow Arrow pointing directly at Send Money */}
+                    <path
+                      d="M 245 140 Q 145 130 92 205"
+                      stroke="#FACC15"
+                      strokeWidth="7"
+                      strokeLinecap="round"
+                      fill="none"
+                    />
+                    <polygon
+                      points="82,216 90,192 108,207"
+                      fill="#FACC15"
+                    />
+                  </svg>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 pt-0.5">
+                  <div className="flex items-center gap-2.5">
+                    <span
+                      className="w-5 h-5 rounded-full bg-white text-xs font-black flex items-center justify-center shrink-0"
+                      style={{ color: theme.brandBg }}
+                    >
+                      3
+                    </span>
+                    <span>
+                      অ্যাকাউন্ট নম্বর পেস্ট করুন এবং <strong>৳{totalBdt}</strong> সেন্ড মানি করুন।
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(String(totalBdt), 'amount')}
+                    className="px-2 py-1 rounded bg-white/15 hover:bg-white/25 text-white text-[10px] font-bold border border-white/20 cursor-pointer shrink-0 flex items-center gap-1"
+                  >
+                    {copiedAmount ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                    <span>{copiedAmount ? 'Copied' : `৳${totalBdt}`}</span>
+                  </button>
                 </div>
               </div>
 
@@ -779,7 +754,11 @@ export function GatewayCheckoutView({
                       disabled={submittingTrx}
                       className="h-10 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs border-0 cursor-pointer flex items-center gap-1.5 shrink-0"
                     >
-                      {submittingTrx ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                      {submittingTrx ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Check className="w-4 h-4" />
+                      )}
                       <span>Verify</span>
                     </button>
                   </div>
@@ -807,44 +786,44 @@ export function GatewayCheckoutView({
               )}
             </div>
 
-            {/* White Footer: Manual TrxID Fallback & Cancel */}
-            <div className="px-5 py-3.5 bg-white border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs">
-              {!isStrictTrxOnly ? (
-                <div className="text-slate-600">
-                  <span>অটো ভেরিফাই হতে দেরি হচ্ছে? </span>
+            {/* Clean Structured White Action Footer (Fixes Screenshot 5) */}
+            <div className="p-4 bg-white border-t border-slate-100 space-y-3">
+              {!isStrictTrxOnly && (
+                <div className="grid grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/account?order=${orderId}`)}
+                    className="h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer border-0"
+                  >
+                    Cancel Payment
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
                       setModalFeedback(null);
                       setShowTrxModal(true);
                     }}
-                    style={{ color: theme.brandBg }}
-                    className="font-bold underline bg-transparent border-0 p-0 cursor-pointer"
+                    className="h-10 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800 font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                   >
-                    TrxID দিয়ে ভেরিফাই করুন
+                    <KeyRound className="w-3.5 h-3.5" style={{ color: theme.brandBg }} />
+                    <span>TrxID দিয়ে ভেরিফাই</span>
                   </button>
                 </div>
-              ) : (
-                <span className="text-slate-500 font-medium">TrxID Verification Mode</span>
               )}
 
-              <button
-                type="button"
-                onClick={() => router.push(`/account?order=${orderId}`)}
-                className="text-xs font-bold text-slate-500 hover:text-slate-800 bg-transparent border-0 p-0 cursor-pointer"
-              >
-                Cancel
-              </button>
+              {/* Subtle Integrated Security & Brand Bar */}
+              <div className="pt-1 flex items-center justify-between text-[11px] text-slate-400">
+                <div className="flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  <span className="font-medium text-slate-500">Instant Auto-Verification</span>
+                </div>
+                <div className="scale-90 origin-right opacity-85">
+                  <BrandLogo size="sm" />
+                </div>
+              </div>
             </div>
           </div>
         )}
-      </div>
-
-      {/* Subtle Brand Footer */}
-      <div className="mt-3 flex items-center gap-2 text-[11px] font-semibold text-slate-500">
-        <BrandLogo size="sm" />
-        <span>•</span>
-        <span>Autonomous Instant MFS Gateway</span>
       </div>
 
       {/* Manual TrxID Fallback Modal */}
@@ -906,9 +885,9 @@ export function GatewayCheckoutView({
                 className="w-full h-11 rounded-xl text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-opacity hover:opacity-95 border-0 disabled:opacity-50"
               >
                 {submittingTrx ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 h-4 animate-spin" />
                 ) : (
-                  <Check className="h-4 w-4" />
+                  <Check className="h-4 h-4" />
                 )}
                 <span>{submittingTrx ? 'Verifying...' : 'Confirm & Verify'}</span>
               </button>
