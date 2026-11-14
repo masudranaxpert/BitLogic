@@ -79,9 +79,7 @@ export default function AdminDashboard() {
   const searchParams = useSearchParams();
   const activeTab = pathToAdminTab(pathname);
 
-  const [consoleUser, setConsoleUser] = useState<ConsoleUser | null>(
-    () => getCachedConsoleUser(),
-  );
+  const [consoleUser, setConsoleUser] = useState<ConsoleUser | null>(null);
   const lastNonProfileTabRef = useRef<AdminTab>('overview');
   useEffect(() => {
     if (activeTab !== 'profile') {
@@ -90,6 +88,8 @@ export default function AdminDashboard() {
   }, [activeTab]);
 
   useEffect(() => {
+    const cached = getCachedConsoleUser();
+    if (cached) setConsoleUser(cached);
     let cancelled = false;
     void fetch('/api/admin/me', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
