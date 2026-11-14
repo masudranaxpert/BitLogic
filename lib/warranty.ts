@@ -157,3 +157,19 @@ export function formatDurationDays(
   return `${value} ${value === 1 ? 'Day' : 'Days'}`;
 }
 
+export function planWarrantyDisplay(
+  plan?: {
+    warrantyType?: 'warranty' | 'login-only';
+    warrantyBadge?: string | null;
+    warrantyHeadline?: string | null;
+  } | null,
+): { isLoginOnly: boolean; badgeText: string; headline: string } {
+  const isLoginOnly = plan?.warrantyType === 'login-only';
+  const badgeText =
+    plan?.warrantyBadge || (isLoginOnly ? 'Login Warranty' : 'No Warranty');
+  const headline =
+    plan?.warrantyHeadline ||
+    (isLoginOnly ? 'Login Warranty Only' : 'No Warranty');
+  return { isLoginOnly, badgeText, headline };
+}
+

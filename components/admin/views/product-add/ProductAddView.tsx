@@ -16,6 +16,7 @@ import {
   findCredentialScheme,
 } from '@/lib/admin/credential-schemes';
 import {
+  NO_WARRANTY_ID,
   defaultDraftVariants,
   defaultLoginStepsForScheme,
   emptyDraftVariant,
@@ -86,7 +87,7 @@ export default function ProductAddView({
   onOpenCategories,
 }: ProductAddViewProps) {
   const isEdit = Boolean(editingProduct);
-  const defaultWarrantyId = warranties[0]?.id || '';
+  const defaultWarrantyId = warranties[0]?.id || NO_WARRANTY_ID;
   const defaultCredentialSchemeId = credentialSchemes[0]?.id || '';
 
   const [name, setName] = useState(editingProduct?.name ?? '');
@@ -228,7 +229,7 @@ export default function ProductAddView({
         .filter(Boolean);
 
       const plan = findWarranty(warranties, dv.warrantyId);
-      const hasWarranty = plan?.kind !== 'login-only';
+      const hasWarranty = Boolean(plan && plan.kind !== 'login-only' && plan.days > 0);
       const days = plan?.days ?? 0;
       const scheme = findCredentialScheme(
         credentialSchemes,

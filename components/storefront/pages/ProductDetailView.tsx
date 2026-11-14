@@ -28,6 +28,7 @@ import {
 import { useStoreNav } from '@/context/StoreNavContext';
 import { useCatalog } from '@/context/CatalogContext';
 import { BBCodeRenderer } from '@/components/admin/ui/BBCode';
+import { planWarrantyDisplay } from '@/lib/warranty';
 
 type TabId = 'description' | 'specification' | 'review';
 
@@ -155,13 +156,11 @@ export function ProductDetailView({ productId }: { productId: string }) {
           ),
         ].slice(0, 4);
 
-  const isLoginOnly = selectedPlan?.warrantyType === 'login-only';
-  const warrantyBadgeText = selectedPlan?.warrantyBadge || '25D Warranty';
-  const warrantyHeadline =
-    selectedPlan?.warrantyHeadline ||
-    (isLoginOnly
-      ? 'No Warranty — Login Warranty Only'
-      : '25 Days Replacement Warranty');
+  const {
+    isLoginOnly,
+    badgeText: warrantyBadgeText,
+    headline: warrantyHeadline,
+  } = planWarrantyDisplay(selectedPlan);
   const planDetails = selectedPlan?.details || [
     'Ready-made account with login credentials provided.',
     'Log in using the provided email & password.',
@@ -590,10 +589,6 @@ export function ProductDetailView({ productId }: { productId: string }) {
                 <span className="font-bold text-[#0F172A] text-right">
                   {selectedPlan ? warrantyBadgeText : 'Select an option'}
                 </span>
-              </div>
-              <div className="py-2 flex justify-between gap-4">
-                <span className="text-slate-500 shrink-0">Delivery</span>
-                <span className="font-bold text-[#0F172A] text-right">Email</span>
               </div>
               <div className="py-2 flex justify-between gap-4">
                 <span className="text-slate-500 shrink-0">Payment</span>

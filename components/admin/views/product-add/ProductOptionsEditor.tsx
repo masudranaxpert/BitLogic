@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Eye, Plus, Trash2 } from 'lucide-react';
 import type { CredentialScheme, WarrantyPlan } from '@/lib/admin-data';
 import { Card, SourcingSelect } from '@/components/admin/ui/primitives';
-import type { DraftVariant } from './draft-helpers';
+import { allWarranties, type DraftVariant } from './draft-helpers';
 import ProductSchedulePicker from './ProductSchedulePicker';
 import { ItemView, Pill, SOURCING, api, stockPill, taka, type OptionLink, type OptionView, type SupplierCatalogItem } from '@/components/admin/views/suppliers/shared';
 
@@ -248,15 +248,11 @@ export default function ProductOptionsEditor({
                 onChange={(e) => onUpdate(dv.tempId, 'warrantyId', e.target.value)}
                 className="w-full h-9 px-3 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg"
               >
-                {warranties.length === 0 ? (
-                  <option value="">Add a warranty first</option>
-                ) : (
-                  warranties.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name}
-                    </option>
-                  ))
-                )}
+                {allWarranties(warranties).map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

@@ -62,11 +62,40 @@ export function defaultDraftVariants(): DraftVariant[] {
   return [];
 }
 
+export const NO_WARRANTY_ID = '__no_warranty__';
+export const LOGIN_WARRANTY_ID = '__login_warranty__';
+
+export const BUILTIN_WARRANTIES: WarrantyPlan[] = [
+  {
+    id: NO_WARRANTY_ID,
+    name: 'No Warranty',
+    badge: 'No Warranty',
+    headline: 'No Warranty',
+    kind: 'login-only',
+    days: 0,
+    unit: 'days',
+  },
+  {
+    id: LOGIN_WARRANTY_ID,
+    name: 'Login Warranty',
+    badge: 'Login Warranty',
+    headline: 'Login Warranty Only',
+    kind: 'login-only',
+    days: 0,
+    unit: 'days',
+  },
+];
+
+export function allWarranties(warranties: WarrantyPlan[]): WarrantyPlan[] {
+  return [...BUILTIN_WARRANTIES, ...warranties];
+}
+
 export function findWarranty(
   warranties: WarrantyPlan[],
   id: string,
 ): WarrantyPlan | undefined {
-  return warranties.find((w) => w.id === id) || warranties[0];
+  const pool = allWarranties(warranties);
+  return pool.find((w) => w.id === id) || pool[0];
 }
 
 export function variantToDraft(
@@ -74,17 +103,29 @@ export function variantToDraft(
   warranties: WarrantyPlan[],
   schemes: CredentialScheme[] = [],
 ): DraftVariant {
+  const noWarranty =
+    !variant.hasWarranty &&
+    /no warranty/i.test(variant.importantNote || variant.warrantyTerms || '');
   const loginOnly =
     !variant.hasWarranty ||
     variant.warrantyDays === 0 ||
-    /login only/i.test(variant.warrantyTerms || '');
+    /login/i.test(variant.importantNote || variant.warrantyTerms || '');
 
-  const match =
-    warranties.find((w) =>
-      loginOnly
-        ? w.kind === 'login-only'
-        : w.kind === 'warranty' && w.days === variant.warrantyDays,
-    ) || warranties[0];
+  const match = noWarranty
+    ? BUILTIN_WARRANTIES[0]
+    : loginOnly
+      ? warranties.find((w) => w.kind === 'login-only') || BUILTIN_WARRANTIES[1]
+      : warranties.find(
+          (w) =>
+            w.kind === 'warranty' &&
+            w.days === variant.warrantyDays &&
+            (w.badge === variant.importantNote || w.headline === variant.warrantyTerms),
+        ) ||
+        warranties.find(
+          (w) => w.kind === 'warranty' && w.days === variant.warrantyDays,
+        ) ||
+        warranties[0] ||
+        BUILTIN_WARRANTIES[0];
 
   const scheme =
     findCredentialScheme(schemes, variant.credentialSchemeId) ||

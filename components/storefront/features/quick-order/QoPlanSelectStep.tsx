@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ArrowRight, AlertCircle } from 'lucide-react';
 import type { Plan, Product } from '@/lib/products';
 import { formatPrice } from '@/lib/products';
+import { planWarrantyDisplay } from '@/lib/warranty';
 import { PlanWarrantyCard } from '@/components/storefront/ui';
 import { QoPlanChips } from './QoPlanChips';
 import { QoQtyControl } from './QoQtyControl';
@@ -33,13 +34,11 @@ export function QoPlanSelectStep({
       ? formatPrice(minPrice)
       : `${formatPrice(minPrice)} – ${formatPrice(maxPrice)}`;
 
-  const isLoginOnly = plan?.warrantyType === 'login-only';
-  const warrantyBadgeText = plan?.warrantyBadge || '25D Warranty';
-  const warrantyHeadline =
-    plan?.warrantyHeadline ||
-    (isLoginOnly
-      ? 'No Warranty — Login Warranty Only'
-      : '25 Days Replacement Warranty');
+  const {
+    isLoginOnly,
+    badgeText: warrantyBadgeText,
+    headline: warrantyHeadline,
+  } = planWarrantyDisplay(plan);
   const planDetails = plan?.details || [
     'Ready-made account with login credentials provided.',
     'Log in using the provided email & password.',

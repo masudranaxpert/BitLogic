@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {
   calculateDays,
   formatDurationDays,
+  planWarrantyDisplay,
   unitFromDays,
   warrantyWindow,
 } from './warranty';
@@ -32,5 +33,29 @@ const start = new Date(2026, 10, 14, 10, 0, 0);
 const win = warrantyWindow(start, 0.5);
 assert.equal(win.startsAt, '2026-11-14 10:00');
 assert.equal(win.endsAt, '2026-11-14 22:00');
+
+// Storefront fallback avoids hardcoded '25D Warranty'
+assert.deepEqual(planWarrantyDisplay(null), {
+  isLoginOnly: false,
+  badgeText: 'No Warranty',
+  headline: 'No Warranty',
+});
+assert.deepEqual(planWarrantyDisplay({ warrantyType: 'login-only' }), {
+  isLoginOnly: true,
+  badgeText: 'Login Warranty',
+  headline: 'Login Warranty Only',
+});
+assert.deepEqual(
+  planWarrantyDisplay({
+    warrantyType: 'warranty',
+    warrantyBadge: '12H Warranty',
+    warrantyHeadline: '12 Hours Replacement Warranty',
+  }),
+  {
+    isLoginOnly: false,
+    badgeText: '12H Warranty',
+    headline: '12 Hours Replacement Warranty',
+  },
+);
 
 console.log('warranty: ok');

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, Mail, Phone, User, AlertCircle, Loader2 } from 'lucide-react';
 import type { Plan, Product } from '@/lib/products';
 import { formatPrice } from '@/lib/products';
+import { planWarrantyDisplay } from '@/lib/warranty';
 import { useCustomerSession } from '@/hooks/use-customer-session';
 import { rememberOrderId, writeCustomer } from '@/lib/customerSession';
 import {
@@ -50,8 +51,8 @@ export function QoCheckoutStep({
 
   const subtotal = plan.price * qty;
   const finalTotal = Math.max(0, subtotal - couponDiscount);
-  const warrantyBadgeText = plan.warrantyBadge || '25D Warranty';
-  const isLoginOnly = plan.warrantyType === 'login-only';
+  const { isLoginOnly, badgeText: warrantyBadgeText } =
+    planWarrantyDisplay(plan);
 
   const applyCoupon = async () => {
     const clean = coupon.trim();
