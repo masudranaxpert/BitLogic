@@ -19,7 +19,7 @@
   --radius: 12px;
   --font: var(--font-jakarta), 'Karla', 'Segoe UI', sans-serif;
   --display: var(--font-jakarta), 'Bricolage Grotesque', sans-serif;
-  --bn: 'Noto Sans Bengali', var(--font-jakarta), sans-serif;
+  --bn: var(--font-bengali), var(--font-jakarta), sans-serif;
   --text-price: 0.96875rem;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --pad: clamp(0.75rem, 3vw, 1.25rem);
