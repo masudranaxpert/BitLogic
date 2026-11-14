@@ -255,35 +255,37 @@ export default function ProductMediaPicker({
         open={mediaModalOpen}
         onClose={onCloseModal}
         title="Media library"
-        maxWidth="max-w-3xl"
+        maxWidth="max-w-4xl"
       >
         <div className="space-y-4 text-xs">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <SegmentedTabs
-              options={[
-                { value: 'all', label: 'All Files', count: mediaAssets.length },
-                {
-                  value: 'Product Covers',
-                  label: 'Product Covers',
-                  count: mediaAssets.filter((a) => a.folder === 'Product Covers').length,
-                },
-                {
-                  value: 'Brand Icons',
-                  label: 'Brand Icons',
-                  count: mediaAssets.filter((a) => a.folder === 'Brand Icons').length,
-                },
-                {
-                  value: 'Login Guides',
-                  label: 'Login Guides',
-                  count: mediaAssets.filter((a) => a.folder === 'Login Guides').length,
-                },
-              ]}
-              value={mediaFolder}
-              onChange={onMediaFolderChange}
-            />
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <SegmentedTabs
+                options={[
+                  { value: 'all', label: 'All Files', count: mediaAssets.length },
+                  {
+                    value: 'Product Covers',
+                    label: 'Product Covers',
+                    count: mediaAssets.filter((a) => a.folder === 'Product Covers').length,
+                  },
+                  {
+                    value: 'Brand Icons',
+                    label: 'Brand Icons',
+                    count: mediaAssets.filter((a) => a.folder === 'Brand Icons').length,
+                  },
+                  {
+                    value: 'Login Guides',
+                    label: 'Login Guides',
+                    count: mediaAssets.filter((a) => a.folder === 'Login Guides').length,
+                  },
+                ]}
+                value={mediaFolder}
+                onChange={onMediaFolderChange}
+              />
+            </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <div className="relative flex-1 sm:w-52">
+            <div className="flex items-center gap-2 flex-1 sm:flex-initial min-w-[220px]">
+              <div className="relative flex-1 sm:w-48">
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"

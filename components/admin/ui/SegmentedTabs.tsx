@@ -152,7 +152,7 @@ export function SegmentedTabs<T extends string>({
   return (
     <div
       role="tablist"
-      className="surface-pill-segment inline-flex items-center p-0.5 rounded-md h-9 max-w-full overflow-x-auto gap-0.5"
+      className="surface-pill-segment inline-flex items-center p-0.5 rounded-md h-9 max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden gap-0.5"
     >
       {options.map((opt) => (
         <TabButton
