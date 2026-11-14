@@ -10,6 +10,18 @@ import {
 } from '@/lib/admin/credential-schemes';
 import { formatDurationDays } from '@/lib/warranty';
 
+export interface DraftSupplierLink {
+  id: string;
+  name: string;
+  variantName?: string;
+  supplierName: string;
+  price: string;
+  currency: string;
+  costBdt: number | null;
+  stock: number | null;
+  status: string;
+}
+
 /** Option draft aligned to storefront `Plan` fields. */
 export interface DraftVariant {
   tempId: string;
@@ -24,10 +36,10 @@ export interface DraftVariant {
   credentialSchemeId: string;
   /** Buyer details — one bullet per line (storefront Plan.details) */
   detailsText: string;
-  /** Delivery schedule window */
-  isActive: boolean;
   /** Plan On/Off visibility toggle on storefront */
+  isActive: boolean;
   sourcing: 'own' | 'own_then_supplier' | 'supplier_auto' | 'supplier_manual';
+  supplierLinks: DraftSupplierLink[];
   renewable: boolean;
   /** current = today's price; locked = the price they first paid */
   renewalPricing: 'current' | 'locked';
@@ -51,6 +63,7 @@ export function emptyDraftVariant(
     detailsText: '',
     isActive: true,
     sourcing: 'own',
+    supplierLinks: [],
     renewable: true,
     renewalPricing: 'current',
     allowOrderWhenOutOfStock: false,
@@ -146,6 +159,7 @@ export function variantToDraft(
     detailsText: (variant.loginInstructions || []).join('\n'),
     isActive: variant.isActive !== false,
     sourcing: (variant.sourcing as any) || 'own',
+    supplierLinks: [],
     renewable: variant.renewable !== false,
     renewalPricing: variant.renewalPricing === 'locked' ? 'locked' : 'current',
     allowOrderWhenOutOfStock: Boolean(variant.allowOrderWhenOutOfStock),

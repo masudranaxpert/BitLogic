@@ -109,6 +109,8 @@ export interface ProductVariant {
   pricingMode?: string;
   /** Read-only: database plan id (for supplier links / price history) */
   planDbId?: string;
+  /** Optional supplier catalog item ids to link when saving a new plan. */
+  supplierProductIds?: string[];
   productId: string;
   name: string;
   isDefault?: boolean;

@@ -245,6 +245,10 @@ export default function ProductAddView({
         productId: prodId,
         name: dv.name.trim() || `Plan ${index + 1}`,
         sourcing: dv.sourcing || 'own',
+        supplierProductIds:
+          dv.sourcing !== 'own' && dv.supplierLinks.length > 0
+            ? dv.supplierLinks.map((l) => l.id)
+            : undefined,
         isDefault: false,
         isActive: dv.isActive !== false,
         durationDays: parsedDays,

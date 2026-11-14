@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   buildProductAuditEvents,
+  planLinkAuditEvent,
   planToggleAuditEvent,
 } from './catalog-audit';
 
@@ -60,5 +61,9 @@ assert.deepEqual(
 const quick = planToggleAuditEvent('Gemini', 'prod-gemini', 'Pro 1M', false);
 assert.equal(quick.action, 'product.plan_off');
 assert.equal(quick.summary, 'Turned OFF plan "Pro 1M" on "Gemini"');
+
+const linked = planLinkAuditEvent('Claude', 'prod-claude', 'Pro 1M', 2);
+assert.equal(linked.action, 'plan.link');
+assert.equal(linked.summary, 'Linked 2 supplier sources to plan "Pro 1M" on "Claude"');
 
 console.log('catalog-audit: ok');

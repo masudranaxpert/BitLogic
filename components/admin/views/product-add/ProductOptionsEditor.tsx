@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Eye, Plus, Trash2 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Eye, Link2, Plus, Search, Trash2, X } from 'lucide-react';
 import type { CredentialScheme, WarrantyPlan } from '@/lib/admin-data';
 import { Card, SourcingSelect, SwitchToggle } from '@/components/admin/ui/primitives';
-import { allWarranties, type DraftVariant } from './draft-helpers';
+import { allWarranties, type DraftSupplierLink, type DraftVariant } from './draft-helpers';
 import ProductSchedulePicker from './ProductSchedulePicker';
 import { ItemView, Pill, SOURCING, api, stockPill, taka, type OptionLink, type OptionView, type SupplierCatalogItem } from '@/components/admin/views/suppliers/shared';
 
@@ -340,18 +340,31 @@ export default function ProductOptionsEditor({
               />
             </div>
 
-            {supplyPlans ? (
-              <PlanSourcingRow
-                plan={supplyPlans.find((p) => p.code === dv.tempId)}
-                unsaved={dv.tempId.startsWith('draft-')}
-                onManage={onManageSupply}
-                onViewItem={handleViewSupplierItem}
-              />
-            ) : dv.tempId.startsWith('draft-') && (dv.sourcing === 'supplier_auto' || dv.sourcing === 'supplier_manual' || dv.sourcing === 'own_then_supplier') ? (
-              <div className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 rounded-md px-3 py-2">
-                💡 <strong>Supplier linking:</strong> This plan will be configured for supplier purchasing. Once published, you can link the specific supplier catalog item anytime.
-              </div>
-            ) : null}
+            {(() => {
+              const savedPlan = supplyPlans?.find((p) => p.code === dv.tempId);
+              if (savedPlan) {
+                return (
+                  <PlanSourcingRow
+                    plan={savedPlan}
+                    onManage={onManageSupply}
+                    onViewItem={handleViewSupplierItem}
+                  />
+                );
+              }
+              return (
+                <DraftSupplierLinker
+                  links={dv.supplierLinks || []}
+                  sourcing={dv.sourcing || 'own'}
+                  onChange={(links) => {
+                    onUpdate(dv.tempId, 'supplierLinks', links);
+                    if (links.length > 0 && (dv.sourcing || 'own') === 'own') {
+                      onUpdate(dv.tempId, 'sourcing', 'own_then_supplier');
+                    }
+                  }}
+                  onInspect={setInspectingItem}
+                />
+              );
+            })()}
           </div>
 
           <div>
@@ -372,20 +385,242 @@ export default function ProductOptionsEditor({
   );
 }
 
+function DraftSupplierLinker({
+  links,
+  sourcing,
+  onChange,
+  onInspect,
+}: {
+  links: DraftSupplierLink[];
+  sourcing: string;
+  onChange: (next: DraftSupplierLink[]) => void;
+  onInspect: (item: SupplierCatalogItem) => void;
+}) {
+  const [open, setOpen] = useState(sourcing !== 'own' || links.length > 0);
+  const [query, setQuery] = useState('');
+  const [items, setItems] = useState<SupplierCatalogItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (sourcing !== 'own' || links.length > 0) setOpen(true);
+  }, [sourcing, links.length]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const params = new URLSearchParams({ status: 'available' });
+        if (query.trim()) params.set('q', query.trim());
+        const res = await api<{ items: SupplierCatalogItem[] }>(
+          `/api/admin/suppliers/catalog?${params.toString()}`,
+        );
+        if (!cancelled) setItems(res.items || []);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to load supplier items');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }, query.trim() ? 220 : 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [open, query]);
+
+  if (!open) {
+    return (
+      <div className="flex items-center justify-between gap-2 pt-0.5">
+        <span className="text-xs text-slate-500">
+          Delivering from your own Vault stock.
+        </span>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50/70 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300 cursor-pointer"
+        >
+          <Link2 className="h-3.5 w-3.5" aria-hidden />
+          Add supplier source
+        </button>
+      </div>
+    );
+  }
+
+  const pickedIds = new Set(links.map((l) => l.id));
+  const addLink = (item: SupplierCatalogItem) => {
+    if (pickedIds.has(item.id)) return;
+    onChange([
+      ...links,
+      {
+        id: item.id,
+        name: item.name,
+        variantName: item.variantName,
+        supplierName: item.supplierName,
+        price: item.price,
+        currency: item.currency,
+        costBdt: item.costBdt,
+        stock: item.stock,
+        status: item.status,
+      },
+    ]);
+  };
+  const removeLink = (id: string) => onChange(links.filter((l) => l.id !== id));
+
+  const inspectById = async (id: string) => {
+    const cached = items.find((i) => i.id === id);
+    if (cached) {
+      onInspect(cached);
+      return;
+    }
+    try {
+      const res = await api<{ items: SupplierCatalogItem[] }>(
+        `/api/admin/suppliers/catalog?id=${encodeURIComponent(id)}`,
+      );
+      if (res.items?.[0]) onInspect(res.items[0]);
+    } catch {
+      /* ignore modal lookup error */
+    }
+  };
+
+  return (
+    <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-2.5 dark:border-slate-800 dark:bg-slate-950">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+          Supplier sources {links.length > 0 ? `(${links.length} selected)` : '(saved on publish)'}
+        </span>
+        {sourcing === 'own' && links.length === 0 ? (
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="text-xs text-slate-400 hover:text-slate-600 cursor-pointer"
+          >
+            Cancel
+          </button>
+        ) : null}
+      </div>
+
+      {links.length > 0 ? (
+        <div className="divide-y divide-slate-100 rounded-md border border-emerald-200/80 bg-emerald-50/40 dark:divide-slate-800 dark:border-emerald-900/60 dark:bg-emerald-950/20">
+          {links.map((link, idx) => (
+            <div key={link.id} className="flex items-center justify-between gap-2 px-2.5 py-2 text-xs">
+              <div className="min-w-0">
+                <div className="truncate font-semibold text-slate-900 dark:text-slate-100">
+                  #{idx + 1} {[link.name, link.variantName].filter(Boolean).join(' · ')}
+                </div>
+                <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
+                  <span className="font-medium text-slate-700 dark:text-slate-300">{link.supplierName}</span>
+                  <span>•</span>
+                  <span>
+                    Cost: <strong className="text-slate-900 dark:text-slate-100">{taka(link.costBdt)}</strong> ({link.price} {link.currency})
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                {stockPill(link.status, link.stock)}
+                <button
+                  type="button"
+                  onClick={() => void inspectById(link.id)}
+                  className="p-1 rounded text-slate-400 hover:text-emerald-600 cursor-pointer"
+                  aria-label={`View ${link.name}`}
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeLink(link.id)}
+                  className="p-1 rounded text-slate-400 hover:text-rose-600 cursor-pointer"
+                  aria-label={`Remove ${link.name}`}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" aria-hidden />
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search supplier items by name or supplier..."
+          aria-label="Search supplier catalog"
+          className="h-8 w-full rounded-md border border-slate-200 bg-white pl-8 pr-2.5 text-xs focus:border-emerald-600 focus:outline-none dark:border-slate-700 dark:bg-slate-900"
+        />
+      </div>
+
+      {error ? (
+        <p className="m-0 text-xs text-rose-600">{error}</p>
+      ) : loading ? (
+        <p className="m-0 text-xs text-slate-500">Loading supplier catalog...</p>
+      ) : items.length === 0 ? (
+        <p className="m-0 text-xs text-slate-500">No supplier items matched.</p>
+      ) : (
+        <div className="max-h-48 divide-y divide-slate-100 overflow-y-auto rounded-md border border-slate-200/80 dark:divide-slate-800 dark:border-slate-800">
+          {items.slice(0, 25).map((item) => {
+            const added = pickedIds.has(item.id);
+            return (
+              <div key={item.id} className="flex items-center justify-between gap-2 px-2.5 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-900/60">
+                <div className="min-w-0">
+                  <div className="truncate font-medium text-slate-900 dark:text-slate-100">
+                    {[item.name, item.variantName].filter(Boolean).join(' · ')}
+                  </div>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
+                    <span>{item.supplierName}</span>
+                    <span>•</span>
+                    <span className="tabular-nums">{taka(item.costBdt)}</span>
+                    <span>({item.price} {item.currency})</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {stockPill(item.status, item.stock)}
+                  <button
+                    type="button"
+                    onClick={() => onInspect(item)}
+                    className="p-1 rounded text-slate-400 hover:text-emerald-600 cursor-pointer"
+                    aria-label={`Inspect ${item.name}`}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={added}
+                    onClick={() => addLink(item)}
+                    className={`rounded-md px-2 py-1 text-[11px] font-semibold cursor-pointer ${
+                      added
+                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+                        : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                    }`}
+                  >
+                    {added ? 'Linked' : '+ Link'}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PlanSourcingRow({
   plan,
-  unsaved,
   onManage,
   onViewItem,
 }: {
   plan?: OptionView;
-  unsaved: boolean;
   onManage?: (planId: string) => void;
   onViewItem?: (link: OptionLink) => void;
 }) {
-  if (!plan) {
-    return unsaved ? <p className="m-0 text-xs text-slate-500">Save the product before linking a supplier.</p> : null;
-  }
+  if (!plan) return null;
   const names = Array.from(new Set(plan.links.map((l) => l.supplierName))).join(', ');
   return (
     <div className="rounded-lg border border-slate-200 px-3 py-2.5 dark:border-slate-800">

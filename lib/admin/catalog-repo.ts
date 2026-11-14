@@ -1,14 +1,17 @@
 import { db } from '@/lib/db';
 import { recordPriceChange } from '@/lib/suppliers/core';
+import { linkPlan } from '@/lib/suppliers/admin';
 import { normalizeDurationUnit } from '@/lib/warranty';
 import type {
   CredentialScheme,
   DigitalProduct,
   ProductCategory,
+  ProductVariant,
   WarrantyPlan,
 } from '@/lib/admin/types';
 import {
   buildProductAuditEvents,
+  planLinkAuditEvent,
   planToggleAuditEvent,
   type ProductAuditEvent,
 } from '@/lib/admin/catalog-audit';
@@ -46,6 +49,40 @@ export async function loadAdminCatalog() {
     warranties: warranties.map(mapDbWarranty),
     credentialSchemes: schemes.map(mapDbCredentialScheme),
   };
+}
+
+async function applyPendingSupplierLinks(
+  productId: string,
+  productName: string,
+  productSlug: string,
+  variants: ProductVariant[],
+): Promise<ProductAuditEvent[]> {
+  const pending = variants.filter((v) => v.supplierProductIds?.length);
+  if (pending.length === 0) return [];
+  const plans = await db.productPlan.findMany({
+    where: { productId, code: { in: pending.map((v) => v.id) } },
+    select: { id: true, code: true, label: true },
+  });
+  const planByCode = new Map(plans.map((p) => [p.code, p]));
+  const events: ProductAuditEvent[] = [];
+  for (const v of pending) {
+    const plan = planByCode.get(v.id);
+    if (!plan) continue;
+    let linkedCount = 0;
+    for (const spId of v.supplierProductIds || []) {
+      if (!spId) continue;
+      try {
+        await linkPlan(plan.id, spId);
+        linkedCount += 1;
+      } catch (err) {
+        console.warn(`[catalog-repo] Failed to link supplier item ${spId} to plan ${plan.id}:`, err);
+      }
+    }
+    if (linkedCount > 0) {
+      events.push(planLinkAuditEvent(productName, productSlug, plan.label, linkedCount));
+    }
+  }
+  return events;
 }
 
 export async function saveDigitalProduct(product: DigitalProduct, actor = '') {
@@ -165,6 +202,7 @@ export async function saveDigitalProduct(product: DigitalProduct, actor = '') {
           specificationsJson: planData.specificationsJson,
           renewable: planData.renewable,
           renewalPricing: planData.renewalPricing,
+          sourcing: planData.sourcing,
           allowBackorder: planData.allowBackorder,
           availableFrom: planData.availableFrom,
           availableUntil: planData.availableUntil,
@@ -203,33 +241,43 @@ export async function saveDigitalProduct(product: DigitalProduct, actor = '') {
       }
     }
 
-    return buildProductAuditEvents({
-      isNew: false,
-      productName: payload.name,
-      productSlug: payload.slug,
-      beforePlans: existingPlans.map((p) => ({
-        code: p.code,
-        label: p.label,
-        isActive: p.isActive,
-        priceBdt: Number(p.priceBdt),
-      })),
-      afterPlans: payload.plans.map((p) => ({
-        code: p.code,
-        label: p.label,
-        isActive: p.isActive,
-        priceBdt: Number(p.priceBdt),
-      })),
-      removedPlans: removedPlans.map((p) => ({
-        code: p.code,
-        label: p.label,
-        isActive: p.isActive,
-        priceBdt: Number(p.priceBdt),
-      })),
-      productFieldsChanged,
-    });
+    const linkEvents = await applyPendingSupplierLinks(
+      existing.id,
+      payload.name,
+      payload.slug,
+      product.variants || [],
+    );
+
+    return [
+      ...buildProductAuditEvents({
+        isNew: false,
+        productName: payload.name,
+        productSlug: payload.slug,
+        beforePlans: existingPlans.map((p) => ({
+          code: p.code,
+          label: p.label,
+          isActive: p.isActive,
+          priceBdt: Number(p.priceBdt),
+        })),
+        afterPlans: payload.plans.map((p) => ({
+          code: p.code,
+          label: p.label,
+          isActive: p.isActive,
+          priceBdt: Number(p.priceBdt),
+        })),
+        removedPlans: removedPlans.map((p) => ({
+          code: p.code,
+          label: p.label,
+          isActive: p.isActive,
+          priceBdt: Number(p.priceBdt),
+        })),
+        productFieldsChanged,
+      }),
+      ...linkEvents,
+    ];
   }
 
-  await db.product.create({
+  const created = await db.product.create({
     data: {
       slug: payload.slug,
       name: payload.name,
@@ -246,6 +294,7 @@ export async function saveDigitalProduct(product: DigitalProduct, actor = '') {
       status: payload.status,
       plans: { create: payload.plans },
     },
+    select: { id: true },
   });
   for (const p of payload.plans) {
     await recordPriceChange({
@@ -259,19 +308,28 @@ export async function saveDigitalProduct(product: DigitalProduct, actor = '') {
       note: 'Product created',
     });
   }
-  return buildProductAuditEvents({
-    isNew: true,
-    productName: payload.name,
-    productSlug: payload.slug,
-    beforePlans: [],
-    afterPlans: payload.plans.map((p) => ({
-      code: p.code,
-      label: p.label,
-      isActive: p.isActive,
-      priceBdt: Number(p.priceBdt),
-    })),
-    removedPlans: [],
-  });
+  const linkEvents = await applyPendingSupplierLinks(
+    created.id,
+    payload.name,
+    payload.slug,
+    product.variants || [],
+  );
+  return [
+    ...buildProductAuditEvents({
+      isNew: true,
+      productName: payload.name,
+      productSlug: payload.slug,
+      beforePlans: [],
+      afterPlans: payload.plans.map((p) => ({
+        code: p.code,
+        label: p.label,
+        isActive: p.isActive,
+        priceBdt: Number(p.priceBdt),
+      })),
+      removedPlans: [],
+    }),
+    ...linkEvents,
+  ];
 }
 
 export async function toggleProductPlanActive(

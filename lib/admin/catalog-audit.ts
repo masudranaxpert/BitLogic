@@ -5,11 +5,26 @@ export type ProductAuditEvent = {
     | 'product.plan_on'
     | 'product.plan_off'
     | 'product.plan_add'
-    | 'product.plan_remove';
+    | 'product.plan_remove'
+    | 'plan.link';
   entityType: 'product';
   entityId: string;
   summary: string;
 };
+
+export function planLinkAuditEvent(
+  productName: string,
+  productSlug: string,
+  planLabel: string,
+  linkCount: number,
+): ProductAuditEvent {
+  return {
+    action: 'plan.link',
+    entityType: 'product',
+    entityId: productSlug,
+    summary: `Linked ${linkCount} supplier source${linkCount === 1 ? '' : 's'} to plan "${planLabel}" on "${productName}"`,
+  };
+}
 
 export type PlanSnapshot = {
   code: string;

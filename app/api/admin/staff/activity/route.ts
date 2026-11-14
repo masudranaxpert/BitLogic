@@ -10,7 +10,7 @@ const DEFAULT_ACTION_DAYS = 90;
 const CATEGORY_PREFIXES: Record<string, string[]> = {
   payments: ['payment', 'sms', 'device', 'coupon'],
   orders: ['order', 'delivery', 'warranty'],
-  catalog: ['product', 'vault', 'category', 'taxonomy', 'price'],
+  catalog: ['product', 'plan', 'vault', 'category', 'taxonomy', 'price'],
   customers: ['customer', 'ticket', 'user', 'subscriber'],
   logins: ['staff', 'auth', 'login'],
   system: ['settings', 'supplier', 'email', 'banner', 'security', 'media'],
