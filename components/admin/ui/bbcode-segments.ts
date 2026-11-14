@@ -3,12 +3,13 @@ export type BBCodeSegment =
   | { kind: 'list'; items: string[] }
   | { kind: 'paragraph'; text: string };
 
-const BULLET_LINE_RE = /^\s*[•\-]\s+([\s\S]+)$/;
+const BULLET_LINE_RE = /^\s*(?:[•\-]\s+|\*\s+|\[\*\]\s*)([\s\S]+)$/;
 const STANDALONE_BOLD_RE = /^\[b\]([\s\S]+?)\[\/b\]$/i;
 
 /** Splits a plain BBCode text block into headings, bullet lists, and paragraphs for cleaner reading rhythm. */
 export function splitBBCodeSegments(block: string): BBCodeSegment[] {
-  const lines = block.split(/\r?\n/);
+  const normalized = block.replace(/([^\r\n])\[\*\]/g, '$1\n[*]');
+  const lines = normalized.split(/\r?\n/);
   const out: BBCodeSegment[] = [];
   let listBuf: string[] = [];
   let paraBuf: string[] = [];
@@ -26,12 +27,15 @@ export function splitBBCodeSegments(block: string): BBCodeSegment[] {
   };
 
   for (const rawLine of lines) {
-    const line = rawLine.trim();
-    if (!line) {
+    const trimmedRaw = rawLine.trim();
+    if (!trimmedRaw) {
       flushList();
       flushPara();
       continue;
     }
+
+    const line = trimmedRaw.replace(/\[\/?list\]/gi, '').trim();
+    if (!line) continue;
 
     const bulletMatch = line.match(BULLET_LINE_RE);
     if (bulletMatch) {
@@ -55,4 +59,25 @@ export function splitBBCodeSegments(block: string): BBCodeSegment[] {
   flushList();
   flushPara();
   return out;
+}
+
+/** Inserts bullet syntax at the cursor or prefixes selected non-empty lines with `- `. */
+export function applyBulletLines(value: string, start: number, end: number): string {
+  if (start !== end) {
+    const selected = value.slice(start, end);
+    const formatted = selected
+      .split(/\r?\n/)
+      .map((line) => {
+        const trimmed = line.trim();
+        if (!trimmed) return line;
+        return BULLET_LINE_RE.test(trimmed) ? line : `- ${trimmed}`;
+      })
+      .join('\n');
+    return `${value.slice(0, start)}${formatted}${value.slice(end)}`;
+  }
+
+  const sample = '- Item 1\n- Item 2';
+  if (!value) return sample;
+  const needsBreak = start > 0 && value[start - 1] !== '\n';
+  return `${value.slice(0, start)}${needsBreak ? '\n' : ''}${sample}${value.slice(end)}`;
 }

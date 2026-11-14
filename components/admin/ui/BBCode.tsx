@@ -15,8 +15,9 @@ import {
   Quote,
   Minus,
   Heading2,
+  List,
 } from 'lucide-react';
-import { splitBBCodeSegments } from './bbcode-segments';
+import { applyBulletLines, splitBBCodeSegments } from './bbcode-segments';
 
 /** Tags this editor can insert and render. */
 export const SUPPORTED_BBCODE = [
@@ -28,6 +29,7 @@ export const SUPPORTED_BBCODE = [
   'code',
   'url',
   'quote',
+  'list',
   'hr',
   'h',
   'center',
@@ -159,9 +161,11 @@ function renderInlineBBCode(text: string): React.ReactNode[] {
 export function BBCodeRenderer({
   content,
   className = '',
+  nested = false,
 }: {
   content?: string;
   className?: string;
+  nested?: boolean;
 }) {
   if (!content || !content.trim()) return null;
 
@@ -171,7 +175,11 @@ export function BBCodeRenderer({
 
   return (
     <div
-      className={`space-y-3 text-[15px] sm:text-[15.5px] leading-[1.75] text-slate-700 dark:text-slate-300 tracking-normal ${className}`}
+      className={
+        nested
+          ? `flex-1 min-w-0 space-y-2 text-pretty ${className}`
+          : `space-y-3 text-[15px] sm:text-[15.5px] leading-[1.75] text-slate-700 dark:text-slate-300 tracking-normal ${className}`
+      }
     >
       {blocks.map((block, i) => {
         const trimmed = block.trim();
@@ -180,7 +188,7 @@ export function BBCodeRenderer({
 
         if (lower.startsWith('[center]') && lower.endsWith('[/center]')) {
           const inner = trimmed.slice(8, -9).trim();
-          return <BBCodeRenderer key={i} content={inner} className="text-center" />;
+          return <BBCodeRenderer key={i} content={inner} nested={nested} className="text-center" />;
         }
 
         if (lower === '[hr]') {
@@ -200,7 +208,7 @@ export function BBCodeRenderer({
               className="px-4 py-3 rounded-xl bg-amber-50/85 dark:bg-amber-950/40 border border-amber-200/90 dark:border-amber-800/70 text-amber-900 dark:text-amber-200 font-normal leading-[1.7] flex items-start gap-3"
             >
               <AlertTriangle className="w-[18px] h-[18px] text-amber-600 dark:text-amber-400 shrink-0 mt-1" aria-hidden />
-              <div className="flex-1 whitespace-pre-line text-pretty">{renderInlineBBCode(inner)}</div>
+              <BBCodeRenderer content={inner} nested />
             </div>
           );
         }
@@ -213,7 +221,7 @@ export function BBCodeRenderer({
               className="px-4 py-3 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/70 text-emerald-900 dark:text-emerald-200 font-normal leading-[1.7] flex items-start gap-3"
             >
               <Info className="w-[18px] h-[18px] text-emerald-600 dark:text-emerald-400 shrink-0 mt-1" aria-hidden />
-              <div className="flex-1 whitespace-pre-line text-pretty">{renderInlineBBCode(inner)}</div>
+              <BBCodeRenderer content={inner} nested />
             </div>
           );
         }
@@ -226,9 +234,7 @@ export function BBCodeRenderer({
               className="my-3 px-4 py-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/90 dark:border-slate-800 border-l-4 border-l-emerald-500/70 dark:border-l-emerald-500 text-slate-700 dark:text-slate-200 font-normal leading-[1.7] flex items-start gap-3"
             >
               <Quote className="w-[18px] h-[18px] text-slate-400 dark:text-slate-500 shrink-0 mt-1" aria-hidden />
-              <div className="flex-1 whitespace-pre-line text-pretty">
-                {renderInlineBBCode(inner)}
-              </div>
+              <BBCodeRenderer content={inner} nested />
             </blockquote>
           );
         }
@@ -263,7 +269,7 @@ export function BBCodeRenderer({
                 return (
                   <ul
                     key={sIdx}
-                    className="my-2.5 space-y-2.5 list-none p-0 m-0 text-left"
+                    className="my-1.5 first:mt-0 last:mb-0 space-y-2 list-none p-0 m-0 text-left"
                   >
                     {seg.items.map((item, idx) => (
                       <li
@@ -342,6 +348,13 @@ export function BBCodeEditor({
     onChange(`${value}${needsBreak ? '\n' : ''}${snippet}`);
   };
 
+  const insertBullets = () => {
+    const el = textareaRef.current;
+    const start = el && !showPreview ? (el.selectionStart ?? value.length) : value.length;
+    const end = el && !showPreview ? (el.selectionEnd ?? value.length) : value.length;
+    onChange(applyBulletLines(value, start, end));
+  };
+
   return (
     <div className="flex flex-col gap-3">
       <label className="admin-label m-0 block">{label}</label>
@@ -369,6 +382,15 @@ export function BBCodeEditor({
           </button>
           <button type="button" onClick={() => insertTag('[center]', '[/center]', 'Centered text')} className={toolBtn} title="Center" aria-label="Center">
             <AlignCenter className="w-3.5 h-3.5" aria-hidden />
+          </button>
+          <button
+            type="button"
+            onClick={insertBullets}
+            className={toolBtn}
+            title="Bullet list (works inside [quote] too)"
+            aria-label="Bullet list"
+          >
+            <List className="w-3.5 h-3.5" aria-hidden />
           </button>
 
           <span className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-0.5" aria-hidden />

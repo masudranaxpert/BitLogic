@@ -491,11 +491,6 @@ export function ProductDetailView({ productId }: { productId: string }) {
                   <Plus size={13} strokeWidth={2.4} />
                 </button>
               </div>
-              {selectedPlan && selectedPlan.inStock === false ? (
-                <p className="w-full text-[11px] font-semibold text-amber-700 m-0">
-                  Pre-order. This plan is restocking. The order waits until a credential is in.
-                </p>
-              ) : null}
               <button
                 type="button"
                 onClick={handleAddToCart}
