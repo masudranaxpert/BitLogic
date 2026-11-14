@@ -362,9 +362,8 @@ export async function createOrder(
       for (const l of lines) {
         const { product, plan, qty } = l;
         const durationDays = plan.durationDays || 30;
-        const expires = new Date(now);
-        expires.setDate(expires.getDate() + durationDays);
-        const expiresAt = formatDate(expires);
+        const expires = new Date(now.getTime() + Math.max(0, durationDays) * 86_400_000);
+        const expiresAt = durationDays % 1 !== 0 ? formatStamp(expires) : formatDate(expires);
 
         const candidates =
           // Security: only fulfill immediately if payment is verified (e.g. admin created with paid status)

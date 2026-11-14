@@ -7,7 +7,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -103,7 +103,9 @@ model WarrantyTemplate {
   headline  String
   /// warranty | login-only
   kind      String   @default("warranty")
-  days      Int      @default(0)
+  days      Float    @default(0)
+  /// hours | days | months
+  unit      String   @default("days")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -177,7 +179,7 @@ model ProductPlan {
   code                String
   label               String
   durationLabel       String
-  durationDays        Int
+  durationDays        Float
   priceBdt            Decimal
   warrantyBadge       String?
   warrantyType        String?
@@ -194,7 +196,7 @@ model ProductPlan {
   vpnRequired         Boolean     @default(false)
   vpnRegionNote       String      @default("")
   hasWarranty         Boolean     @default(true)
-  warrantyDays        Int         @default(0)
+  warrantyDays        Float       @default(0)
   deviceLimit         String      @default("")
   importantNote       String      @default("")
   warningNote         String      @default("")
@@ -342,8 +344,8 @@ model DigitalDelivery {
   vpnRegionNote           String   @default("")
   hasWarranty             Boolean  @default(false)
   /// Snapshot from ProductPlan at order time
-  warrantyDays            Int      @default(0)
-  warrantyRemainingDays   Int      @default(0)
+  warrantyDays            Float    @default(0)
+  warrantyRemainingDays   Float    @default(0)
   /// Warranty clock for the current paid period ('YYYY-MM-DD HH:mm'). Starts at delivery, not at order.
   warrantyStartsAt        String?
   warrantyEndsAt          String?
@@ -359,7 +361,7 @@ model DigitalDelivery {
   chatMessagesJson        String   @default("[]")
   pinned                  Boolean  @default(false)
   orderExpiresAt          String?
-  credentialValidDays     Int      @default(30)
+  credentialValidDays     Float    @default(30)
   credentialAssignedAt    String?
   credentialExpiresAt     String?
   renewalPending          Boolean  @default(false)

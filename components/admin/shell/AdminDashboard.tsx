@@ -524,7 +524,9 @@ export default function AdminDashboard() {
   const commitMedia = (updater: React.SetStateAction<MediaAsset[]>) => {
     setMediaAssetsState((prev) => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
-      void persistAdminWorkspace({ mediaAssets: next });
+      void persistAdminWorkspace({ mediaAssets: next }).then((ok) => {
+        if (!ok) showToast('DB write failed — media changes may not survive refresh.');
+      });
       return next;
     });
   };
@@ -762,7 +764,9 @@ export default function AdminDashboard() {
 
   const handleWarrantiesChange = (next: WarrantyPlan[]) => {
     setWarranties(next);
-    void persistAdminTaxonomies({ warranties: next });
+    void persistAdminTaxonomies({ warranties: next }).then((ok) => {
+      if (!ok) showToast('DB write failed — warranty changes may not survive refresh.');
+    });
   };
 
   const handleCredentialSchemesChange = (next: CredentialScheme[]) => {

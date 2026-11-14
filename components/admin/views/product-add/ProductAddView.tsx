@@ -62,6 +62,7 @@ export interface ProductAddViewProps {
   onSaveProduct: (newProduct: DigitalProduct, initialCredentials: VaultCredential[]) => void;
   onUpdateProduct?: (product: DigitalProduct, newCredentials: VaultCredential[]) => void;
   onCancel: () => void;
+  onAddMedia?: (asset: MediaAsset) => void;
   onOpenMediaLibrary: () => void;
   onOpenWarranties: () => void;
   onOpenCredentialTypes: () => void;
@@ -78,6 +79,7 @@ export default function ProductAddView({
   onSaveProduct,
   onUpdateProduct,
   onCancel,
+  onAddMedia,
   onOpenMediaLibrary,
   onOpenWarranties,
   onOpenCredentialTypes,
@@ -405,6 +407,7 @@ export default function ProductAddView({
               mediaFolder={mediaFolder}
               tempSelectedUrls={tempSelectedUrls}
               onOpenMediaLibrary={onOpenMediaLibrary}
+              onAddMedia={onAddMedia}
               onOpenModal={handleOpenMediaModal}
               onCloseModal={() => setMediaModalOpen(false)}
               onCustomImageUrlChange={setCustomImageUrl}

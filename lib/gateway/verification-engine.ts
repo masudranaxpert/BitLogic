@@ -733,9 +733,10 @@ export async function fulfillPaidOrderDeliveries(orderId: string): Promise<numbe
           if (claimed.count !== 1) continue;
 
           const durationDays = unit.credentialValidDays || plan?.durationDays || 30;
-          const expires = new Date(now);
-          expires.setDate(expires.getDate() + durationDays);
-          const expiresAt = unit.orderExpiresAt || formatDate(expires);
+          const expires = new Date(now.getTime() + Math.max(0, durationDays) * 86_400_000);
+          const expiresAt =
+            unit.orderExpiresAt ||
+            (durationDays % 1 !== 0 ? formatStamp(expires) : formatDate(expires));
           const credExpires = candidate.expiresAt || expiresAt;
 
           const warrantyPatch =

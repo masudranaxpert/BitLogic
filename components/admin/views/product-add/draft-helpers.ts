@@ -8,6 +8,7 @@ import {
   credentialTypeFromScheme,
   findCredentialScheme,
 } from '@/lib/admin/credential-schemes';
+import { formatDurationDays } from '@/lib/warranty';
 
 /** Option draft aligned to storefront `Plan` fields. */
 export interface DraftVariant {
@@ -94,7 +95,7 @@ export function variantToDraft(
     tempId: variant.id,
     name: variant.name,
     priceBDT: variant.priceBDT,
-    durationLabel: variant.durationLabel || `${variant.durationDays} Days`,
+    durationLabel: variant.durationLabel || formatDurationDays(variant.durationDays),
     durationDays: variant.durationDays,
     warrantyId: match?.id || '',
     credentialSchemeId: scheme?.id || variant.credentialSchemeId || '',
@@ -148,7 +149,7 @@ export function parseDurationDays(label: string, fallback = 30): number {
   if (!raw) return fallback || 30;
   const num = Number.parseFloat(raw.replace(/[^\d.]/g, ''));
   if (!Number.isFinite(num) || num <= 0) return fallback || 30;
-  if (/\b(hour|hr|h)\b/.test(raw)) return Math.max(1, Math.round(num / 24)) || 1;
+  if (/(hours?|hrs?|\d\s*h\b)/.test(raw)) return Number((num / 24).toFixed(6));
   if (/\bmonth/.test(raw)) return Math.round(num * 30);
   if (/\byear/.test(raw)) return Math.round(num * 365);
   if (/\bweek/.test(raw)) return Math.round(num * 7);

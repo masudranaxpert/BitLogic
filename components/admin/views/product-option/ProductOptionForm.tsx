@@ -179,7 +179,8 @@ export function ProductOptionForm({
             <input
               type="number"
               required
-              min={1}
+              min={0}
+              step="any"
               value={values.durationDays}
               onChange={(e) => onChange('durationDays', Number(e.target.value))}
               className="w-full h-9 px-3 font-mono bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg"
@@ -242,7 +243,8 @@ export function ProductOptionForm({
             <div className="mt-2 grid grid-cols-2 gap-2">
               <input
                 type="number"
-                min={1}
+                min={0}
+                step="any"
                 value={values.warrantyDays}
                 onChange={(e) =>
                   onChange('warrantyDays', Number(e.target.value))

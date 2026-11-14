@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import Image from 'next/image';
-import { Image as ImageIcon, Check, Search } from 'lucide-react';
+import { Image as ImageIcon, Check, Loader2, Search, Upload } from 'lucide-react';
 import type { MediaAsset } from '@/lib/admin-data';
 import {
   Card,
@@ -10,6 +10,10 @@ import {
   ModalShell,
   formatFileSizeFromKB,
 } from '@/components/admin/ui/primitives';
+
+const MAX_FILE_BYTES = 8 * 1024 * 1024;
+const isUnoptimizedSrc = (src: string) =>
+  src.startsWith('/uploads/') || /^https?:\/\//i.test(src);
 
 export interface ProductMediaPickerProps {
   productName: string;
@@ -20,6 +24,7 @@ export interface ProductMediaPickerProps {
   mediaSearch: string;
   mediaFolder: 'all' | MediaAsset['folder'];
   tempSelectedUrls: string[];
+  onAddMedia?: (asset: MediaAsset) => void;
   onOpenMediaLibrary: () => void;
   onOpenModal: () => void;
   onCloseModal: () => void;
@@ -41,6 +46,7 @@ export default function ProductMediaPicker({
   mediaSearch,
   mediaFolder,
   tempSelectedUrls,
+  onAddMedia,
   onOpenMediaLibrary,
   onOpenModal,
   onCloseModal,
@@ -52,7 +58,70 @@ export default function ProductMediaPicker({
   onClearTempSelection,
   onConfirmSelection,
 }: ProductMediaPickerProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const modalFileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+
   const coverSrc = customImageUrl.trim() || selectedMediaUrls[0] || '';
+
+  const handleDirectUpload = async (file: File, fromModal: boolean) => {
+    setUploadError('');
+    if (!file.type.startsWith('image/') || file.type === 'image/svg+xml') {
+      setUploadError('Use PNG, JPG, WEBP, GIF, or AVIF (no SVG).');
+      return;
+    }
+    if (file.size > MAX_FILE_BYTES) {
+      setUploadError('File exceeds 8 MB limit.');
+      return;
+    }
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch('/api/admin/media/upload', {
+        method: 'POST',
+        body: form,
+      });
+      const data = (await res.json()) as {
+        url?: string;
+        fileName?: string;
+        sizeKB?: number;
+        dimensions?: string;
+        error?: string;
+      };
+      if (!res.ok || !data.url) {
+        throw new Error(data.error || 'Upload failed.');
+      }
+      const asset: MediaAsset = {
+        id: `med-${Date.now()}`,
+        name: file.name.replace(/\.[^.]+$/, '') || 'Product Cover',
+        fileName: data.fileName || file.name,
+        folder: mediaFolder === 'all' ? 'Product Covers' : mediaFolder,
+        url: data.url,
+        dimensions: data.dimensions || '—',
+        sizeKB: data.sizeKB || Math.max(1, Math.round(file.size / 1024)),
+        mimeType: 'image/webp',
+        uploadedAt: new Date().toISOString().slice(0, 10),
+      };
+      onAddMedia?.(asset);
+      if (fromModal) {
+        if (!tempSelectedUrls.includes(data.url)) {
+          onToggleTempUrl(data.url);
+        }
+      } else {
+        onSelectedMediaUrlsChange([
+          data.url,
+          ...selectedMediaUrls.filter((u) => u !== data.url),
+        ]);
+        if (customImageUrl.trim()) onCustomImageUrlChange('');
+      }
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Upload failed.');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const filteredModalAssets = mediaAssets.filter((a) => {
     const matchesFolder = mediaFolder === 'all' || a.folder === mediaFolder;
@@ -87,6 +156,7 @@ export default function ProductMediaPicker({
               fill
               className="object-cover"
               referrerPolicy="no-referrer"
+              unoptimized={isUnoptimizedSrc(coverSrc)}
             />
           ) : (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-slate-400">
@@ -122,20 +192,52 @@ export default function ProductMediaPicker({
                   fill
                   className="object-cover"
                   referrerPolicy="no-referrer"
+                  unoptimized={isUnoptimizedSrc(url)}
                 />
               </button>
             ))}
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={onOpenModal}
-          className="w-full h-9 px-3 text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-600 hover:text-white text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
-        >
-          <ImageIcon className="w-4 h-4" />
-          <span>Choose images</span>
-        </button>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            disabled={uploading}
+            onClick={() => fileInputRef.current?.click()}
+            className="h-9 px-3 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+          >
+            {uploading ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />
+            ) : (
+              <Upload className="w-3.5 h-3.5" aria-hidden />
+            )}
+            <span>{uploading ? 'Uploading…' : 'Upload'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={onOpenModal}
+            className="h-9 px-3 text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-600 hover:text-white text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <ImageIcon className="w-3.5 h-3.5" aria-hidden />
+            <span>Library</span>
+          </button>
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = '';
+            if (file) void handleDirectUpload(file, false);
+          }}
+        />
+        {uploadError ? (
+          <p className="m-0 text-xs font-medium text-rose-600 dark:text-rose-400">
+            {uploadError}
+          </p>
+        ) : null}
 
         <div>
           <label className="admin-label block mb-1.5">Image URL</label>
@@ -180,18 +282,59 @@ export default function ProductMediaPicker({
               onChange={onMediaFolderChange}
             />
 
-            <div className="relative w-full sm:w-60">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={mediaSearch}
-                onChange={(e) => onMediaSearchChange(e.target.value)}
-                placeholder="Search…"
-                className="w-full h-9 pl-8 pr-3 text-xs bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:border-emerald-600"
-              />
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="relative flex-1 sm:w-52">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={mediaSearch}
+                  onChange={(e) => onMediaSearchChange(e.target.value)}
+                  placeholder="Search…"
+                  className="w-full h-9 pl-8 pr-3 text-xs bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:border-emerald-600"
+                />
+              </div>
+              {onAddMedia && (
+                <>
+                  <input
+                    ref={modalFileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = '';
+                      if (file) void handleDirectUpload(file, true);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={uploading}
+                    onClick={() => modalFileInputRef.current?.click()}
+                    className="h-9 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-semibold inline-flex items-center gap-1.5 shrink-0 cursor-pointer"
+                  >
+                    {uploading ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Upload className="w-3.5 h-3.5" />
+                    )}
+                    {uploading ? 'Uploading…' : 'Upload'}
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
+          {uploadError && (
+            <div className="text-[11px] font-medium text-rose-600 dark:text-rose-400">
+              {uploadError}
+            </div>
+          )}
+
+          {filteredModalAssets.length === 0 ? (
+            <div className="py-12 text-center text-slate-500 border border-dashed border-slate-200 dark:border-slate-800 rounded-lg">
+              No media files found.{onAddMedia ? ' Click Upload to add an image from your PC.' : ''}
+            </div>
+          ) : (
           <div className="max-h-[380px] overflow-y-auto pr-1 grid grid-cols-2 sm:grid-cols-4 gap-3">
             {filteredModalAssets.map((asset) => {
               const selectedIdx = tempSelectedUrls.indexOf(asset.url);
@@ -213,6 +356,7 @@ export default function ProductMediaPicker({
                       src={asset.url}
                       alt={asset.name}
                       fill
+                      unoptimized={isUnoptimizedSrc(asset.url)}
                       className="object-cover"
                       referrerPolicy="no-referrer"
                     />
@@ -239,6 +383,7 @@ export default function ProductMediaPicker({
               );
             })}
           </div>
+          )}
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-200 dark:border-slate-800">
             <div className="text-slate-500">

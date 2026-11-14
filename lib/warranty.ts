@@ -104,3 +104,56 @@ export function renewWindow(
   const state = now < opens ? 'not_yet' : now > closes ? 'closed' : 'open';
   return { state, opensOn: day(opens), closesOn: day(closes) };
 }
+
+export type DurationUnit = 'hours' | 'days' | 'months';
+
+export function normalizeDurationUnit(
+  raw?: string | null,
+  days?: number,
+): DurationUnit {
+  if (raw === 'hours' || raw === 'months') return raw;
+  if (raw === 'days') {
+    if (typeof days === 'number' && days > 0 && days < 1) return 'hours';
+    return 'days';
+  }
+  if (typeof days === 'number' && days > 0) {
+    if (days < 1) return 'hours';
+    if (days >= 30 && days % 30 === 0) return 'months';
+  }
+  return 'days';
+}
+
+export function calculateDays(value: number, unit: DurationUnit): number {
+  const val = Math.max(0, Number.isFinite(value) ? value : 0);
+  if (unit === 'hours') return Number((val / 24).toFixed(6));
+  if (unit === 'months') return Math.round(val * 30);
+  return Number(val.toFixed(6));
+}
+
+export function unitFromDays(
+  days: number,
+  preferredUnit?: string | null,
+): { value: number; unit: DurationUnit } {
+  const safeDays = Math.max(0, Number.isFinite(days) ? days : 0);
+  const unit = normalizeDurationUnit(preferredUnit, safeDays);
+  if (safeDays <= 0) return { value: 0, unit };
+  if (unit === 'hours') {
+    return { value: Number((safeDays * 24).toFixed(2)), unit: 'hours' };
+  }
+  if (unit === 'months') {
+    return { value: Number((safeDays / 30).toFixed(2)), unit: 'months' };
+  }
+  return { value: Number(safeDays.toFixed(2)), unit: 'days' };
+}
+
+export function formatDurationDays(
+  days: number,
+  preferredUnit?: string | null,
+): string {
+  const { value, unit } = unitFromDays(days, preferredUnit);
+  if (value <= 0) return '0 Days';
+  if (unit === 'hours') return `${value} ${value === 1 ? 'Hour' : 'Hours'}`;
+  if (unit === 'months') return `${value} ${value === 1 ? 'Month' : 'Months'}`;
+  return `${value} ${value === 1 ? 'Day' : 'Days'}`;
+}
+

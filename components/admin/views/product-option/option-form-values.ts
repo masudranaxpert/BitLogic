@@ -5,6 +5,7 @@ import type {
   StockDisplayMode,
 } from '@/lib/admin/types';
 import { getCredentialTypeLabel } from '@/components/admin/ui/format';
+import { formatDurationDays } from '@/lib/warranty';
 
 export type ProductOptionFormValues = {
   name: string;
@@ -111,7 +112,7 @@ export function buildVariantFromOptionForm(
     name: values.name,
     isDefault: values.isDefault,
     durationDays: values.durationDays,
-    durationLabel: `${values.durationDays} Days`,
+    durationLabel: formatDurationDays(values.durationDays),
     priceBDT: values.priceBDT,
     priceUSD: Number((values.priceBDT / 115).toFixed(2)),
     credentialType: values.credentialType,
@@ -145,7 +146,7 @@ export function buildVariantFromOptionForm(
       {
         label: 'Warranty',
         value: values.hasWarranty
-          ? `${values.warrantyDays} Days`
+          ? formatDurationDays(values.warrantyDays)
           : 'No Warranty',
       },
     ],

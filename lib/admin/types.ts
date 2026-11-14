@@ -1,3 +1,5 @@
+import type { DurationUnit } from '@/lib/warranty';
+
 export type CredentialType = 'token' | 'license_key' | 'email_login' | 'invite_link';
 export type DeliveryMode = 'auto_vault' | 'manual_dispatch';
 export type StockDisplayMode = 'exact_count' | 'status_only' | 'unlimited_manual';
@@ -166,6 +168,7 @@ export interface WarrantyPlan {
   headline: string;
   kind: 'warranty' | 'login-only';
   days: number;
+  unit?: DurationUnit;
 }
 
 /** Field keys vault / delivery can collect. */

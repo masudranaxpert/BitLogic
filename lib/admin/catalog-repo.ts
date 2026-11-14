@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { recordPriceChange } from '@/lib/suppliers/core';
+import { normalizeDurationUnit } from '@/lib/warranty';
 import type {
   CredentialScheme,
   DigitalProduct,
@@ -252,6 +253,7 @@ export async function replaceWarranties(warranties: WarrantyPlan[]) {
       where: { id: { notIn: keepIds } },
     });
     for (const w of warranties) {
+      const unit = normalizeDurationUnit(w.unit, w.days);
       await tx.warrantyTemplate.upsert({
         where: { id: w.id },
         create: {
@@ -261,6 +263,7 @@ export async function replaceWarranties(warranties: WarrantyPlan[]) {
           headline: w.headline,
           kind: w.kind,
           days: w.days,
+          unit,
         },
         update: {
           name: w.name,
@@ -268,6 +271,7 @@ export async function replaceWarranties(warranties: WarrantyPlan[]) {
           headline: w.headline,
           kind: w.kind,
           days: w.days,
+          unit,
         },
       });
     }

@@ -296,6 +296,7 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
               onSaveProduct={handleSaveNewProduct}
               onUpdateProduct={handleUpdateProduct}
               onCancel={() => setActiveTab('products')}
+              onAddMedia={handleAddMediaAsset}
               onOpenMediaLibrary={() => setActiveTab('media')}
               onOpenWarranties={() => setActiveTab('warranties')}
               onOpenCredentialTypes={() => setActiveTab('credential-types')}

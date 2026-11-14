@@ -17,6 +17,7 @@ import type {
   StockDisplayMode,
   WarrantyPlan,
 } from '@/lib/admin/types';
+import { normalizeDurationUnit } from '@/lib/warranty';
 
 type DbProductWithPlans = DbProduct & { plans: DbPlan[] };
 
@@ -45,6 +46,7 @@ export function mapDbWarranty(row: DbWarranty): WarrantyPlan {
     headline: row.headline,
     kind: row.kind === 'login-only' ? 'login-only' : 'warranty',
     days: row.days,
+    unit: normalizeDurationUnit(row.unit, row.days),
   };
 }
 
