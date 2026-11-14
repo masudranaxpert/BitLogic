@@ -53,6 +53,7 @@ export type AdminTab =
   | 'security-ips'
   | 'security-audit'
   | 'security-rules'
+  | 'profile'
   | 'activity'
   | 'activity-payments'
   | 'activity-orders'

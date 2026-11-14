@@ -116,6 +116,7 @@ const TAB_TO_PERMISSION: Record<AdminTab, StaffPermissionKey | 'staff' | null> =
     'security-ips': 'settings',
     'security-audit': 'settings',
     'security-rules': 'settings',
+    profile: 'overview',
     activity: 'staff',
     'activity-payments': 'staff',
     'activity-orders': 'staff',
@@ -164,6 +165,7 @@ export function canAccessAdminTab(
   permissions: StaffPermissionKey[] | undefined,
   tab: AdminTab,
 ): boolean {
+  if (tab === 'profile') return isConsoleRole(role);
   const key = TAB_TO_PERMISSION[tab];
   if (key === null) return role === ROLES.ADMIN;
   return canAccessPermission(role, permissions, key);

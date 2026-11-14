@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+  canAccessAdminTab,
   canChangeOwnEmail,
   parsePermissionsJson,
 } from './permissions';
@@ -12,6 +13,10 @@ assert.equal(
   true,
 );
 assert.equal(canChangeOwnEmail(ROLES.CUSTOMER, ['profile_email']), false);
+
+assert.equal(canAccessAdminTab(ROLES.ADMIN, [], 'profile'), true);
+assert.equal(canAccessAdminTab(ROLES.STAFF, [], 'profile'), true);
+assert.equal(canAccessAdminTab(ROLES.CUSTOMER, [], 'profile'), false);
 
 assert.deepEqual(
   parsePermissionsJson('["orders","profile_email","unknown_key"]'),

@@ -2,6 +2,8 @@ export type ProductAuditEvent = {
   action:
     | 'product.create'
     | 'product.save'
+    | 'product.show'
+    | 'product.hide'
     | 'product.plan_on'
     | 'product.plan_off'
     | 'product.plan_add'
@@ -44,6 +46,19 @@ export function planToggleAuditEvent(
     entityType: 'product',
     entityId: productSlug,
     summary: `${isActive ? 'Turned ON' : 'Turned OFF'} plan "${planLabel}" on "${productName}"`,
+  };
+}
+
+export function productToggleAuditEvent(
+  productName: string,
+  productSlug: string,
+  isActive: boolean,
+): ProductAuditEvent {
+  return {
+    action: isActive ? 'product.show' : 'product.hide',
+    entityType: 'product',
+    entityId: productSlug,
+    summary: `${isActive ? 'Shown' : 'Hidden'} product "${productName}" on storefront`,
   };
 }
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
-import { X, Sun, Moon, ChevronRight, ChevronDown, Send, Settings2 } from 'lucide-react';
+import { X, Sun, Moon, ChevronRight, ChevronDown, Send } from 'lucide-react';
 import { BrandLogo } from '@/components/brand/BrandLogo';
 import type { AdminTab } from '@/lib/admin-data';
 import type { ConsoleUser, NavGroupItem } from '@/components/admin/shell/admin-nav-types';
@@ -338,29 +338,28 @@ export function AdminSidebarNav({
             }}
             aria-label="Open Profile Settings"
             title="Profile Settings"
-            className="group flex-1 flex items-center justify-between gap-2 min-w-0 rounded-lg px-2 py-1.5 -ml-2 text-left hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+            aria-current={activeTab === 'profile' ? 'page' : undefined}
+            className={`group flex-1 flex items-center gap-2.5 min-w-0 rounded-lg px-2 py-1.5 -ml-2 text-left transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${
+              activeTab === 'profile'
+                ? 'bg-emerald-50/90 dark:bg-emerald-950/60 shadow-[inset_0_0_0_1px_rgba(5,150,105,0.22)]'
+                : 'hover:bg-slate-100 dark:hover:bg-slate-800/80'
+            }`}
           >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xs flex items-center justify-center shrink-0 overflow-hidden">
-                <BrandLogo mark className="h-5 w-auto" />
+            <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-100 border border-slate-200 dark:border-slate-700 shadow-2xs flex items-center justify-center shrink-0 overflow-hidden">
+              <BrandLogo mark className="h-5 w-auto" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="font-display text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
+                {consoleUser?.name || consoleUser?.email || 'Console'}
               </div>
-              <div className="min-w-0">
-                <div className="font-display text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
-                  {consoleUser?.name || consoleUser?.email || 'Console'}
-                </div>
-                <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                  {consoleUser?.isFullAdmin
-                    ? 'Admin · Profile'
-                    : consoleUser?.role === 'STAFF'
-                      ? 'Staff · Profile'
-                      : '…'}
-                </div>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                {consoleUser?.isFullAdmin
+                  ? 'Admin · Profile'
+                  : consoleUser?.role === 'STAFF'
+                    ? 'Staff · Profile'
+                    : '…'}
               </div>
             </div>
-            <Settings2
-              className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 shrink-0 transition-colors"
-              aria-hidden
-            />
           </button>
 
           <button

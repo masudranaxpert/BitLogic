@@ -19,6 +19,7 @@ interface ProductsViewProps {
   onOpenViewOptionPage: (productId: string, variantId: string) => void;
   onOpenQuickRestock: (productId: string, variantId: string) => void;
   onTogglePlanActive?: (productId: string, variantId: string, nextActive: boolean) => void;
+  onToggleProductActive?: (productId: string, nextActive: boolean) => void;
 }
 
 export default function ProductsView({
@@ -32,6 +33,7 @@ export default function ProductsView({
   onOpenViewOptionPage,
   onOpenQuickRestock,
   onTogglePlanActive,
+  onToggleProductActive,
 }: ProductsViewProps) {
   const [tabFilter, setTabFilter] = useState<ProductTab>('all');
   // Sell status + supplier links per option (own stock is counted live from the vault below).
@@ -147,6 +149,7 @@ export default function ProductsView({
       onOpenViewOptionPage={onOpenViewOptionPage}
       onOpenQuickRestock={onOpenQuickRestock}
       onTogglePlanActive={onTogglePlanActive}
+      onToggleProductActive={onToggleProductActive}
       onResetFilters={() => {
         setTabFilter('all');
         setSearchQuery('');

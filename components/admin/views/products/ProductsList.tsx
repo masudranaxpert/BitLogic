@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { Fragment, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import {
   Plus,
   Search,
   Eye,
   Pencil,
+  ChevronRight,
 } from 'lucide-react';
 import {
   DigitalProduct,
@@ -25,6 +26,7 @@ import {
   EmptyTableState,
 } from '@/components/admin/ui/primitives';
 import { listingWindow, scheduleState, shortDuration } from '@/lib/catalog/schedule';
+import { groupProductRows } from './products-grouping';
 
 /** Small status chip for products with an order window. */
 function ScheduleChip({ product }: { product: DigitalProduct }) {
@@ -131,12 +133,12 @@ interface ProductsListProps {
   onOpenViewOptionPage: (productId: string, variantId: string) => void;
   onOpenQuickRestock: (productId: string, variantId: string) => void;
   onTogglePlanActive?: (productId: string, variantId: string, nextActive: boolean) => void;
+  onToggleProductActive?: (productId: string, nextActive: boolean) => void;
   onResetFilters: () => void;
 }
 
 export function ProductsList({
   products,
-  vault,
   allVariantRows,
   filteredRows,
   tabFilter,
@@ -158,21 +160,53 @@ export function ProductsList({
   onOpenViewOptionPage,
   onOpenQuickRestock,
   onTogglePlanActive,
+  onToggleProductActive,
   onResetFilters,
 }: ProductsListProps) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
-  useEffect(() => setPage(1), [filteredRows.length]);
-  const paged = filteredRows.slice((page - 1) * pageSize, page * pageSize);
-  const getVaultStock = (productId: string, variantId: string) =>
-    vault.filter(
-      (v) => v.productId === productId && v.variantId === variantId && v.status === 'available'
-    ).length;
+  const [expandedProductIds, setExpandedProductIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+
+  const productGroups = useMemo(
+    () => groupProductRows(filteredRows),
+    [filteredRows],
+  );
+  useEffect(() => setPage(1), [productGroups.length]);
+  const pagedGroups = productGroups.slice((page - 1) * pageSize, page * pageSize);
+  const allSelectableIds = useMemo(
+    () => productGroups.flatMap((g) => g.selectableVariantIds),
+    [productGroups],
+  );
+
+  const toggleExpandProduct = (productId: string) => {
+    setExpandedProductIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(productId)) next.delete(productId);
+      else next.add(productId);
+      return next;
+    });
+  };
 
   const toggleSelectRow = (variantId: string) => {
     onSelectedVariantIdsChange((prev) =>
       prev.includes(variantId) ? prev.filter((id) => id !== variantId) : [...prev, variantId]
     );
+  };
+
+  const toggleSelectGroup = (variantIds: string[]) => {
+    if (variantIds.length === 0) return;
+    onSelectedVariantIdsChange((prev) => {
+      const allSelected = variantIds.every((id) => prev.includes(id));
+      if (allSelected) {
+        const drop = new Set(variantIds);
+        return prev.filter((id) => !drop.has(id));
+      }
+      const merged = new Set(prev);
+      for (const id of variantIds) merged.add(id);
+      return Array.from(merged);
+    });
   };
 
   return (
@@ -201,7 +235,7 @@ export function ProductsList({
               className={`h-7 px-3 rounded-[6px] font-medium cursor-pointer whitespace-nowrap shrink-0 inline-flex items-center ${
                 viewMode === 'table'
                   ? 'surface-segment-active text-slate-900 dark:text-slate-100 font-semibold'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
               }`}
             >
               Table View
@@ -212,7 +246,7 @@ export function ProductsList({
               className={`h-7 px-3 rounded-[6px] font-medium cursor-pointer whitespace-nowrap shrink-0 inline-flex items-center ${
                 viewMode === 'grouped'
                   ? 'surface-segment-active text-slate-900 dark:text-slate-100 font-semibold'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
               }`}
             >
               Grouped
@@ -287,7 +321,7 @@ export function ProductsList({
         <Card className="overflow-hidden">
           {allVariantRows.length === 0 ? (
             <EmptyTableState title="No products" />
-          ) : filteredRows.length === 0 ? (
+          ) : productGroups.length === 0 ? (
             <EmptyTableState
               title="No matches"
               onReset={onResetFilters}
@@ -298,158 +332,349 @@ export function ProductsList({
               <table className="w-full min-w-[780px] text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50">
-                    <th className="py-3 px-4 w-9">
+                    <th scope="col" className="py-3 px-4 w-9">
                       <ShadcnCheckbox
+                        ariaLabel="Select all visible plans"
                         checked={
-                          filteredRows.length > 0 &&
-                          selectedVariantIds.length === filteredRows.length
+                          allSelectableIds.length > 0 &&
+                          allSelectableIds.every((id) => selectedVariantIds.includes(id))
                         }
                         onChange={(checked) =>
-                          onSelectedVariantIdsChange(
-                            checked ? filteredRows.map((r) => r.variant.id) : []
-                          )
+                          onSelectedVariantIdsChange(checked ? allSelectableIds : [])
                         }
                       />
                     </th>
-                    <th className="py-3 px-3 whitespace-nowrap">Product &amp; plan</th>
-                    <th className="py-3 px-3 whitespace-nowrap">Price</th>
-                    <th className="py-3 px-3 whitespace-nowrap" title="Your own vault credentials ready to send">Own stock</th>
-                    <th className="py-3 px-3 whitespace-nowrap">Supplier</th>
-                    <th className="py-3 px-3 whitespace-nowrap">Status</th>
-                    <th className="py-3 px-4 text-right whitespace-nowrap">Action</th>
+                    <th scope="col" className="py-3 px-3 whitespace-nowrap">Product &amp; plans</th>
+                    <th scope="col" className="py-3 px-3 text-right whitespace-nowrap">Price</th>
+                    <th scope="col" className="py-3 px-3 whitespace-nowrap" title="Your own vault credentials ready to send">Own stock</th>
+                    <th scope="col" className="py-3 px-3 whitespace-nowrap">Supplier</th>
+                    <th scope="col" className="py-3 px-3 whitespace-nowrap">Status</th>
+                    <th scope="col" className="py-3 px-4 text-right whitespace-nowrap">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800">
-                  {paged.map(({ product, variant, isPlaceholder, stockCount, supply: rowSupply }) => {
-                    const isSelected = !isPlaceholder && selectedVariantIds.includes(variant.id);
-                    const openTarget = () =>
-                      isPlaceholder
-                        ? onOpenAddOptionPage(product.id)
-                        : onOpenEditOptionPage(product.id, variant.id);
+                  {pagedGroups.map((group) => {
+                    const { product, planRows, selectableVariantIds, defaultOrFirstVariantId } = group;
+                    const hasPlans = planRows.length > 0;
+                    const isExpanded = hasPlans && expandedProductIds.has(product.id);
+                    const allGroupSelected =
+                      hasPlans && selectableVariantIds.every((id) => selectedVariantIds.includes(id));
+                    const openProductTarget = () =>
+                      defaultOrFirstVariantId
+                        ? onOpenEditOptionPage(product.id, defaultOrFirstVariantId)
+                        : onOpenAddOptionPage(product.id);
+
+                    const priceText =
+                      group.minPriceBDT === null
+                        ? '—'
+                        : group.maxPriceBDT !== null && group.maxPriceBDT > group.minPriceBDT
+                          ? `${formatBDT(group.minPriceBDT)} – ${formatBDT(group.maxPriceBDT)}`
+                          : formatBDT(group.minPriceBDT);
+
                     return (
-                      <tr
-                        key={variant.id}
-                        className={`transition-colors whitespace-nowrap ${
-                          isSelected
-                            ? 'bg-emerald-50/50 dark:bg-emerald-950/25'
-                            : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/40'
-                        }`}
-                      >
-                        <td className="py-2.5 px-4">
-                          {isPlaceholder ? (
-                            <span className="inline-block w-4" aria-hidden />
-                          ) : (
-                            <ShadcnCheckbox
-                              checked={isSelected}
-                              onChange={() => toggleSelectRow(variant.id)}
-                            />
-                          )}
-                        </td>
-
-                        <td className="py-2.5 px-3">
-                          <button
-                            type="button"
-                            onClick={openTarget}
-                            className="flex items-center gap-2.5 text-left cursor-pointer border-0 bg-transparent p-0 max-w-full"
-                          >
-                            {product.imageUrl && (
-                              <div className="relative w-6 h-6 rounded overflow-hidden border border-slate-200 dark:border-slate-700 shrink-0">
-                                <Image
-                                  src={product.imageUrl}
-                                  alt={product.name}
-                                  fill
-                                  unoptimized={product.imageUrl.startsWith('/uploads/') || /^https?:\/\//i.test(product.imageUrl)}
-                                  className="object-cover"
-                                  referrerPolicy="no-referrer"
-                                />
-                              </div>
+                      <Fragment key={product.id}>
+                        <tr
+                          data-product-row={product.id}
+                          className={`transition-colors whitespace-nowrap ${
+                            allGroupSelected
+                              ? 'bg-emerald-50/50 dark:bg-emerald-950/25'
+                              : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/40'
+                          }`}
+                        >
+                          <td className="py-2.5 px-4">
+                            {hasPlans ? (
+                              <ShadcnCheckbox
+                                ariaLabel={`Select all plans for ${product.name}`}
+                                checked={allGroupSelected}
+                                onChange={() => toggleSelectGroup(selectableVariantIds)}
+                              />
+                            ) : (
+                              <span className="inline-block w-4" aria-hidden />
                             )}
-                            <span className="font-medium text-slate-900 dark:text-slate-100 hover:text-emerald-700 dark:hover:text-emerald-400">
-                              {product.name}{' '}
-                              <span className="text-slate-400 font-normal">— {variant.name}</span>
-                            </span>
-                            {variant.isDefault && (
-                              <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 rounded">
-                                Default
-                              </span>
-                            )}
-                            <ScheduleChip product={product} />
-                          </button>
-                        </td>
+                          </td>
 
-                        <td className="admin-price py-2.5 px-3 text-right">
-                          {isPlaceholder ? '—' : formatBDT(variant.priceBDT)}
-                        </td>
+                          <td className="py-2.5 px-3">
+                            <div className="flex items-center gap-2 max-w-full">
+                              {hasPlans ? (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleExpandProduct(product.id)}
+                                  aria-expanded={isExpanded}
+                                  aria-controls={
+                                    isExpanded
+                                      ? planRows.map((r) => `plan-row-${r.variant.id}`).join(' ')
+                                      : undefined
+                                  }
+                                  aria-label={
+                                    isExpanded
+                                      ? `Hide plans for ${product.name}`
+                                      : `Show ${planRows.length} ${planRows.length === 1 ? 'plan' : 'plans'} for ${product.name}`
+                                  }
+                                  className="h-6 w-6 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:border-emerald-500 hover:text-emerald-700 dark:hover:text-emerald-400 inline-flex items-center justify-center shrink-0 cursor-pointer transition-colors"
+                                >
+                                  <ChevronRight
+                                    className={`w-3.5 h-3.5 transition-transform duration-150 ${
+                                      isExpanded ? 'rotate-90' : ''
+                                    }`}
+                                  />
+                                </button>
+                              ) : (
+                                <span className="w-6 shrink-0" aria-hidden />
+                              )}
 
-                        <td className="py-2.5 px-3">
-                          {isPlaceholder ? (
-                            <button
-                              type="button"
-                              onClick={() => onOpenAddOptionPage(product.id)}
-                              className="text-sm font-sans font-semibold text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
-                            >
-                              +Add plan
-                            </button>
-                          ) : variant.deliveryMode === 'auto_vault' ? (
-                            <span className="inline-flex items-center gap-2">
-                              <span className="admin-metric">
-                                {stockCount}
-                              </span>
                               <button
                                 type="button"
-                                onClick={() => onOpenQuickRestock(product.id, variant.id)}
+                                onClick={openProductTarget}
+                                className="flex items-center gap-2.5 text-left cursor-pointer border-0 bg-transparent p-0 min-w-0"
+                              >
+                                {product.imageUrl && (
+                                  <div className="relative w-6 h-6 rounded overflow-hidden border border-slate-200 dark:border-slate-700 shrink-0">
+                                    <Image
+                                      src={product.imageUrl}
+                                      alt={product.name}
+                                      fill
+                                      unoptimized={product.imageUrl.startsWith('/uploads/') || /^https?:\/\//i.test(product.imageUrl)}
+                                      className="object-cover"
+                                      referrerPolicy="no-referrer"
+                                    />
+                                  </div>
+                                )}
+                                <span className="font-semibold text-slate-900 dark:text-slate-100 hover:text-emerald-700 dark:hover:text-emerald-400">
+                                  {product.name}
+                                </span>
+                              </button>
+
+                              {hasPlans ? (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleExpandProduct(product.id)}
+                                  className="px-2 py-0.5 text-[11px] font-medium rounded-md border border-slate-200/90 dark:border-slate-700 bg-slate-100/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 hover:border-emerald-500 hover:text-emerald-700 dark:hover:text-emerald-300 cursor-pointer transition-colors"
+                                >
+                                  {planRows.length} {planRows.length === 1 ? 'plan' : 'plans'}
+                                </button>
+                              ) : (
+                                <span className="px-2 py-0.5 text-[11px] font-normal rounded-md bg-slate-100 dark:bg-slate-800/60 text-slate-400 dark:text-slate-500">
+                                  No plans yet
+                                </span>
+                              )}
+                              <ScheduleChip product={product} />
+                            </div>
+                          </td>
+
+                          <td className="admin-price py-2.5 px-3 text-right">
+                            {priceText}
+                          </td>
+
+                          <td className="py-2.5 px-3">
+                            {!hasPlans ? (
+                              <button
+                                type="button"
+                                onClick={() => onOpenAddOptionPage(product.id)}
                                 className="text-sm font-sans font-semibold text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
                               >
-                                +Stock
+                                +Add plan
                               </button>
-                            </span>
-                          ) : (
-                            <span className="text-sm text-slate-500 font-sans">Manual</span>
-                          )}
-                        </td>
+                            ) : group.allManual ? (
+                              <span className="text-sm text-slate-500 dark:text-slate-400 font-sans">
+                                Manual
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-2">
+                                <span className="admin-metric">{group.totalOwnStock}</span>
+                                {group.hasSingleAutoVaultPlan && defaultOrFirstVariantId ? (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      onOpenQuickRestock(product.id, defaultOrFirstVariantId)
+                                    }
+                                    className="text-sm font-sans font-semibold text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
+                                  >
+                                    +Stock
+                                  </button>
+                                ) : null}
+                              </span>
+                            )}
+                          </td>
 
-                        <td className="py-2.5 px-3">
-                          <SupplierCell s={rowSupply} />
-                        </td>
+                          <td className="py-2.5 px-3">
+                            {group.uniqueSuppliers.length === 0 ? (
+                              <span className="text-slate-400 dark:text-slate-500">—</span>
+                            ) : group.uniqueSuppliers.length === 1 ? (
+                              <SupplierCell s={group.uniqueSuppliers[0].supply} />
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-300">
+                                <span
+                                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                                    group.uniqueSuppliers.some((s) => s.live)
+                                      ? 'bg-emerald-500'
+                                      : 'bg-slate-300 dark:bg-slate-600'
+                                  }`}
+                                  aria-hidden
+                                />
+                                {group.uniqueSuppliers.length} suppliers
+                              </span>
+                            )}
+                          </td>
 
-                        <td className="py-2.5 px-3">
-                          <SellStatus s={rowSupply} own={stockCount} manual={variant.deliveryMode === 'manual_dispatch'} planActive={variant.isActive !== false} />
-                        </td>
+                          <td className="py-2.5 px-3">
+                            <StatusIndicator
+                              tone={group.sellStatus.tone}
+                              label={group.sellStatus.label}
+                            />
+                          </td>
 
-                        <td className="py-2.5 px-4 text-right">
-                          <div className="inline-flex items-center justify-end gap-1.5">
-                            {!isPlaceholder && onTogglePlanActive ? (
-                              <SwitchToggle
-                                checked={variant.isActive !== false}
-                                onChange={(next) =>
-                                  onTogglePlanActive(product.id, variant.id, next)
+                          <td className="py-2.5 px-4 text-right">
+                            <div className="inline-flex items-center justify-end gap-1.5">
+                              {onToggleProductActive ? (
+                                <SwitchToggle
+                                  checked={product.status === 'active'}
+                                  onChange={(next) => onToggleProductActive(product.id, next)}
+                                  label={product.status === 'active' ? 'On' : 'Off'}
+                                />
+                              ) : null}
+                              <button
+                                type="button"
+                                title="View product"
+                                aria-label={`View ${product.name}`}
+                                onClick={() =>
+                                  onOpenViewOptionPage(product.id, defaultOrFirstVariantId)
                                 }
-                                label={variant.isActive !== false ? 'On' : 'Off'}
-                              />
-                            ) : null}
-                            <button
-                              type="button"
-                              title="View product"
-                              aria-label="View product"
-                              onClick={() =>
-                                onOpenViewOptionPage(product.id, isPlaceholder ? '' : variant.id)
-                              }
-                              className={iconBtnClass}
-                            >
-                              <Eye className="w-3.5 h-3.5" strokeWidth={2.2} />
-                            </button>
-                            <button
-                              type="button"
-                              title={isPlaceholder ? 'Edit product / add plans' : 'Edit product'}
-                              aria-label={isPlaceholder ? 'Edit product / add plans' : 'Edit product'}
-                              onClick={openTarget}
-                              className={iconBtnClass}
-                            >
-                              <Pencil className="w-3.5 h-3.5" strokeWidth={2.2} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
+                                className={iconBtnClass}
+                              >
+                                <Eye className="w-3.5 h-3.5" strokeWidth={2.2} />
+                              </button>
+                              <button
+                                type="button"
+                                title={hasPlans ? 'Edit product' : 'Edit product / add plans'}
+                                aria-label={
+                                  hasPlans
+                                    ? `Edit ${product.name}`
+                                    : `Add plans to ${product.name}`
+                                }
+                                onClick={openProductTarget}
+                                className={iconBtnClass}
+                              >
+                                <Pencil className="w-3.5 h-3.5" strokeWidth={2.2} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+
+                        {isExpanded &&
+                          planRows.map(({ variant, stockCount, supply: rowSupply }) => {
+                            const isSelected = selectedVariantIds.includes(variant.id);
+                            return (
+                              <tr
+                                key={variant.id}
+                                id={`plan-row-${variant.id}`}
+                                data-plan-row={variant.id}
+                                className={`transition-colors whitespace-nowrap ${
+                                  isSelected
+                                    ? 'bg-emerald-50/60 dark:bg-emerald-950/35'
+                                    : 'bg-slate-50/75 dark:bg-slate-900/65 hover:bg-slate-100/80 dark:hover:bg-slate-800/60'
+                                }`}
+                              >
+                                <td className="py-2 px-4">
+                                  <ShadcnCheckbox
+                                    ariaLabel={`Select plan ${variant.name}`}
+                                    checked={isSelected}
+                                    onChange={() => toggleSelectRow(variant.id)}
+                                  />
+                                </td>
+
+                                <td className="py-2 px-3">
+                                  <div className="flex items-center gap-2 pl-7 border-l-2 border-slate-200 dark:border-slate-700 ml-2.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => onOpenEditOptionPage(product.id, variant.id)}
+                                      className="font-medium text-sm text-slate-800 dark:text-slate-200 hover:text-emerald-700 dark:hover:text-emerald-400 cursor-pointer border-0 bg-transparent p-0 text-left"
+                                    >
+                                      {variant.name}
+                                    </button>
+                                    {variant.isDefault && (
+                                      <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 rounded">
+                                        Default
+                                      </span>
+                                    )}
+                                    {variant.durationLabel ? (
+                                      <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                                        {variant.durationLabel}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                </td>
+
+                                <td className="admin-price py-2 px-3 text-right">
+                                  {formatBDT(variant.priceBDT)}
+                                </td>
+
+                                <td className="py-2 px-3">
+                                  {variant.deliveryMode === 'auto_vault' ? (
+                                    <span className="inline-flex items-center gap-2">
+                                      <span className="admin-metric">{stockCount}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => onOpenQuickRestock(product.id, variant.id)}
+                                        className="text-sm font-sans font-semibold text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
+                                      >
+                                        +Stock
+                                      </button>
+                                    </span>
+                                  ) : (
+                                    <span className="text-sm text-slate-500 dark:text-slate-400 font-sans">
+                                      Manual
+                                    </span>
+                                  )}
+                                </td>
+
+                                <td className="py-2 px-3">
+                                  <SupplierCell s={rowSupply} />
+                                </td>
+
+                                <td className="py-2 px-3">
+                                  <SellStatus
+                                    s={rowSupply}
+                                    own={stockCount}
+                                    manual={variant.deliveryMode === 'manual_dispatch'}
+                                    planActive={variant.isActive !== false}
+                                  />
+                                </td>
+
+                                <td className="py-2 px-4 text-right">
+                                  <div className="inline-flex items-center justify-end gap-1.5">
+                                    {onTogglePlanActive ? (
+                                      <SwitchToggle
+                                        checked={variant.isActive !== false}
+                                        onChange={(next) =>
+                                          onTogglePlanActive(product.id, variant.id, next)
+                                        }
+                                        label={variant.isActive !== false ? 'On' : 'Off'}
+                                      />
+                                    ) : null}
+                                    <button
+                                      type="button"
+                                      title="View plan"
+                                      aria-label={`View ${variant.name}`}
+                                      onClick={() => onOpenViewOptionPage(product.id, variant.id)}
+                                      className={iconBtnClass}
+                                    >
+                                      <Eye className="w-3.5 h-3.5" strokeWidth={2.2} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      title="Edit plan"
+                                      aria-label={`Edit ${variant.name}`}
+                                      onClick={() => onOpenEditOptionPage(product.id, variant.id)}
+                                      className={iconBtnClass}
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" strokeWidth={2.2} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </Fragment>
                     );
                   })}
                 </tbody>
@@ -458,26 +683,50 @@ export function ProductsList({
           )}
 
           <PaginationFooter
-          totalItems={filteredRows.length}
-          pageSize={pageSize}
-          currentPage={page}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
-        />
+            totalItems={productGroups.length}
+            pageSize={pageSize}
+            currentPage={page}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </Card>
-      ) : products.length === 0 ? (
+      ) : productGroups.length === 0 ? (
         <Card className="overflow-hidden">
-          <EmptyTableState title="No products" />
+          <EmptyTableState
+            title={products.length === 0 ? 'No products' : 'No matches'}
+            onReset={products.length === 0 ? undefined : onResetFilters}
+            resetLabel="Clear filters"
+          />
         </Card>
       ) : (
-        <div className="space-y-4">
-          {products.map((product) => {
-            const defaultVar =
-              product.variants.find((v) => v.isDefault) || product.variants[0];
+        <div className="space-y-3">
+          {productGroups.map((group) => {
+            const { product, planRows, defaultOrFirstVariantId } = group;
+            const hasPlans = planRows.length > 0;
+            const isExpanded = hasPlans && expandedProductIds.has(product.id);
             return (
               <Card key={product.id} className="overflow-hidden">
-                <div className="p-4 sm:p-5 border-b border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-900/40">
-                  <div className="flex items-center gap-3">
+                <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-900/40">
+                  <div className="flex flex-wrap items-center gap-2.5 min-w-0">
+                    {hasPlans ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleExpandProduct(product.id)}
+                        aria-expanded={isExpanded}
+                        aria-label={
+                          isExpanded
+                            ? `Hide plans for ${product.name}`
+                            : `Show ${planRows.length} plans for ${product.name}`
+                        }
+                        className="h-7 w-7 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:border-emerald-500 inline-flex items-center justify-center shrink-0 cursor-pointer"
+                      >
+                        <ChevronRight
+                          className={`w-4 h-4 transition-transform duration-150 ${
+                            isExpanded ? 'rotate-90' : ''
+                          }`}
+                        />
+                      </button>
+                    ) : null}
                     {product.imageUrl && (
                       <div className="relative w-7 h-7 rounded overflow-hidden border border-slate-200 dark:border-slate-700 shrink-0">
                         <Image
@@ -493,26 +742,46 @@ export function ProductsList({
                     <button
                       type="button"
                       onClick={() =>
-                        defaultVar
-                          ? onOpenEditOptionPage(product.id, defaultVar.id)
+                        defaultOrFirstVariantId
+                          ? onOpenEditOptionPage(product.id, defaultOrFirstVariantId)
                           : onOpenAddOptionPage(product.id)
                       }
                       className="font-display text-base font-bold text-slate-900 dark:text-slate-100 hover:text-emerald-700 dark:hover:text-emerald-400 cursor-pointer border-0 bg-transparent p-0 text-left"
                     >
                       {product.name}
                     </button>
-                    <span className="text-xs font-mono text-slate-400">{product.sku}</span>
+                    <span className="text-xs font-mono text-slate-400 dark:text-slate-500">
+                      {product.sku}
+                    </span>
+                    {hasPlans ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleExpandProduct(product.id)}
+                        className="px-2 py-0.5 text-[11px] font-medium rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:border-emerald-500 cursor-pointer"
+                      >
+                        {planRows.length} {planRows.length === 1 ? 'plan' : 'plans'}
+                      </button>
+                    ) : null}
                     <ScheduleChip product={product} />
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
+                    <StatusIndicator
+                      tone={group.sellStatus.tone}
+                      label={group.sellStatus.label}
+                    />
+                    {onToggleProductActive ? (
+                      <SwitchToggle
+                        checked={product.status === 'active'}
+                        onChange={(next) => onToggleProductActive(product.id, next)}
+                        label={product.status === 'active' ? 'On' : 'Off'}
+                      />
+                    ) : null}
                     <button
                       type="button"
                       title="View product"
-                      aria-label="View product"
+                      aria-label={`View ${product.name}`}
                       onClick={() =>
-                        defaultVar
-                          ? onOpenViewOptionPage(product.id, defaultVar.id)
-                          : onOpenAddOptionPage(product.id)
+                        onOpenViewOptionPage(product.id, defaultOrFirstVariantId)
                       }
                       className={iconBtnClass}
                     >
@@ -521,8 +790,8 @@ export function ProductsList({
                     <button
                       type="button"
                       onClick={() =>
-                        defaultVar
-                          ? onOpenEditOptionPage(product.id, defaultVar.id)
+                        defaultOrFirstVariantId
+                          ? onOpenEditOptionPage(product.id, defaultOrFirstVariantId)
                           : onOpenAddOptionPage(product.id)
                       }
                       className="h-8 px-3 text-xs font-semibold rounded-md bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer inline-flex items-center gap-1.5"
@@ -531,10 +800,9 @@ export function ProductsList({
                     </button>
                   </div>
                 </div>
-                <div className="divide-y divide-slate-200/70 dark:divide-slate-800 text-[13px]">
-                  {product.variants.map((v) => {
-                    const st = getVaultStock(product.id, v.id);
-                    return (
+                {isExpanded && (
+                  <div className="border-t border-slate-200/80 dark:border-slate-800 divide-y divide-slate-200/70 dark:divide-slate-800 text-[13px]">
+                    {planRows.map(({ variant: v, stockCount: st }) => (
                       <div
                         key={v.id}
                         className="px-5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/60 dark:hover:bg-slate-800/30"
@@ -555,9 +823,7 @@ export function ProductsList({
                           ) : null}
                         </div>
                         <div className="flex items-center gap-3 shrink-0">
-                          <span className="admin-price">
-                            {formatBDT(v.priceBDT)}
-                          </span>
+                          <span className="admin-price">{formatBDT(v.priceBDT)}</span>
                           <StatusIndicator
                             tone={v.isActive === false ? 'zinc' : st > 0 ? 'emerald' : 'amber'}
                             label={
@@ -571,16 +837,14 @@ export function ProductsList({
                           {onTogglePlanActive ? (
                             <SwitchToggle
                               checked={v.isActive !== false}
-                              onChange={(next) =>
-                                onTogglePlanActive(product.id, v.id, next)
-                              }
+                              onChange={(next) => onTogglePlanActive(product.id, v.id, next)}
                               label={v.isActive !== false ? 'On' : 'Off'}
                             />
                           ) : null}
                           <button
                             type="button"
-                            title="View product"
-                            aria-label="View product"
+                            title="View plan"
+                            aria-label={`View ${v.name}`}
                             onClick={() => onOpenViewOptionPage(product.id, v.id)}
                             className={iconBtnClass}
                           >
@@ -588,8 +852,8 @@ export function ProductsList({
                           </button>
                           <button
                             type="button"
-                            title="Edit product"
-                            aria-label="Edit product"
+                            title="Edit plan"
+                            aria-label={`Edit ${v.name}`}
                             onClick={() => onOpenEditOptionPage(product.id, v.id)}
                             className={iconBtnClass}
                           >
@@ -597,9 +861,9 @@ export function ProductsList({
                           </button>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
+                    ))}
+                  </div>
+                )}
               </Card>
             );
           })}

@@ -55,6 +55,8 @@ import { SecurityOverviewView } from '@/components/admin/views/security/Security
 import { SecurityIpsView } from '@/components/admin/views/security/SecurityIpsView';
 import { SecurityAuditView } from '@/components/admin/views/security/SecurityAuditView';
 import { SecurityRulesView } from '@/components/admin/views/security/SecurityRulesView';
+import ProfileSettingsView from '@/components/admin/views/ProfileSettingsView';
+import type { ConsoleUser } from '@/components/admin/shell/admin-nav-types';
 
 function ProductOptionRedirect({
   productId,
@@ -133,6 +135,13 @@ export type AdminViewRouterProps = {
     variantId: string,
     nextActive: boolean,
   ) => void;
+  handleToggleProductActive: (
+    productId: string,
+    nextActive: boolean,
+  ) => void;
+  consoleUser: ConsoleUser | null;
+  onProfileUpdated: (nextUser: ConsoleUser) => void;
+  onProfileBack: () => void;
   handleDeleteCredential: (id: string) => void;
   handleUpdateCredential: (item: VaultCredential) => void;
   handleAddCredentials: (items: VaultCredential[]) => void;
@@ -282,6 +291,7 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
               }
               onOpenQuickRestock={handleOpenQuickRestock}
               onTogglePlanActive={props.handleTogglePlanActive}
+              onToggleProductActive={props.handleToggleProductActive}
             />
           )}
 
@@ -634,6 +644,14 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
           {activeTab === 'security-ips' && <SecurityIpsView />}
           {activeTab === 'security-audit' && <SecurityAuditView />}
           {activeTab === 'security-rules' && <SecurityRulesView />}
+          {activeTab === 'profile' && (
+            <ProfileSettingsView
+              user={props.consoleUser}
+              onUpdated={props.onProfileUpdated}
+              onBack={props.onProfileBack}
+              showToast={showToast}
+            />
+          )}
     </>
   );
 }

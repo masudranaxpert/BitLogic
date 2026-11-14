@@ -103,6 +103,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       suppressHydrationWarning
       className={`${jakarta.variable} ${inter.variable} ${jetbrains.variable}`}
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){try{if(location.pathname.indexOf('/admin')===0&&localStorage.getItem('blumart_admin_dark')==='1'){document.documentElement.classList.add('dark');}}catch(e){}})();",
+          }}
+        />
+      </head>
       <body
         className="font-sans bg-[#f6f8fa] text-slate-900 dark:bg-[#090d16] dark:text-slate-100 selection:bg-emerald-600 selection:text-white antialiased overflow-x-hidden"
         suppressHydrationWarning

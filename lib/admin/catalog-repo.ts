@@ -13,6 +13,7 @@ import {
   buildProductAuditEvents,
   planLinkAuditEvent,
   planToggleAuditEvent,
+  productToggleAuditEvent,
   type ProductAuditEvent,
 } from '@/lib/admin/catalog-audit';
 import {
@@ -357,6 +358,28 @@ export async function toggleProductPlanActive(
   }
 
   return planToggleAuditEvent(product.name, product.slug, plan.label, isActive);
+}
+
+/** Toggle visibility of an entire product on the storefront. */
+export async function toggleProductActive(
+  productIdOrSlug: string,
+  isActive: boolean,
+): Promise<ProductAuditEvent | null> {
+  const product = await db.product.findFirst({
+    where: { OR: [{ slug: productIdOrSlug }, { id: productIdOrSlug }] },
+    select: { id: true, slug: true, name: true, isActive: true, status: true },
+  });
+  if (!product) return null;
+
+  const nextStatus = isActive ? 'active' : 'draft';
+  if (product.isActive !== isActive || product.status !== nextStatus) {
+    await db.product.update({
+      where: { id: product.id },
+      data: { isActive, status: nextStatus },
+    });
+  }
+
+  return productToggleAuditEvent(product.name, product.slug, isActive);
 }
 
 export async function replaceCategories(categories: ProductCategory[]) {

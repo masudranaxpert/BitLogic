@@ -26,7 +26,7 @@ import {
   persistAdminTaxonomies,
   persistAdminWorkspace,
 } from '@/lib/admin/workspace-client';
-import { persistPlanActive } from '@/lib/admin/catalog-client';
+import { persistPlanActive, persistProductActive } from '@/lib/admin/catalog-client';
 import {
   AdminTab,
   DigitalProduct,
@@ -47,7 +47,6 @@ import {
 import { ModalShell } from '@/components/admin/ui/primitives';
 import { AdminContextualSkeleton } from '@/components/admin/ui/AdminSkeleton';
 import { CommandPalette } from '@/components/admin/shell/CommandPalette';
-import { ProfileSettingsModal } from '@/components/admin/shell/ProfileSettingsModal';
 import { parseStamp, warrantyWindow } from '@/lib/warranty';
 import { BrandLogo } from '@/components/brand/BrandLogo';
 import { AdminViewRouter } from '@/components/admin/shell/AdminViewRouter';
@@ -83,7 +82,12 @@ export default function AdminDashboard() {
   const [consoleUser, setConsoleUser] = useState<ConsoleUser | null>(
     () => getCachedConsoleUser(),
   );
-  const [profileOpen, setProfileOpen] = useState(false);
+  const lastNonProfileTabRef = useRef<AdminTab>('overview');
+  useEffect(() => {
+    if (activeTab !== 'profile') {
+      lastNonProfileTabRef.current = activeTab;
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     let cancelled = false;
@@ -317,7 +321,7 @@ export default function AdminDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkModeState] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -361,12 +365,28 @@ export default function AdminDashboard() {
   } | null>(null);
 
   useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+    let saved = false;
+    try {
+      saved = localStorage.getItem('blumart_admin_dark') === '1';
+    } catch {
+      saved = document.documentElement.classList.contains('dark');
     }
-  }, [darkMode]);
+    document.documentElement.classList.toggle('dark', saved);
+    setDarkModeState(saved);
+    return () => {
+      document.documentElement.classList.remove('dark');
+    };
+  }, []);
+
+  const setDarkMode = (next: boolean) => {
+    setDarkModeState(next);
+    document.documentElement.classList.toggle('dark', next);
+    try {
+      localStorage.setItem('blumart_admin_dark', next ? '1' : '0');
+    } catch {
+      // ignore storage errors
+    }
+  };
 
   const applyWorkspace = (
     workspace: NonNullable<Awaited<ReturnType<typeof fetchAdminWorkspace>>>,
@@ -870,6 +890,35 @@ export default function AdminDashboard() {
           ),
         );
         showToast('DB write failed — reverted plan status.');
+      }
+    });
+  };
+
+  const handleToggleProductActive = (
+    productId: string,
+    nextActive: boolean,
+  ) => {
+    const nextStatus = nextActive ? 'active' : 'draft';
+    const prevStatus = nextActive ? 'draft' : 'active';
+    let targetName = productId;
+    setProducts((prev) =>
+      prev.map((p) => {
+        if (p.id !== productId) return p;
+        targetName = p.name;
+        return { ...p, status: nextStatus };
+      }),
+    );
+    showToast(
+      `${nextActive ? 'Shown' : 'Hidden'} product "${targetName}" on storefront.`,
+    );
+    void persistProductActive(productId, nextActive).then((ok) => {
+      if (!ok) {
+        setProducts((prev) =>
+          prev.map((p) =>
+            p.id !== productId ? p : { ...p, status: prevStatus },
+          ),
+        );
+        showToast('DB write failed — reverted product visibility.');
       }
     });
   };
@@ -1834,7 +1883,7 @@ export default function AdminDashboard() {
         consoleUser={consoleUser}
         darkMode={darkMode}
         setDarkMode={setDarkMode}
-        onOpenProfile={() => setProfileOpen(true)}
+        onOpenProfile={() => setActiveTab('profile')}
       />
 
       <div className="flex-1 flex flex-col min-w-0">
@@ -1948,6 +1997,13 @@ export default function AdminDashboard() {
             handleAddVariant={handleAddVariant}
             handleUpdateVariant={handleUpdateVariant}
             handleTogglePlanActive={handleTogglePlanActive}
+            handleToggleProductActive={handleToggleProductActive}
+            consoleUser={consoleUser}
+            onProfileUpdated={(nextUser) => {
+              setConsoleUser(nextUser);
+              setCachedConsoleUser(nextUser);
+            }}
+            onProfileBack={() => setActiveTab(lastNonProfileTabRef.current || 'overview')}
             handleDeleteCredential={handleDeleteCredential}
             handleUpdateCredential={handleUpdateCredential}
             handleAddCredentials={handleAddCredentials}
@@ -2048,17 +2104,6 @@ export default function AdminDashboard() {
           handleSelectTicket(id);
         }}
         openCredential={(id) => openVaultViewPage(id)}
-      />
-
-      <ProfileSettingsModal
-        open={profileOpen}
-        onClose={() => setProfileOpen(false)}
-        user={consoleUser}
-        onUpdated={(nextUser) => {
-          setConsoleUser(nextUser);
-          setCachedConsoleUser(nextUser);
-          showToast('Profile settings updated.');
-        }}
       />
 
       {toastMessage && (

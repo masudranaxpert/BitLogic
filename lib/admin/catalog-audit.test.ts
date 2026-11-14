@@ -3,6 +3,7 @@ import {
   buildProductAuditEvents,
   planLinkAuditEvent,
   planToggleAuditEvent,
+  productToggleAuditEvent,
 } from './catalog-audit';
 
 const created = buildProductAuditEvents({
@@ -65,5 +66,13 @@ assert.equal(quick.summary, 'Turned OFF plan "Pro 1M" on "Gemini"');
 const linked = planLinkAuditEvent('Claude', 'prod-claude', 'Pro 1M', 2);
 assert.equal(linked.action, 'plan.link');
 assert.equal(linked.summary, 'Linked 2 supplier sources to plan "Pro 1M" on "Claude"');
+
+const hiddenProd = productToggleAuditEvent('ChatGPT', 'prod-chatgpt', false);
+assert.equal(hiddenProd.action, 'product.hide');
+assert.equal(hiddenProd.summary, 'Hidden product "ChatGPT" on storefront');
+
+const shownProd = productToggleAuditEvent('ChatGPT', 'prod-chatgpt', true);
+assert.equal(shownProd.action, 'product.show');
+assert.equal(shownProd.summary, 'Shown product "ChatGPT" on storefront');
 
 console.log('catalog-audit: ok');

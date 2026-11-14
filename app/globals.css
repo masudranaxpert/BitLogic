@@ -49,6 +49,10 @@
     line-height: 1.5;
   }
 
+  .dark {
+    color-scheme: dark;
+  }
+
   .dark body {
     background-color: #090d16;
     color: #f1f5f9;
