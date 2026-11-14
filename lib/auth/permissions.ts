@@ -57,6 +57,11 @@ export const STAFF_PERMISSIONS = [
     label: 'Settings',
     description: 'Store maintenance, announcement, email, site title and homepage banners',
   },
+  {
+    key: 'profile_email',
+    label: 'Change own email',
+    description: 'Update their own login email in Profile Settings (Full Admin always has this)',
+  },
 ] as const;
 
 export type StaffPermissionKey = (typeof STAFF_PERMISSIONS)[number]['key'];
@@ -162,6 +167,14 @@ export function canAccessAdminTab(
   const key = TAB_TO_PERMISSION[tab];
   if (key === null) return role === ROLES.ADMIN;
   return canAccessPermission(role, permissions, key);
+}
+
+/** Full Admin always; Staff only when explicitly granted `profile_email`. */
+export function canChangeOwnEmail(
+  role: Role | string | null | undefined,
+  permissions: StaffPermissionKey[] | undefined,
+): boolean {
+  return canAccessPermission(role, permissions, 'profile_email');
 }
 
 export function permissionForWorkspacePatchKey(

@@ -12,7 +12,7 @@ const CATEGORY_PREFIXES: Record<string, string[]> = {
   orders: ['order', 'delivery', 'warranty'],
   catalog: ['product', 'plan', 'vault', 'category', 'taxonomy', 'price'],
   customers: ['customer', 'ticket', 'user', 'subscriber'],
-  logins: ['staff', 'auth', 'login'],
+  logins: ['staff', 'auth', 'login', 'profile'],
   system: ['settings', 'supplier', 'email', 'banner', 'security', 'media'],
 };
 

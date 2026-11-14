@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
-import { X, Sun, Moon, ChevronRight, ChevronDown, Send } from 'lucide-react';
+import { X, Sun, Moon, ChevronRight, ChevronDown, Send, Settings2 } from 'lucide-react';
 import { BrandLogo } from '@/components/brand/BrandLogo';
 import type { AdminTab } from '@/lib/admin-data';
 import type { ConsoleUser, NavGroupItem } from '@/components/admin/shell/admin-nav-types';
@@ -20,6 +20,7 @@ export type AdminSidebarNavProps = {
   consoleUser: ConsoleUser | null;
   darkMode: boolean;
   setDarkMode: (next: boolean) => void;
+  onOpenProfile?: () => void;
 };
 
 export function AdminSidebarNav({
@@ -35,6 +36,7 @@ export function AdminSidebarNav({
   consoleUser,
   darkMode,
   setDarkMode,
+  onOpenProfile,
 }: AdminSidebarNavProps) {
   const isGroupActive = (item: NavGroupItem) =>
     isAdminNavGroupActive(item, activeTab);
@@ -327,26 +329,39 @@ export function AdminSidebarNav({
           <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
         </button>
 
-        <div className="flex items-center justify-between pt-1">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-slate-900 dark:bg-slate-800 text-white font-display font-bold text-[11px] flex items-center justify-center shrink-0">
-              {(consoleUser?.name || consoleUser?.email || 'A')
-                .slice(0, 2)
-                .toUpperCase()}
-            </div>
-            <div className="min-w-0">
-              <div className="font-display text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
-                {consoleUser?.name || consoleUser?.email || 'Console'}
+        <div className="flex items-center justify-between gap-1.5 pt-1">
+          <button
+            type="button"
+            onClick={() => {
+              setMobileMenuOpen(false);
+              onOpenProfile?.();
+            }}
+            aria-label="Open Profile Settings"
+            title="Profile Settings"
+            className="group flex-1 flex items-center justify-between gap-2 min-w-0 rounded-lg px-2 py-1.5 -ml-2 text-left hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xs flex items-center justify-center shrink-0 overflow-hidden">
+                <BrandLogo mark className="h-5 w-auto" />
               </div>
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                {consoleUser?.isFullAdmin
-                  ? 'Admin'
-                  : consoleUser?.role === 'STAFF'
-                    ? 'Staff'
-                    : '…'}
+              <div className="min-w-0">
+                <div className="font-display text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
+                  {consoleUser?.name || consoleUser?.email || 'Console'}
+                </div>
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                  {consoleUser?.isFullAdmin
+                    ? 'Admin · Profile'
+                    : consoleUser?.role === 'STAFF'
+                      ? 'Staff · Profile'
+                      : '…'}
+                </div>
               </div>
             </div>
-          </div>
+            <Settings2
+              className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 shrink-0 transition-colors"
+              aria-hidden
+            />
+          </button>
 
           <button
             type="button"

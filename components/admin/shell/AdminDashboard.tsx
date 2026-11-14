@@ -47,6 +47,7 @@ import {
 import { ModalShell } from '@/components/admin/ui/primitives';
 import { AdminContextualSkeleton } from '@/components/admin/ui/AdminSkeleton';
 import { CommandPalette } from '@/components/admin/shell/CommandPalette';
+import { ProfileSettingsModal } from '@/components/admin/shell/ProfileSettingsModal';
 import { parseStamp, warrantyWindow } from '@/lib/warranty';
 import { BrandLogo } from '@/components/brand/BrandLogo';
 import { AdminViewRouter } from '@/components/admin/shell/AdminViewRouter';
@@ -82,6 +83,7 @@ export default function AdminDashboard() {
   const [consoleUser, setConsoleUser] = useState<ConsoleUser | null>(
     () => getCachedConsoleUser(),
   );
+  const [profileOpen, setProfileOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -1832,6 +1834,7 @@ export default function AdminDashboard() {
         consoleUser={consoleUser}
         darkMode={darkMode}
         setDarkMode={setDarkMode}
+        onOpenProfile={() => setProfileOpen(true)}
       />
 
       <div className="flex-1 flex flex-col min-w-0">
@@ -2045,6 +2048,17 @@ export default function AdminDashboard() {
           handleSelectTicket(id);
         }}
         openCredential={(id) => openVaultViewPage(id)}
+      />
+
+      <ProfileSettingsModal
+        open={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        user={consoleUser}
+        onUpdated={(nextUser) => {
+          setConsoleUser(nextUser);
+          setCachedConsoleUser(nextUser);
+          showToast('Profile settings updated.');
+        }}
       />
 
       {toastMessage && (
