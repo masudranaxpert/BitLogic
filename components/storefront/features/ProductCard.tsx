@@ -56,13 +56,15 @@ export function ProductCard({ product }: { product: Product }) {
           width={640}
           height={480}
         />
-        <span className="pcard-price" aria-hidden="true" lang="bn">
-          <span className="price-amount">
-            <span className="price-taka">৳</span>
-            {startingAmount(product)}
+        {product.plans.length > 0 && (
+          <span className="pcard-price" aria-hidden="true" lang="bn">
+            <span className="price-amount">
+              <span className="price-taka">৳</span>
+              {startingAmount(product)}
+            </span>
+            <span className="price-suffix">থেকে শুরু</span>
           </span>
-          <span className="price-suffix">থেকে শুরু</span>
-        </span>
+        )}
       </button>
 
       <div className="pcard-body">

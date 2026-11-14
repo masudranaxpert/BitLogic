@@ -6,7 +6,7 @@ import {
   DigitalProduct,
   VaultCredential,
 } from '@/lib/admin-data';
-import { ProductsList, type ProductTab, type RowSupply } from './ProductsList';
+import { ProductsList, type ProductTab, type RowSupply, type VariantRow } from './ProductsList';
 
 interface ProductsViewProps {
   products: DigitalProduct[];
@@ -57,14 +57,47 @@ export default function ProductsView({
       (v) => v.productId === productId && v.variantId === variantId && v.status === 'available'
     ).length;
 
-  const allVariantRows = products.flatMap((product) =>
-    product.variants.map((variant) => ({
+  const allVariantRows: VariantRow[] = products.flatMap((product): VariantRow[] => {
+    if (product.variants.length === 0) {
+      return [
+        {
+          product,
+          variant: {
+            id: `__no-plan__:${product.id}`,
+            productId: product.id,
+            name: 'No plans yet',
+            isDefault: false,
+            durationDays: 0,
+            durationLabel: '—',
+            priceBDT: 0,
+            priceUSD: 0,
+            credentialType: 'email_login' as const,
+            deliveryMode: 'auto_vault' as const,
+            stockDisplayMode: 'exact_count' as const,
+            vpnRequired: false,
+            vpnRegionNote: '',
+            hasWarranty: false,
+            warrantyDays: 0,
+            warrantyTerms: '',
+            deviceLimit: '',
+            loginInstructions: [],
+            importantNote: '',
+            specifications: [],
+          },
+          isPlaceholder: true,
+          stockCount: 0,
+          supply: undefined,
+        },
+      ];
+    }
+    return product.variants.map((variant) => ({
       product,
       variant,
+      isPlaceholder: false,
       stockCount: getVaultStock(product.id, variant.id),
       supply: supply[`${product.id}|${variant.id}`],
-    }))
-  );
+    }));
+  });
 
   const filteredRows = allVariantRows.filter(({ product, variant, stockCount, supply: s }) => {
     const matchesSearch =

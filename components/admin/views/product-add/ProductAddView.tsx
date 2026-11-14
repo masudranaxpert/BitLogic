@@ -210,7 +210,6 @@ export default function ProductAddView({
 
   const saveProduct = () => {
     if (!name.trim()) return;
-    if (draftVariants.length === 0) return;
     if (draftVariants.some((dv) => scheduleProblem(dv.availableFrom, dv.availableUntil))) return;
 
     const prodId = editingProduct?.id ?? `prod-${Date.now()}`;
@@ -347,7 +346,7 @@ export default function ProductAddView({
             </button>
             <button
               type="button"
-              disabled={draftVariants.length === 0}
+              disabled={!name.trim()}
               onClick={saveProduct}
               className="px-4 h-9 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg shadow-2xs cursor-pointer"
             >

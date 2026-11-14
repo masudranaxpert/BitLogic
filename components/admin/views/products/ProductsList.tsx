@@ -60,9 +60,10 @@ export type RowSupply = {
   links: Array<{ supplierName: string; name: string; stock: number | null; status: string; supplierOn: boolean }>;
 };
 
-type VariantRow = {
+export type VariantRow = {
   product: DigitalProduct;
   variant: DigitalProduct['variants'][number];
+  isPlaceholder?: boolean;
   /** Own vault credentials ready to send. */
   stockCount: number;
   supply?: RowSupply;
@@ -316,8 +317,12 @@ export function ProductsList({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800">
-                  {paged.map(({ product, variant, stockCount, supply: rowSupply }) => {
-                    const isSelected = selectedVariantIds.includes(variant.id);
+                  {paged.map(({ product, variant, isPlaceholder, stockCount, supply: rowSupply }) => {
+                    const isSelected = !isPlaceholder && selectedVariantIds.includes(variant.id);
+                    const openTarget = () =>
+                      isPlaceholder
+                        ? onOpenAddOptionPage(product.id)
+                        : onOpenEditOptionPage(product.id, variant.id);
                     return (
                       <tr
                         key={variant.id}
@@ -328,16 +333,20 @@ export function ProductsList({
                         }`}
                       >
                         <td className="py-2.5 px-4">
-                          <ShadcnCheckbox
-                            checked={isSelected}
-                            onChange={() => toggleSelectRow(variant.id)}
-                          />
+                          {isPlaceholder ? (
+                            <span className="inline-block w-4" aria-hidden />
+                          ) : (
+                            <ShadcnCheckbox
+                              checked={isSelected}
+                              onChange={() => toggleSelectRow(variant.id)}
+                            />
+                          )}
                         </td>
 
                         <td className="py-2.5 px-3">
                           <button
                             type="button"
-                            onClick={() => onOpenEditOptionPage(product.id, variant.id)}
+                            onClick={openTarget}
                             className="flex items-center gap-2.5 text-left cursor-pointer border-0 bg-transparent p-0 max-w-full"
                           >
                             {product.imageUrl && (
@@ -346,6 +355,7 @@ export function ProductsList({
                                   src={product.imageUrl}
                                   alt={product.name}
                                   fill
+                                  unoptimized={product.imageUrl.startsWith('/uploads/') || /^https?:\/\//i.test(product.imageUrl)}
                                   className="object-cover"
                                   referrerPolicy="no-referrer"
                                 />
@@ -365,11 +375,19 @@ export function ProductsList({
                         </td>
 
                         <td className="admin-price py-2.5 px-3 text-right">
-                          {formatBDT(variant.priceBDT)}
+                          {isPlaceholder ? '—' : formatBDT(variant.priceBDT)}
                         </td>
 
                         <td className="py-2.5 px-3">
-                          {variant.deliveryMode === 'auto_vault' ? (
+                          {isPlaceholder ? (
+                            <button
+                              type="button"
+                              onClick={() => onOpenAddOptionPage(product.id)}
+                              className="text-sm font-sans font-semibold text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
+                            >
+                              +Add plan
+                            </button>
+                          ) : variant.deliveryMode === 'auto_vault' ? (
                             <span className="inline-flex items-center gap-2">
                               <span className="admin-metric">
                                 {stockCount}
@@ -402,7 +420,7 @@ export function ProductsList({
                               title="View product"
                               aria-label="View product"
                               onClick={() =>
-                                onOpenViewOptionPage(product.id, variant.id)
+                                onOpenViewOptionPage(product.id, isPlaceholder ? '' : variant.id)
                               }
                               className={iconBtnClass}
                             >
@@ -410,11 +428,9 @@ export function ProductsList({
                             </button>
                             <button
                               type="button"
-                              title="Edit product"
-                              aria-label="Edit product"
-                              onClick={() =>
-                                onOpenEditOptionPage(product.id, variant.id)
-                              }
+                              title={isPlaceholder ? 'Edit product / add plans' : 'Edit product'}
+                              aria-label={isPlaceholder ? 'Edit product / add plans' : 'Edit product'}
+                              onClick={openTarget}
                               className={iconBtnClass}
                             >
                               <Pencil className="w-3.5 h-3.5" strokeWidth={2.2} />
@@ -456,6 +472,7 @@ export function ProductsList({
                           src={product.imageUrl}
                           alt={product.name}
                           fill
+                          unoptimized={product.imageUrl.startsWith('/uploads/') || /^https?:\/\//i.test(product.imageUrl)}
                           className="object-cover"
                           referrerPolicy="no-referrer"
                         />

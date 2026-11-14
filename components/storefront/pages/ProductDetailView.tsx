@@ -250,6 +250,10 @@ export function ProductDetailView({ productId }: { productId: string }) {
                   <span className="text-sky-600">Coming soon</span>
                 ) : win.state === 'ended' ? (
                   <span className="text-slate-500">Offer ended</span>
+                ) : product.availability === 'out_of_stock' ? (
+                  <span className={product.acceptOrdersWhenOutOfStock ? 'text-amber-600' : 'text-slate-500'}>
+                    {product.acceptOrdersWhenOutOfStock ? 'Pre-order' : 'Out of stock'}
+                  </span>
                 ) : (
                   <span className="text-emerald-600">In stock</span>
                 )}
@@ -289,6 +293,11 @@ export function ProductDetailView({ productId }: { productId: string }) {
             />
 
             {/* Select Option Dropdown (Full Text Priority + Highlighted Duration Tag + Red Clear Button) */}
+            {product.plans.length === 0 ? (
+              <div className="pt-2.5 border-t border-slate-100 text-xs text-slate-500">
+                No plans available yet. Details are listed below.
+              </div>
+            ) : (
             <div className="space-y-2 pt-2.5 border-t border-slate-100" ref={dropdownRef}>
               <div className="flex items-center justify-between gap-2">
                 <label className="block text-xs font-extrabold text-[#0F172A]">
@@ -412,6 +421,7 @@ export function ProductDetailView({ productId }: { productId: string }) {
                 )}
               </div>
             </div>
+            )}
 
             {/* Selected Option Details: 1) Price + Duration (1 Month / 2 Months), 2) Low-Radius Warranty & Instructions Card */}
             {selectedPlan && (
@@ -445,6 +455,21 @@ export function ProductDetailView({ productId }: { productId: string }) {
 
             {/* Mobile-Responsive Quantity + Action Buttons */}
             <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 pt-1">
+              {selectedPlan && selectedPlan.canOrder === false ? (
+                <div className="w-full h-10 px-4 rounded-md bg-slate-100 text-slate-500 font-extrabold text-xs inline-flex items-center justify-center border border-slate-200">
+                  This plan is out of stock — choose another
+                </div>
+              ) : !win.canOrder ? (
+                <div className="w-full h-10 px-4 rounded-md bg-slate-100 text-slate-500 font-extrabold text-xs inline-flex items-center justify-center border border-slate-200">
+                  {win.state === 'upcoming' ? 'Not on sale yet — check the countdown above' : 'This offer has ended'}
+                </div>
+              ) : product.availability === 'out_of_stock' &&
+              !product.acceptOrdersWhenOutOfStock ? (
+                <div className="w-full h-10 px-4 rounded-md bg-slate-100 text-slate-500 font-extrabold text-xs inline-flex items-center justify-center border border-slate-200">
+                  Out of stock — check back soon
+                </div>
+              ) : (
+              <>
               <div className="inline-flex items-center border border-slate-200 rounded-md bg-slate-50 p-0.5 h-10 shrink-0">
                 <button
                   type="button"
@@ -466,22 +491,6 @@ export function ProductDetailView({ productId }: { productId: string }) {
                   <Plus size={13} strokeWidth={2.4} />
                 </button>
               </div>
-
-              {selectedPlan && selectedPlan.canOrder === false ? (
-                <div className="w-full h-10 px-4 rounded-md bg-slate-100 text-slate-500 font-extrabold text-xs inline-flex items-center justify-center border border-slate-200">
-                  This plan is out of stock — choose another
-                </div>
-              ) : !win.canOrder ? (
-                <div className="w-full h-10 px-4 rounded-md bg-slate-100 text-slate-500 font-extrabold text-xs inline-flex items-center justify-center border border-slate-200">
-                  {win.state === 'upcoming' ? 'Not on sale yet — check the countdown above' : 'This offer has ended'}
-                </div>
-              ) : product.availability === 'out_of_stock' &&
-              !product.acceptOrdersWhenOutOfStock ? (
-                <div className="w-full h-10 px-4 rounded-md bg-slate-100 text-slate-500 font-extrabold text-xs inline-flex items-center justify-center border border-slate-200">
-                  Out of stock — check back soon
-                </div>
-              ) : (
-              <>
               {selectedPlan && selectedPlan.inStock === false ? (
                 <p className="w-full text-[11px] font-semibold text-amber-700 m-0">
                   Pre-order. This plan is restocking. The order waits until a credential is in.

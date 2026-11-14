@@ -73,7 +73,7 @@ function mapPlan(plan: DbPlan, supply?: PlanSupply): Plan {
 
 /**
  * Stock is per option (own vault + supplier, see lib/suppliers/supply.ts).
- * The product is out of stock only when no option is in stock.
+ * The product is out of stock when it has no active plans or no option is in stock.
  */
 export function mapDbProductToCatalog(
   product: DbProductWithPlans,
@@ -83,7 +83,7 @@ export function mapDbProductToCatalog(
   const image = product.imageUrl || gallery[0] || '/products/chatgpt.jpg';
   const activePlans = product.plans.filter((plan) => plan.isActive);
   const plans = activePlans.map((p) => mapPlan(p, supply.get(p.id)));
-  const outOfStock = plans.length > 0 && plans.every((p) => p.inStock === false);
+  const outOfStock = plans.length === 0 || plans.every((p) => p.inStock === false);
   const anyBackorder = plans.some((p) => p.canOrder && !p.inStock);
 
   return {
