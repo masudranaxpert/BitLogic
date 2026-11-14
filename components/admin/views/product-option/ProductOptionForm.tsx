@@ -8,7 +8,7 @@ import type {
   StockDisplayMode,
 } from '@/lib/admin/types';
 import { BBCodeEditor } from '@/components/admin/ui/BBCode';
-import { SourcingSelect } from '@/components/admin/ui/primitives';
+import { SourcingSelect, SwitchToggle } from '@/components/admin/ui/primitives';
 import ProductSchedulePicker from '@/components/admin/views/product-add/ProductSchedulePicker';
 import type { ProductOptionFormValues } from '@/components/admin/views/product-option/option-form-values';
 
@@ -63,19 +63,26 @@ export function ProductOptionForm({
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="sm:col-span-2">
-          <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center justify-between gap-2 mb-1">
             <label className="font-semibold text-slate-700 dark:text-slate-300">
               Plan title
             </label>
-            <label className="inline-flex items-center gap-1.5 cursor-pointer text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
-              <input
-                type="checkbox"
-                checked={values.isDefault}
-                onChange={(e) => onChange('isDefault', e.target.checked)}
-                className="rounded border-slate-300"
+            <div className="flex items-center gap-3">
+              <SwitchToggle
+                checked={values.isActive}
+                onChange={(v) => onChange('isActive', v)}
+                label={values.isActive ? 'On' : 'Off'}
               />
-              <span>Default plan</span>
-            </label>
+              <label className="inline-flex items-center gap-1.5 cursor-pointer text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+                <input
+                  type="checkbox"
+                  checked={values.isDefault}
+                  onChange={(e) => onChange('isDefault', e.target.checked)}
+                  className="rounded border-slate-300"
+                />
+                <span>Default plan</span>
+              </label>
+            </div>
           </div>
           <input
             type="text"
@@ -91,11 +98,15 @@ export function ProductOptionForm({
             Price (BDT ৳)
           </label>
           <input
-            type="number"
+            type="text"
+            inputMode="numeric"
             required
-            min={1}
-            value={values.priceBDT}
-            onChange={(e) => onChange('priceBDT', Number(e.target.value))}
+            placeholder="0"
+            value={values.priceBDT > 0 ? String(values.priceBDT) : ''}
+            onChange={(e) => {
+              const digits = e.target.value.replace(/\D/g, '');
+              onChange('priceBDT', digits === '' ? 0 : Number(digits));
+            }}
             className="w-full h-9 px-3 font-mono bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg"
           />
         </div>

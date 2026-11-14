@@ -68,6 +68,7 @@ function mapDbPlan(plan: DbPlan, productId: string): ProductVariant {
     productId,
     name: plan.label,
     isDefault: plan.isDefault || undefined,
+    isActive: plan.isActive,
     durationDays: plan.durationDays,
     durationLabel: plan.durationLabel,
     priceBDT: Number(plan.priceBdt),

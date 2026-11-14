@@ -92,9 +92,10 @@ export default function ProductLivePreview({
                     active
                       ? 'border-emerald-600 bg-emerald-50/70 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-200'
                       : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
-                  }`}
+                  } ${dv.isActive === false ? 'opacity-55' : ''}`}
                 >
                   {label}
+                  {dv.isActive === false ? ' (Off)' : ''}
                 </button>
               );
             })}

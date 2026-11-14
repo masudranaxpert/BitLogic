@@ -8,6 +8,11 @@ import type {
   WarrantyPlan,
 } from '@/lib/admin/types';
 import {
+  buildProductAuditEvents,
+  planToggleAuditEvent,
+  type ProductAuditEvent,
+} from '@/lib/admin/catalog-audit';
+import {
   digitalProductToDbPayload,
   mapDbCategory,
   mapDbCredentialScheme,
@@ -73,10 +78,26 @@ export async function saveDigitalProduct(product: DigitalProduct, actor = '') {
         ...(lookupId ? [{ id: lookupId }] : []),
       ],
     },
-    select: { id: true },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      tagline: true,
+      category: true,
+      imageUrl: true,
+      status: true,
+    },
   });
 
   if (existing) {
+    const productFieldsChanged =
+      existing.name !== payload.name ||
+      existing.description !== payload.description ||
+      existing.tagline !== payload.tagline ||
+      existing.category !== payload.category ||
+      existing.imageUrl !== payload.imageUrl ||
+      existing.status !== payload.status;
+
     await db.product.update({
       where: { id: existing.id },
       data: {
@@ -96,12 +117,12 @@ export async function saveDigitalProduct(product: DigitalProduct, actor = '') {
     });
 
     const incomingCodes = payload.plans.map((p) => p.code);
-    // Current prices, so every change can be recorded and auto-priced options keep the server's price.
-    const before = new Map(
-      (await db.productPlan.findMany({ where: { productId: existing.id }, select: { code: true, priceBdt: true, pricingMode: true } })).map(
-        (p) => [p.code, p],
-      ),
-    );
+    // Current prices + on/off states, so changes can be audited accurately.
+    const existingPlans = await db.productPlan.findMany({
+      where: { productId: existing.id },
+      select: { code: true, label: true, isActive: true, priceBdt: true, pricingMode: true },
+    });
+    const before = new Map(existingPlans.map((p) => [p.code, p]));
 
     for (const planData of payload.plans) {
       const prev = before.get(planData.code);
@@ -168,6 +189,7 @@ export async function saveDigitalProduct(product: DigitalProduct, actor = '') {
         productId: existing.id,
         code: { notIn: incomingCodes },
       },
+      select: { id: true, code: true, label: true, isActive: true, priceBdt: true },
     });
 
     for (const rp of removedPlans) {
@@ -180,7 +202,31 @@ export async function saveDigitalProduct(product: DigitalProduct, actor = '') {
         });
       }
     }
-    return;
+
+    return buildProductAuditEvents({
+      isNew: false,
+      productName: payload.name,
+      productSlug: payload.slug,
+      beforePlans: existingPlans.map((p) => ({
+        code: p.code,
+        label: p.label,
+        isActive: p.isActive,
+        priceBdt: Number(p.priceBdt),
+      })),
+      afterPlans: payload.plans.map((p) => ({
+        code: p.code,
+        label: p.label,
+        isActive: p.isActive,
+        priceBdt: Number(p.priceBdt),
+      })),
+      removedPlans: removedPlans.map((p) => ({
+        code: p.code,
+        label: p.label,
+        isActive: p.isActive,
+        priceBdt: Number(p.priceBdt),
+      })),
+      productFieldsChanged,
+    });
   }
 
   await db.product.create({
@@ -213,6 +259,46 @@ export async function saveDigitalProduct(product: DigitalProduct, actor = '') {
       note: 'Product created',
     });
   }
+  return buildProductAuditEvents({
+    isNew: true,
+    productName: payload.name,
+    productSlug: payload.slug,
+    beforePlans: [],
+    afterPlans: payload.plans.map((p) => ({
+      code: p.code,
+      label: p.label,
+      isActive: p.isActive,
+      priceBdt: Number(p.priceBdt),
+    })),
+    removedPlans: [],
+  });
+}
+
+export async function toggleProductPlanActive(
+  productIdOrSlug: string,
+  planCode: string,
+  isActive: boolean,
+): Promise<ProductAuditEvent | null> {
+  const product = await db.product.findFirst({
+    where: { OR: [{ slug: productIdOrSlug }, { id: productIdOrSlug }] },
+    select: { id: true, slug: true, name: true },
+  });
+  if (!product) return null;
+
+  const plan = await db.productPlan.findUnique({
+    where: { productId_code: { productId: product.id, code: planCode } },
+    select: { id: true, label: true, isActive: true },
+  });
+  if (!plan) return null;
+
+  if (plan.isActive !== isActive) {
+    await db.productPlan.update({
+      where: { id: plan.id },
+      data: { isActive },
+    });
+  }
+
+  return planToggleAuditEvent(product.name, product.slug, plan.label, isActive);
 }
 
 export async function replaceCategories(categories: ProductCategory[]) {

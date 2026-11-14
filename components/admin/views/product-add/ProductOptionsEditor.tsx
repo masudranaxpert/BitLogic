@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Eye, Plus, Trash2 } from 'lucide-react';
 import type { CredentialScheme, WarrantyPlan } from '@/lib/admin-data';
-import { Card, SourcingSelect } from '@/components/admin/ui/primitives';
+import { Card, SourcingSelect, SwitchToggle } from '@/components/admin/ui/primitives';
 import { allWarranties, type DraftVariant } from './draft-helpers';
 import ProductSchedulePicker from './ProductSchedulePicker';
 import { ItemView, Pill, SOURCING, api, stockPill, taka, type OptionLink, type OptionView, type SupplierCatalogItem } from '@/components/admin/views/suppliers/shared';
@@ -118,20 +118,39 @@ export default function ProductOptionsEditor({
       ) : null}
 
       {draftVariants.map((dv, idx) => (
-        <Card key={dv.tempId} className="p-4 space-y-3">
+        <Card
+          key={dv.tempId}
+          className={`p-4 space-y-3 transition-colors ${
+            dv.isActive === false ? 'bg-slate-50/70 dark:bg-slate-900/40 opacity-85' : ''
+          }`}
+        >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 tabular-nums">
-              Plan {idx + 1}
-            </span>
-            <button
-              type="button"
-              onClick={() => onRemove(dv.tempId)}
-              className="p-1.5 text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40 rounded cursor-pointer"
-              title="Remove"
-              aria-label="Remove plan"
-            >
-              <Trash2 className="w-4 h-4" aria-hidden />
-            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 tabular-nums">
+                Plan {idx + 1}
+              </span>
+              {dv.isActive === false ? (
+                <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                  Off
+                </span>
+              ) : null}
+            </div>
+            <div className="flex items-center gap-2">
+              <SwitchToggle
+                checked={dv.isActive !== false}
+                onChange={(v) => onUpdate(dv.tempId, 'isActive', v)}
+                label={dv.isActive !== false ? 'On' : 'Off'}
+              />
+              <button
+                type="button"
+                onClick={() => onRemove(dv.tempId)}
+                className="p-1.5 text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40 rounded cursor-pointer"
+                title="Remove"
+                aria-label="Remove plan"
+              >
+                <Trash2 className="w-4 h-4" aria-hidden />
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -150,13 +169,19 @@ export default function ProductOptionsEditor({
             <div>
               <label className="admin-label block mb-1.5">Price (৳)</label>
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 required
-                min={0}
-                value={dv.priceBDT}
-                onChange={(e) =>
-                  onUpdate(dv.tempId, 'priceBDT', Number(e.target.value))
-                }
+                placeholder="0"
+                value={dv.priceBDT > 0 ? String(dv.priceBDT) : ''}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/\D/g, '');
+                  onUpdate(
+                    dv.tempId,
+                    'priceBDT',
+                    digits === '' ? 0 : Number(digits),
+                  );
+                }}
                 className="w-full h-9 px-3 font-mono bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg"
               />
             </div>

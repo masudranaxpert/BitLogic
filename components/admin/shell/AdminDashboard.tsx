@@ -26,6 +26,7 @@ import {
   persistAdminTaxonomies,
   persistAdminWorkspace,
 } from '@/lib/admin/workspace-client';
+import { persistPlanActive } from '@/lib/admin/catalog-client';
 import {
   AdminTab,
   DigitalProduct,
@@ -828,6 +829,47 @@ export default function AdminDashboard() {
     }
     setActiveTab('products');
     showToast(`Updated "${updatedVariant.name}".`);
+  };
+
+  const handleTogglePlanActive = (
+    productId: string,
+    variantId: string,
+    nextActive: boolean,
+  ) => {
+    let targetName = variantId;
+    setProducts((prev) =>
+      prev.map((p) => {
+        if (p.id !== productId) return p;
+        return {
+          ...p,
+          variants: p.variants.map((v) => {
+            if (v.id !== variantId) return v;
+            targetName = v.name;
+            return { ...v, isActive: nextActive };
+          }),
+        };
+      }),
+    );
+    showToast(
+      `${nextActive ? 'Turned ON' : 'Turned OFF'} plan "${targetName}".`,
+    );
+    void persistPlanActive(productId, variantId, nextActive).then((ok) => {
+      if (!ok) {
+        setProducts((prev) =>
+          prev.map((p) =>
+            p.id !== productId
+              ? p
+              : {
+                  ...p,
+                  variants: p.variants.map((v) =>
+                    v.id === variantId ? { ...v, isActive: !nextActive } : v,
+                  ),
+                },
+          ),
+        );
+        showToast('DB write failed — reverted plan status.');
+      }
+    });
   };
 
   const handleOpenQuickRestock = (productId: string, variantId: string) => {
@@ -1902,6 +1944,7 @@ export default function AdminDashboard() {
             handleUpdateProduct={handleUpdateProduct}
             handleAddVariant={handleAddVariant}
             handleUpdateVariant={handleUpdateVariant}
+            handleTogglePlanActive={handleTogglePlanActive}
             handleDeleteCredential={handleDeleteCredential}
             handleUpdateCredential={handleUpdateCredential}
             handleAddCredentials={handleAddCredentials}

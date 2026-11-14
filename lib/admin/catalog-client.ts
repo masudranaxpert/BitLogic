@@ -29,6 +29,19 @@ export async function persistAdminProduct(
   return res.ok;
 }
 
+export async function persistPlanActive(
+  productId: string,
+  planCode: string,
+  isActive: boolean,
+): Promise<boolean> {
+  const res = await fetch('/api/admin/catalog/plans/toggle', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ productId, planCode, isActive }),
+  });
+  return res.ok;
+}
+
 export async function persistAdminTaxonomies(patch: {
   productCategories?: ProductCategory[];
   warranties?: WarrantyPlan[];

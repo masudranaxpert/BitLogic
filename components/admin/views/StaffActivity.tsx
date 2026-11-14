@@ -121,16 +121,16 @@ function isAutomatedSystemAction(action?: string): boolean {
 
 function actionBadgeStyle(action?: string): string {
   if (!action) return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
-  if (action === 'payment.auto_verified') {
+  if (action === 'payment.auto_verified' || action === 'product.plan_on' || action === 'product.create' || action === 'product.plan_add') {
     return 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800';
   }
-  if (action === 'payment.manual_verify' || action === 'payment.manual_match') {
+  if (action === 'payment.manual_verify' || action === 'payment.manual_match' || action === 'product.save') {
     return 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800';
   }
-  if (action === 'payment.trx_claimed' || action === 'payment.sender_registered') {
+  if (action === 'payment.trx_claimed' || action === 'payment.sender_registered' || action === 'product.plan_off') {
     return 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800';
   }
-  if (action === 'payment.reject' || action === 'payment.refund' || action === 'sms.parse_failed') {
+  if (action === 'payment.reject' || action === 'payment.refund' || action === 'sms.parse_failed' || action === 'product.plan_remove') {
     return 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800';
   }
   return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';

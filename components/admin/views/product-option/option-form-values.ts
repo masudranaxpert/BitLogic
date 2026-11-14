@@ -10,6 +10,7 @@ import { formatDurationDays } from '@/lib/warranty';
 export type ProductOptionFormValues = {
   name: string;
   isDefault: boolean;
+  isActive: boolean;
   durationDays: number;
   priceBDT: number;
   credentialType: CredentialType;
@@ -35,6 +36,7 @@ export function defaultOptionFormValues(): ProductOptionFormValues {
   return {
     name: '1M Access Token',
     isDefault: false,
+    isActive: true,
     durationDays: 30,
     priceBDT: 490,
     credentialType: 'token',
@@ -66,6 +68,7 @@ export function optionFormValuesFromVariant(
   return {
     name: variant.name,
     isDefault: Boolean(variant.isDefault),
+    isActive: variant.isActive !== false,
     durationDays: variant.durationDays,
     priceBDT: variant.priceBDT,
     credentialType: variant.credentialType,
@@ -111,6 +114,7 @@ export function buildVariantFromOptionForm(
     productId: opts.productId,
     name: values.name,
     isDefault: values.isDefault,
+    isActive: values.isActive,
     durationDays: values.durationDays,
     durationLabel: formatDurationDays(values.durationDays),
     priceBDT: values.priceBDT,

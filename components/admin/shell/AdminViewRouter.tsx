@@ -128,6 +128,11 @@ export type AdminViewRouterProps = {
   ) => void;
   handleAddVariant: (productId: string, variant: ProductVariant) => void;
   handleUpdateVariant: (productId: string, variant: ProductVariant) => void;
+  handleTogglePlanActive: (
+    productId: string,
+    variantId: string,
+    nextActive: boolean,
+  ) => void;
   handleDeleteCredential: (id: string) => void;
   handleUpdateCredential: (item: VaultCredential) => void;
   handleAddCredentials: (items: VaultCredential[]) => void;
@@ -276,6 +281,7 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
                 openProductViewPage(productId, variantId)
               }
               onOpenQuickRestock={handleOpenQuickRestock}
+              onTogglePlanActive={props.handleTogglePlanActive}
             />
           )}
 

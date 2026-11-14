@@ -98,7 +98,8 @@ function SupplierCell({ s }: { s?: RowSupply }) {
 }
 
 /** Status column: can a customer buy this option right now (own stock or a supplier). */
-function SellStatus({ s, own, manual }: { s?: RowSupply; own: number; manual: boolean }) {
+function SellStatus({ s, own, manual, planActive }: { s?: RowSupply; own: number; manual: boolean; planActive: boolean }) {
+  if (!planActive) return <StatusIndicator tone="zinc" label="Plan Off" />;
   if (manual) return <StatusIndicator tone="blue" label="Manual" />;
   const inStock = s ? s.inStock : own > 0;
   if (inStock) return own === 1 && !s?.suppliers.length ? <StatusIndicator tone="amber" label="Low stock" /> : <StatusIndicator tone="emerald" label="In stock" />;
@@ -129,6 +130,7 @@ interface ProductsListProps {
   onOpenEditOptionPage: (productId: string, variantId: string) => void;
   onOpenViewOptionPage: (productId: string, variantId: string) => void;
   onOpenQuickRestock: (productId: string, variantId: string) => void;
+  onTogglePlanActive?: (productId: string, variantId: string, nextActive: boolean) => void;
   onResetFilters: () => void;
 }
 
@@ -155,6 +157,7 @@ export function ProductsList({
   onOpenEditOptionPage,
   onOpenViewOptionPage,
   onOpenQuickRestock,
+  onTogglePlanActive,
   onResetFilters,
 }: ProductsListProps) {
   const [page, setPage] = useState(1);
@@ -410,11 +413,20 @@ export function ProductsList({
                         </td>
 
                         <td className="py-2.5 px-3">
-                          <SellStatus s={rowSupply} own={stockCount} manual={variant.deliveryMode === 'manual_dispatch'} />
+                          <SellStatus s={rowSupply} own={stockCount} manual={variant.deliveryMode === 'manual_dispatch'} planActive={variant.isActive !== false} />
                         </td>
 
                         <td className="py-2.5 px-4 text-right">
                           <div className="inline-flex items-center justify-end gap-1.5">
+                            {!isPlaceholder && onTogglePlanActive ? (
+                              <SwitchToggle
+                                checked={variant.isActive !== false}
+                                onChange={(next) =>
+                                  onTogglePlanActive(product.id, variant.id, next)
+                                }
+                                label={variant.isActive !== false ? 'On' : 'Off'}
+                              />
+                            ) : null}
                             <button
                               type="button"
                               title="View product"
@@ -547,9 +559,24 @@ export function ProductsList({
                             {formatBDT(v.priceBDT)}
                           </span>
                           <StatusIndicator
-                            tone={st > 0 ? 'emerald' : 'amber'}
-                            label={v.deliveryMode === 'auto_vault' ? `${st} in Vault` : 'Manual'}
+                            tone={v.isActive === false ? 'zinc' : st > 0 ? 'emerald' : 'amber'}
+                            label={
+                              v.isActive === false
+                                ? 'Plan Off'
+                                : v.deliveryMode === 'auto_vault'
+                                  ? `${st} in Vault`
+                                  : 'Manual'
+                            }
                           />
+                          {onTogglePlanActive ? (
+                            <SwitchToggle
+                              checked={v.isActive !== false}
+                              onChange={(next) =>
+                                onTogglePlanActive(product.id, v.id, next)
+                              }
+                              label={v.isActive !== false ? 'On' : 'Off'}
+                            />
+                          ) : null}
                           <button
                             type="button"
                             title="View product"

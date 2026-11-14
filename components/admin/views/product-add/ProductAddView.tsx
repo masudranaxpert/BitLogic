@@ -246,6 +246,7 @@ export default function ProductAddView({
         name: dv.name.trim() || `Plan ${index + 1}`,
         sourcing: dv.sourcing || 'own',
         isDefault: false,
+        isActive: dv.isActive !== false,
         durationDays: parsedDays,
         durationLabel,
         priceBDT: dv.priceBDT,

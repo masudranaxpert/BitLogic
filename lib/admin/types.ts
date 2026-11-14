@@ -112,6 +112,7 @@ export interface ProductVariant {
   productId: string;
   name: string;
   isDefault?: boolean;
+  isActive?: boolean;
   durationDays: number;
   durationLabel: string;
   priceBDT: number;
