@@ -220,9 +220,12 @@ export function BBCodeRenderer({
           return (
             <blockquote
               key={i}
-              className="m-0 pl-3 border-l-2 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 whitespace-pre-line"
+              className="my-2.5 px-3.5 py-2.5 rounded-lg bg-slate-50/90 dark:bg-slate-900/60 border border-slate-200/90 dark:border-slate-800 border-l-[3px] border-l-slate-400 dark:border-l-slate-500 text-slate-700 dark:text-slate-200 font-normal flex items-start gap-2.5"
             >
-              {renderInlineBBCode(inner)}
+              <Quote className="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0 mt-0.5" aria-hidden />
+              <div className="flex-1 whitespace-pre-line text-pretty">
+                {renderInlineBBCode(inner)}
+              </div>
             </blockquote>
           );
         }
