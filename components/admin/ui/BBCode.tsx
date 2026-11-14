@@ -16,6 +16,7 @@ import {
   Minus,
   Heading2,
 } from 'lucide-react';
+import { splitBBCodeSegments } from './bbcode-segments';
 
 /** Tags this editor can insert and render. */
 export const SUPPORTED_BBCODE = [
@@ -35,11 +36,11 @@ export const SUPPORTED_BBCODE = [
 ] as const;
 
 const FONT_SIZES = [
-  { value: '1', label: 'S', px: '12px' },
-  { value: '2', label: 'M', px: '14px' },
-  { value: '3', label: 'L', px: '16px' },
-  { value: '4', label: 'XL', px: '18px' },
-  { value: '5', label: '2X', px: '20px' },
+  { value: '1', label: 'S', px: '13.5px' },
+  { value: '2', label: 'M', px: '15.5px' },
+  { value: '3', label: 'L', px: '17px' },
+  { value: '4', label: 'XL', px: '19px' },
+  { value: '5', label: '2X', px: '22px' },
 ] as const;
 
 const FONT_COLORS = [
@@ -169,7 +170,9 @@ export function BBCodeRenderer({
   );
 
   return (
-    <div className={`space-y-2 text-sm leading-[1.55] ${className}`}>
+    <div
+      className={`space-y-3 text-[15px] sm:text-[15.5px] leading-[1.75] text-slate-700 dark:text-slate-300 tracking-normal ${className}`}
+    >
       {blocks.map((block, i) => {
         const trimmed = block.trim();
         if (!trimmed) return null;
@@ -184,7 +187,7 @@ export function BBCodeRenderer({
           return (
             <hr
               key={i}
-              className="border-0 border-t border-slate-200 dark:border-slate-700 my-3"
+              className="border-0 border-t border-slate-200 dark:border-slate-700 my-4"
             />
           );
         }
@@ -194,9 +197,9 @@ export function BBCodeRenderer({
           return (
             <div
               key={i}
-              className="p-3 rounded-lg bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200/90 dark:border-amber-800/70 text-amber-800 dark:text-amber-200 font-normal flex items-start gap-2.5"
+              className="px-4 py-3 rounded-xl bg-amber-50/85 dark:bg-amber-950/40 border border-amber-200/90 dark:border-amber-800/70 text-amber-900 dark:text-amber-200 font-normal leading-[1.7] flex items-start gap-3"
             >
-              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" aria-hidden />
+              <AlertTriangle className="w-[18px] h-[18px] text-amber-600 dark:text-amber-400 shrink-0 mt-1" aria-hidden />
               <div className="flex-1 whitespace-pre-line text-pretty">{renderInlineBBCode(inner)}</div>
             </div>
           );
@@ -207,9 +210,9 @@ export function BBCodeRenderer({
           return (
             <div
               key={i}
-              className="p-3 rounded-lg bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/70 text-emerald-800 dark:text-emerald-200 font-normal flex items-start gap-2.5"
+              className="px-4 py-3 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/70 text-emerald-900 dark:text-emerald-200 font-normal leading-[1.7] flex items-start gap-3"
             >
-              <Info className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" aria-hidden />
+              <Info className="w-[18px] h-[18px] text-emerald-600 dark:text-emerald-400 shrink-0 mt-1" aria-hidden />
               <div className="flex-1 whitespace-pre-line text-pretty">{renderInlineBBCode(inner)}</div>
             </div>
           );
@@ -220,9 +223,9 @@ export function BBCodeRenderer({
           return (
             <blockquote
               key={i}
-              className="my-2.5 px-3.5 py-2.5 rounded-lg bg-slate-50/90 dark:bg-slate-900/60 border border-slate-200/90 dark:border-slate-800 border-l-[3px] border-l-slate-400 dark:border-l-slate-500 text-slate-700 dark:text-slate-200 font-normal flex items-start gap-2.5"
+              className="my-3 px-4 py-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/90 dark:border-slate-800 border-l-4 border-l-emerald-500/70 dark:border-l-emerald-500 text-slate-700 dark:text-slate-200 font-normal leading-[1.7] flex items-start gap-3"
             >
-              <Quote className="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0 mt-0.5" aria-hidden />
+              <Quote className="w-[18px] h-[18px] text-slate-400 dark:text-slate-500 shrink-0 mt-1" aria-hidden />
               <div className="flex-1 whitespace-pre-line text-pretty">
                 {renderInlineBBCode(inner)}
               </div>
@@ -235,16 +238,54 @@ export function BBCodeRenderer({
           return (
             <h3
               key={i}
-              className="m-0 text-base font-semibold text-slate-900 dark:text-slate-100"
+              className="m-0 pt-2 first:pt-0 text-[17px] sm:text-lg font-bold text-slate-900 dark:text-slate-100 leading-snug tracking-normal"
             >
               {renderInlineBBCode(inner)}
             </h3>
           );
         }
 
+        const segments = splitBBCodeSegments(trimmed);
         return (
-          <div key={i} className="admin-body whitespace-pre-line text-pretty text-slate-600 dark:text-slate-400">
-            {renderInlineBBCode(trimmed)}
+          <div key={i} className="space-y-3">
+            {segments.map((seg, sIdx) => {
+              if (seg.kind === 'heading') {
+                return (
+                  <h3
+                    key={sIdx}
+                    className="m-0 pt-2 first:pt-0 text-[16.5px] sm:text-[17.5px] font-bold text-slate-900 dark:text-slate-100 leading-snug tracking-normal"
+                  >
+                    {renderInlineBBCode(seg.text)}
+                  </h3>
+                );
+              }
+              if (seg.kind === 'list') {
+                return (
+                  <ul
+                    key={sIdx}
+                    className="my-2.5 space-y-2.5 list-none p-0 m-0 text-left"
+                  >
+                    {seg.items.map((item, idx) => (
+                      <li
+                        key={idx}
+                        className="flex items-start gap-3 leading-[1.7] text-pretty"
+                      >
+                        <span
+                          className="w-1.5 h-1.5 rounded-full bg-[#FF5E5B] shrink-0 mt-[10px]"
+                          aria-hidden
+                        />
+                        <span className="flex-1">{renderInlineBBCode(item)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                );
+              }
+              return (
+                <p key={sIdx} className="m-0 whitespace-pre-line leading-[1.75] text-pretty">
+                  {renderInlineBBCode(seg.text)}
+                </p>
+              );
+            })}
           </div>
         );
       })}

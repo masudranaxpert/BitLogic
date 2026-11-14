@@ -528,9 +528,9 @@ export function ProductDetailView({ productId }: { productId: string }) {
       {/* Centered Details Tabs */}
       <div
         ref={tabsSectionRef}
-        className="bg-white rounded-lg border border-slate-200/90 p-4 sm:p-6 scroll-mt-24"
+        className="bg-white rounded-xl border border-slate-200/90 shadow-[0_1px_3px_rgba(15,23,42,0.04)] p-5 sm:p-8 scroll-mt-24"
       >
-        <div className="flex items-center justify-center gap-5 sm:gap-8 border-b border-slate-200/80">
+        <div className="flex items-center justify-center gap-6 sm:gap-10 border-b border-slate-200/80">
           {(
             [
               { id: 'description', label: 'Description' },
@@ -546,7 +546,7 @@ export function ProductDetailView({ productId }: { productId: string }) {
                 key={t.id}
                 type="button"
                 onClick={() => setActiveTab(t.id)}
-                className={`pb-2.5 text-xs sm:text-sm font-extrabold transition-colors cursor-pointer border-0 bg-transparent border-b-2 whitespace-nowrap ${
+                className={`pb-3 text-sm sm:text-[15px] font-bold transition-colors cursor-pointer border-0 bg-transparent border-b-2 whitespace-nowrap ${
                   active
                     ? 'border-[#FF5E5B] text-[#FF5E5B]'
                     : 'border-transparent text-slate-500 hover:text-[#0F172A]'
@@ -558,40 +558,43 @@ export function ProductDetailView({ productId }: { productId: string }) {
           })}
         </div>
 
-        <div className="pt-5 text-xs text-slate-600 leading-relaxed">
+        <div className="pt-6 text-[15px] sm:text-[15.5px] text-slate-700 leading-[1.75]">
           {activeTab === 'description' && (
-            <div className="max-w-2xl mx-auto space-y-3 text-left text-slate-600">
+            <div className="max-w-3xl mx-auto space-y-5 text-left text-slate-700">
               {product.description?.trim() ? (
                 <BBCodeRenderer content={product.description} />
               ) : null}
-              <p className="m-0 pt-2 border-t border-slate-100 text-xs text-slate-500 text-center">
-                অর্ডার সম্পন্ন করার সাথে সাথে আপনার অ্যাকাউন্ট ভল্ট এবং ইমেইলে অ্যাক্সেস ডিটেইলস পৌঁছে যাবে।
-              </p>
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-center gap-2 text-[13.5px] sm:text-sm font-medium text-slate-600 text-center">
+                <ShieldCheck size={16} className="text-emerald-600 shrink-0" aria-hidden />
+                <p className="m-0">
+                  অর্ডার সম্পন্ন করার সাথে সাথে আপনার অ্যাকাউন্ট ভল্ট এবং ইমেইলে অ্যাক্সেস ডিটেইলস পৌঁছে যাবে।
+                </p>
+              </div>
             </div>
           )}
 
           {activeTab === 'specification' && (
-            <div className="max-w-md mx-auto divide-y divide-slate-100">
-              <div className="py-2 flex justify-between gap-4">
-                <span className="text-slate-500 shrink-0">Platform</span>
+            <div className="max-w-2xl mx-auto rounded-lg border border-slate-200/80 bg-slate-50/40 divide-y divide-slate-200/70 text-sm">
+              <div className="px-4 py-3 flex items-center justify-between gap-4">
+                <span className="text-slate-500 font-medium shrink-0">Platform</span>
                 <span className="font-bold text-[#0F172A] text-right">{product.platform}</span>
               </div>
-              <div className="py-2 flex justify-between gap-4">
-                <span className="text-slate-500 shrink-0">Selected option</span>
+              <div className="px-4 py-3 flex items-center justify-between gap-4">
+                <span className="text-slate-500 font-medium shrink-0">Selected option</span>
                 <span className="font-bold text-[#0F172A] text-right">
                   {selectedPlan
                     ? `${selectedPlan.label} (${selectedPlan.duration})`
                     : 'Not selected yet'}
                 </span>
               </div>
-              <div className="py-2 flex justify-between gap-4">
-                <span className="text-slate-500 shrink-0">Warranty</span>
+              <div className="px-4 py-3 flex items-center justify-between gap-4">
+                <span className="text-slate-500 font-medium shrink-0">Warranty</span>
                 <span className="font-bold text-[#0F172A] text-right">
                   {selectedPlan ? warrantyBadgeText : 'Select an option'}
                 </span>
               </div>
-              <div className="py-2 flex justify-between gap-4">
-                <span className="text-slate-500 shrink-0">Payment</span>
+              <div className="px-4 py-3 flex items-center justify-between gap-4">
+                <span className="text-slate-500 font-medium shrink-0">Payment</span>
                 <span className="font-bold text-[#0F172A] text-right">bKash, Nagad, Rocket</span>
               </div>
             </div>

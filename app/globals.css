@@ -3,12 +3,12 @@
 
 :root {
   /* Faces come from next/font (--*-face on <html>); system stacks as fallback. */
-  --font-jakarta: var(--font-jakarta-face), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-dm-sans: var(--font-jakarta-face), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-inter: var(--font-inter-face), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-jakarta: var(--font-jakarta-face), var(--font-bengali-face), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-dm-sans: var(--font-jakarta-face), var(--font-bengali-face), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-inter: var(--font-inter-face), var(--font-bengali-face), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-jetbrains-mono: var(--font-jetbrains-face), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --font-playfair: Georgia, Cambria, "Times New Roman", Times, serif;
-  --font-space: var(--font-jakarta-face), -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-space: var(--font-jakarta-face), var(--font-bengali-face), -apple-system, BlinkMacSystemFont, sans-serif;
   --font-fraunces: Georgia, serif;
 }
 

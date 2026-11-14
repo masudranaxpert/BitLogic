@@ -1,5 +1,10 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, JetBrains_Mono, Plus_Jakarta_Sans } from 'next/font/google';
+import {
+  Hind_Siliguri,
+  Inter,
+  JetBrains_Mono,
+  Plus_Jakarta_Sans,
+} from 'next/font/google';
 import {
   DEFAULT_STORE_SETTINGS,
   getStoreSettings,
@@ -13,6 +18,13 @@ import './storefront.css';
 const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
   variable: '--font-jakarta-face',
+  display: 'swap',
+});
+
+const hindSiliguri = Hind_Siliguri({
+  subsets: ['bengali', 'latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-bengali-face',
   display: 'swap',
 });
 
@@ -101,7 +113,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${jakarta.variable} ${inter.variable} ${jetbrains.variable}`}
+      className={`${jakarta.variable} ${hindSiliguri.variable} ${inter.variable} ${jetbrains.variable}`}
     >
       <body
         className="font-sans bg-[#f6f8fa] text-slate-900 dark:bg-[#090d16] dark:text-slate-100 selection:bg-emerald-600 selection:text-white antialiased overflow-x-hidden"
