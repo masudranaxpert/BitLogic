@@ -1,26 +1,15 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Self-hosted Solaiman Lipi SemiBold (600) restricted to Bengali Unicode range so Latin text keeps Jakarta/Inter. */
-@font-face {
-  font-family: "Solaiman Lipi";
-  src: url("/fonts/solaiman-lipi-semibold.woff2") format("woff2");
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
-  unicode-range: U+0980-09FF, U+200C-200D, U+25CC;
-}
-
 :root {
   /* Faces come from next/font (--*-face on <html>); system stacks as fallback. */
-  --font-bengali: "Solaiman Lipi";
-  --font-jakarta: var(--font-jakarta-face), var(--font-bengali), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-dm-sans: var(--font-jakarta-face), var(--font-bengali), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-inter: var(--font-inter-face), var(--font-bengali), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-jetbrains-mono: var(--font-jetbrains-face), var(--font-bengali), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  --font-playfair: var(--font-bengali), Georgia, Cambria, "Times New Roman", Times, serif;
-  --font-space: var(--font-jakarta-face), var(--font-bengali), -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-fraunces: var(--font-bengali), Georgia, serif;
+  --font-jakarta: var(--font-jakarta-face), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-dm-sans: var(--font-jakarta-face), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-inter: var(--font-inter-face), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-jetbrains-mono: var(--font-jetbrains-face), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-playfair: Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-space: var(--font-jakarta-face), -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-fraunces: Georgia, serif;
 }
 
 @theme inline {
