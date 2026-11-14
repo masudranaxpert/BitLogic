@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   AlertTriangle,
+  AlignCenter,
   Info,
   Code2,
   Bold,
@@ -28,6 +29,7 @@ export const SUPPORTED_BBCODE = [
   'quote',
   'hr',
   'h',
+  'center',
   'size',
   'color',
 ] as const;
@@ -60,13 +62,27 @@ function colorToHex(color: string): string {
   return '#334155';
 }
 
+function safeHref(raw: string): string {
+  const trimmed = raw.trim();
+  if (/^(https?:\/\/|mailto:|\/|#)/i.test(trimmed)) return trimmed;
+  return '#';
+}
+
 function renderInlineBBCode(text: string): React.ReactNode[] {
   const parts = text.split(
-    /(\[b\][\s\S]*?\[\/b\]|\[i\][\s\S]*?\[\/i\]|\[u\][\s\S]*?\[\/u\]|\[code\][\s\S]*?\[\/code\]|\[url(?:=[^\]]+)?\][\s\S]*?\[\/url\]|\[size=\d\][\s\S]*?\[\/size\]|\[color=[^\]]+\][\s\S]*?\[\/color\])/gi
+    /(\[center\][\s\S]*?\[\/center\]|\[b\][\s\S]*?\[\/b\]|\[i\][\s\S]*?\[\/i\]|\[u\][\s\S]*?\[\/u\]|\[code\][\s\S]*?\[\/code\]|\[url(?:=[^\]]+)?\][\s\S]*?\[\/url\]|\[size=\d\][\s\S]*?\[\/size\]|\[color=[^\]]+\][\s\S]*?\[\/color\])/gi
   );
 
   return parts.map((part, idx) => {
     const lower = part.toLowerCase();
+
+    if (lower.startsWith('[center]') && lower.endsWith('[/center]')) {
+      return (
+        <span key={idx} className="block text-center">
+          {renderInlineBBCode(part.slice(8, -9))}
+        </span>
+      );
+    }
 
     if (lower.startsWith('[b]') && lower.endsWith('[/b]')) {
       return (
@@ -102,8 +118,8 @@ function renderInlineBBCode(text: string): React.ReactNode[] {
 
     const urlMatch = part.match(/^\[url(?:=([^\]]+))?\]([\s\S]*?)\[\/url\]$/i);
     if (urlMatch) {
-      const href = (urlMatch[1] || urlMatch[2]).trim();
-      const label = urlMatch[1] ? urlMatch[2] : href;
+      const href = safeHref(urlMatch[1] || urlMatch[2]);
+      const label = urlMatch[1] ? urlMatch[2] : (urlMatch[1] || urlMatch[2]).trim();
       return (
         <a
           key={idx}
@@ -149,7 +165,7 @@ export function BBCodeRenderer({
   if (!content || !content.trim()) return null;
 
   const blocks = content.split(
-    /(\[warning\][\s\S]*?\[\/warning\]|\[notice\][\s\S]*?\[\/notice\]|\[quote\][\s\S]*?\[\/quote\]|\[h\][\s\S]*?\[\/h\]|\[hr\])/gi
+    /(\[center\][\s\S]*?\[\/center\]|\[warning\][\s\S]*?\[\/warning\]|\[notice\][\s\S]*?\[\/notice\]|\[quote\][\s\S]*?\[\/quote\]|\[h\][\s\S]*?\[\/h\]|\[hr\])/gi
   );
 
   return (
@@ -158,6 +174,11 @@ export function BBCodeRenderer({
         const trimmed = block.trim();
         if (!trimmed) return null;
         const lower = trimmed.toLowerCase();
+
+        if (lower.startsWith('[center]') && lower.endsWith('[/center]')) {
+          const inner = trimmed.slice(8, -9).trim();
+          return <BBCodeRenderer key={i} content={inner} className="text-center" />;
+        }
 
         if (lower === '[hr]') {
           return (
@@ -176,7 +197,7 @@ export function BBCodeRenderer({
               className="p-3 rounded-lg bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200/90 dark:border-amber-800/70 text-amber-800 dark:text-amber-200 font-normal flex items-start gap-2.5"
             >
               <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" aria-hidden />
-              <div className="flex-1 text-pretty">{renderInlineBBCode(inner)}</div>
+              <div className="flex-1 whitespace-pre-line text-pretty">{renderInlineBBCode(inner)}</div>
             </div>
           );
         }
@@ -189,7 +210,7 @@ export function BBCodeRenderer({
               className="p-3 rounded-lg bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/70 text-emerald-800 dark:text-emerald-200 font-normal flex items-start gap-2.5"
             >
               <Info className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" aria-hidden />
-              <div className="flex-1 text-pretty">{renderInlineBBCode(inner)}</div>
+              <div className="flex-1 whitespace-pre-line text-pretty">{renderInlineBBCode(inner)}</div>
             </div>
           );
         }
@@ -199,7 +220,7 @@ export function BBCodeRenderer({
           return (
             <blockquote
               key={i}
-              className="m-0 pl-3 border-l-2 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300"
+              className="m-0 pl-3 border-l-2 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 whitespace-pre-line"
             >
               {renderInlineBBCode(inner)}
             </blockquote>
@@ -219,7 +240,7 @@ export function BBCodeRenderer({
         }
 
         return (
-          <div key={i} className="admin-body whitespace-pre-line text-pretty">
+          <div key={i} className="admin-body whitespace-pre-line text-pretty text-slate-600 dark:text-slate-400">
             {renderInlineBBCode(trimmed)}
           </div>
         );
@@ -254,8 +275,20 @@ export function BBCodeEditor({
   placeholder?: string;
 }) {
   const [showPreview, setShowPreview] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const insertTag = (openTag: string, closeTag: string, sample = '') => {
+    const el = textareaRef.current;
+    if (el && !showPreview) {
+      const start = el.selectionStart ?? value.length;
+      const end = el.selectionEnd ?? value.length;
+      if (start !== end || start < value.length) {
+        const inner = start !== end ? value.slice(start, end) : sample;
+        const snippet = closeTag ? `${openTag}${inner}${closeTag}` : openTag;
+        onChange(`${value.slice(0, start)}${snippet}${value.slice(end)}`);
+        return;
+      }
+    }
     const snippet = closeTag ? `${openTag}${sample}${closeTag}` : openTag;
     if (!value) {
       onChange(snippet);
@@ -289,6 +322,9 @@ export function BBCodeEditor({
           </button>
           <button type="button" onClick={() => insertTag('[h]', '[/h]', 'Heading')} className={toolBtn} title="Heading" aria-label="Heading">
             <Heading2 className="w-3.5 h-3.5" aria-hidden />
+          </button>
+          <button type="button" onClick={() => insertTag('[center]', '[/center]', 'Centered text')} className={toolBtn} title="Center" aria-label="Center">
+            <AlignCenter className="w-3.5 h-3.5" aria-hidden />
           </button>
 
           <span className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-0.5" aria-hidden />
@@ -377,6 +413,7 @@ export function BBCodeEditor({
           </div>
         ) : (
           <textarea
+            ref={textareaRef}
             rows={rows}
             value={value}
             onChange={(e) => onChange(e.target.value)}

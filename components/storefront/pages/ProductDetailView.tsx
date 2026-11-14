@@ -27,6 +27,7 @@ import {
 } from '@/components/storefront/ui';
 import { useStoreNav } from '@/context/StoreNavContext';
 import { useCatalog } from '@/context/CatalogContext';
+import { BBCodeRenderer } from '@/components/admin/ui/BBCode';
 
 type TabId = 'description' | 'specification' | 'review';
 
@@ -560,9 +561,11 @@ export function ProductDetailView({ productId }: { productId: string }) {
 
         <div className="pt-5 text-xs text-slate-600 leading-relaxed">
           {activeTab === 'description' && (
-            <div className="max-w-2xl mx-auto text-center space-y-2.5">
-              <p className="m-0">{product.description}</p>
-              <p className="m-0 text-slate-500">
+            <div className="max-w-2xl mx-auto space-y-3 text-left text-slate-600">
+              {product.description?.trim() ? (
+                <BBCodeRenderer content={product.description} />
+              ) : null}
+              <p className="m-0 pt-2 border-t border-slate-100 text-xs text-slate-500 text-center">
                 অর্ডার সম্পন্ন করার সাথে সাথে আপনার অ্যাকাউন্ট ভল্ট এবং ইমেইলে অ্যাক্সেস ডিটেইলস পৌঁছে যাবে।
               </p>
             </div>
