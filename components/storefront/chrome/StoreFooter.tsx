@@ -25,7 +25,7 @@ export function StoreFooter() {
         {/* Main Footer Content: Brand + Social Icons on Left, Support + bKash/Nagad on Right */}
         <div className="p-6 sm:p-8 flex flex-col md:flex-row items-start justify-between gap-8">
           {/* Left: Brand & Official Brand SVGs */}
-          <div className="space-y-4 max-w-md">
+          <div className="space-y-4 max-w-lg">
             <button
               type="button"
               onClick={() => navigateTo('home', { code: 'ALL' })}
@@ -35,13 +35,13 @@ export function StoreFooter() {
               <BrandLogo />
             </button>
 
-            <p className="text-xs text-slate-600 leading-relaxed m-0">
+            <p className="text-[15px] sm:text-[15.5px] text-slate-700 leading-[1.7] m-0">
               প্রিমিয়াম AI টুলস, স্ট্রিমিং মেম্বারশিপ, ক্রিয়েটিভ সফটওয়্যার এবং ওয়ার্কস্পেস
               সাবস্ক্রিপশনের বিশ্বস্ত প্ল্যাটফর্ম। প্রতিটি অর্ডারে ফুল মেয়াদের ওয়ারেন্টি ও দ্রুত সাপোর্ট।
             </p>
 
             <div className="pt-1">
-              <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-2.5">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2.5">
                 Follow & Connect
               </p>
               <div className="flex items-center gap-2.5">
@@ -98,30 +98,30 @@ export function StoreFooter() {
           </div>
 
           {/* Right: Support & Official bKash / Nagad Payment Logos */}
-          <div className="space-y-3 md:min-w-[280px]">
-            <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#0F172A] m-0">
+          <div className="space-y-3 md:min-w-[300px]">
+            <h3 className="text-sm font-extrabold uppercase tracking-wider text-[#0F172A] m-0">
               Support & Payment
             </h3>
 
-            <div className="space-y-2 text-xs text-slate-600 font-medium">
+            <div className="space-y-2.5 text-sm text-slate-700 font-medium">
               {contact.supportHours.trim() ? (
-              <div className="flex items-center gap-2">
-                <Clock size={14} className="text-[#FF5E5B] shrink-0" />
+              <div className="flex items-center gap-2.5">
+                <Clock size={16} className="text-[#FF5E5B] shrink-0" />
                 <span>{contact.supportHours.trim()}</span>
               </div>
               ) : null}
               {wa ? (
-              <div className="flex items-center gap-2">
-                <PhoneCall size={14} className="text-[#FF5E5B] shrink-0" />
-                <a href={wa} target="_blank" rel="noreferrer" className="text-slate-600 hover:text-[#0F172A]">
+              <div className="flex items-center gap-2.5">
+                <PhoneCall size={16} className="text-[#FF5E5B] shrink-0" />
+                <a href={wa} target="_blank" rel="noreferrer" className="text-slate-700 hover:text-[#0F172A] transition-colors">
                   WhatsApp {contact.whatsappNumber.trim()}
                 </a>
               </div>
               ) : null}
               {contact.supportEmail.trim() ? (
-              <div className="flex items-center gap-2">
-                <Mail size={14} className="text-[#FF5E5B] shrink-0" />
-                <a href={`mailto:${contact.supportEmail.trim()}`} className="text-slate-600 hover:text-[#0F172A]">
+              <div className="flex items-center gap-2.5">
+                <Mail size={16} className="text-[#FF5E5B] shrink-0" />
+                <a href={`mailto:${contact.supportEmail.trim()}`} className="text-slate-700 hover:text-[#0F172A] transition-colors">
                   {contact.supportEmail.trim()}
                 </a>
               </div>
@@ -129,7 +129,7 @@ export function StoreFooter() {
             </div>
 
             <div className="pt-2">
-              <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-2">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2.5">
                 Accepted Payment Methods
               </p>
               <div className="flex flex-wrap items-center gap-2.5">
@@ -160,12 +160,12 @@ export function StoreFooter() {
         </div>
 
         {/* Clean Bottom Bar: Left Privacy Policy, Right Copyright */}
-        <div className="px-6 sm:px-8 py-3.5 bg-slate-50 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500 font-semibold">
+        <div className="px-6 sm:px-8 py-4 bg-slate-50 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-2 text-[13px] text-slate-600 font-semibold">
           <div className="flex items-center gap-4">
             <button
               type="button"
               onClick={() => navigateTo('faq')}
-              className="border-0 bg-transparent p-0 text-xs font-semibold text-slate-600 hover:text-[#FF5E5B] transition-colors cursor-pointer"
+              className="border-0 bg-transparent p-0 text-[13px] font-semibold text-slate-700 hover:text-[#FF5E5B] transition-colors cursor-pointer"
             >
               Privacy Policy
             </button>
