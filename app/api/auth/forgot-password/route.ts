@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   const user = email ? await db.user.findUnique({ where: { email } }) : null;
   if (user) {
     const token = await issueAuthToken(user.id, 'reset_password');
-    const sent = await sendEmail(resetPasswordMail(email, `${appUrl(request)}/reset-password?token=${token}`), cfg);
+    const sent = await sendEmail(resetPasswordMail(email, `${appUrl(request)}/reset-password?token=${token}`, cfg.branding), cfg);
     if (!sent.ok) console.error('reset email failed', sent.error);
   }
   return NextResponse.json({ ok: true, message: 'If an account uses that email, a reset link is on its way.' });

@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   const user = await db.user.findUnique({ where: { email } });
   if (user && !user.emailVerifiedAt) {
     const token = await issueAuthToken(user.id, 'verify_email');
-    const sent = await sendEmail(verifyEmailMail(email, user.name, `${appUrl(request)}/api/auth/verify-email?token=${token}`), cfg);
+    const sent = await sendEmail(verifyEmailMail(email, user.name, `${appUrl(request)}/api/auth/verify-email?token=${token}`, cfg.branding), cfg);
     if (!sent.ok) console.error('resend verification failed', sent.error);
   }
   return generic;

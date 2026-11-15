@@ -228,7 +228,7 @@ export default function PaymentsView({
 
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <SegmentedTabs
-          layout="wrap"
+          layout="row"
           options={[
             { value: 'all', label: 'All', count: payments.length },
             { value: 'pending_verification', label: 'Awaiting', count: pending.length },

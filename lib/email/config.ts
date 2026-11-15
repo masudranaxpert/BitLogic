@@ -49,13 +49,13 @@ export type EmailBranding = {
 
 export const DEFAULT_BRANDING: EmailBranding = {
   logoType: 'text',
-  logoTextPrimary: 'Bit',
-  logoTextSecondary: 'Logic',
-  logoTextSecondaryColor: '#38BDF8',
+  logoTextPrimary: 'Blu',
+  logoTextSecondary: 'martbd',
+  logoTextSecondaryColor: '#FF5E5B',
   logoImageUrl: '',
-  headerBg: '#0F172A',
-  primaryColor: '#0F172A',
-  footerNote: 'If you did not request this email or need support, contact us at support@blumartbd.com',
+  headerBg: '#151A2D',
+  primaryColor: '#FF5E5B',
+  footerNote: '',
 };
 
 export type EmailConfig = {

@@ -45,6 +45,14 @@ export function appUrl(request: Request): string {
   const env = process.env.APP_URL?.replace(/\/$/, '');
   if (env) return env;
   const u = new URL(request.url);
+  const fwdHost = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim();
+  const host = fwdHost || request.headers.get('host')?.split(',')[0]?.trim();
+  if (host && !host.startsWith('0.0.0.0')) {
+    const fwdProto = request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim();
+    const isLocal = host.startsWith('localhost') || host.startsWith('127.');
+    const proto = fwdProto || (isLocal ? 'http' : u.protocol.replace(/:$/, '') || 'https');
+    return `${proto}://${host}`;
+  }
   return `${u.protocol}//${u.host}`;
 }
 

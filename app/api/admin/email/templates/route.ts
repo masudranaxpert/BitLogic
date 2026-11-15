@@ -85,7 +85,7 @@ const TEMPLATES_META: TemplateMeta[] = [
     category: 'Auth',
     description: 'Sent to new users when sign-up email confirmation is turned on.',
     recipientType: 'Customer',
-    previewSubject: 'Confirm your email for Bitlogic',
+    previewSubject: 'Confirm your email for Blumartbd',
     triggerKey: 'emailVerification',
     defaultVariables: ['customerName', 'verificationUrl'],
   },
@@ -95,7 +95,7 @@ const TEMPLATES_META: TemplateMeta[] = [
     category: 'Auth',
     description: 'Sent when a customer or staff requests a secure one-time password reset link.',
     recipientType: 'Customer',
-    previewSubject: 'Reset your Bitlogic password',
+    previewSubject: 'Reset your Blumartbd password',
     triggerKey: 'passwordReset',
     defaultVariables: ['resetUrl'],
   },
@@ -114,7 +114,7 @@ const TEMPLATES_META: TemplateMeta[] = [
     category: 'System',
     description: 'Diagnostic email sent from the admin panel to verify SMTP / API connectivity.',
     recipientType: 'Admin',
-    previewSubject: 'Bitlogic email test',
+    previewSubject: 'Blumartbd email test',
     defaultVariables: [],
   },
 ];
@@ -125,7 +125,7 @@ function generateRender(
   customSubject?: string,
   customHtml?: string,
 ): OutgoingEmail {
-  const dummyBase = 'https://bitlogic.local';
+  const dummyBase = 'https://blumartbd.com';
 
   // If raw custom HTML is provided, wrap it with the brand layout or use direct HTML
   if (customHtml && customHtml.trim()) {
@@ -145,86 +145,95 @@ function generateRender(
 
   switch (id) {
     case 'order_placed_customer':
-      email = orderPlacedCustomerMail({
-        customerName: 'Hasan Mahmud',
-        orderId: 'ORD-604631',
-        itemsSummary: 'Canva Pro · Shared 1 Month',
-        totalBdt: 250,
-        gateway: 'bKash',
-        trxId: 'BL9842XQ87',
-        accessUrl: `${dummyBase}/orders/ORD-604631?token=sample-preview-token`,
-      });
+      email = orderPlacedCustomerMail(
+        {
+          customerName: 'Hasan Mahmud',
+          orderId: 'ORD-604631',
+          itemsSummary: 'Canva Pro · Shared 1 Month',
+          totalBdt: 250,
+          gateway: 'bKash',
+          trxId: 'BL9842XQ87',
+          accessUrl: `${dummyBase}/orders/ORD-604631?token=sample-preview-token`,
+        },
+        branding,
+      );
       break;
     case 'order_placed_admin':
-      email = orderPlacedAdminMail({
-        customerName: 'Hasan Mahmud',
-        customerEmail: 'hasan.customer@example.com',
-        customerPhone: '01712345678',
-        orderId: 'ORD-604631',
-        itemsSummary: 'Canva Pro · Shared 1 Month',
-        totalBdt: 250,
-        gateway: 'bKash',
-        trxId: 'BL9842XQ87',
-        adminOrderUrl: `${dummyBase}/admin/orders?id=ORD-604631`,
-      });
+      email = orderPlacedAdminMail(
+        {
+          customerName: 'Hasan Mahmud',
+          customerEmail: 'hasan.customer@example.com',
+          customerPhone: '01712345678',
+          orderId: 'ORD-604631',
+          itemsSummary: 'Canva Pro · Shared 1 Month',
+          totalBdt: 250,
+          gateway: 'bKash',
+          trxId: 'BL9842XQ87',
+          adminOrderUrl: `${dummyBase}/admin/orders?id=ORD-604631`,
+        },
+        branding,
+      );
       break;
     case 'payment_verified_customer':
-      email = paymentVerifiedCustomerMail({
-        customerName: 'Hasan Mahmud',
-        orderId: 'ORD-604631',
-        itemsSummary: 'Canva Pro · Shared 1 Month',
-        accessUrl: `${dummyBase}/orders/ORD-604631?token=sample-preview-token`,
-        credentials: [
-          {
-            label: 'Canva Pro (Shared Profile 1)',
-            email: 'canva.vip.user@streamhub.io',
-            password: 'ProSecretKey#2026',
-            pin: '4821',
-            note: 'Do not change the account password or profile name.',
-          },
-        ],
-      });
+      email = paymentVerifiedCustomerMail(
+        {
+          customerName: 'Hasan Mahmud',
+          orderId: 'ORD-604631',
+          itemsSummary: 'Canva Pro · Shared 1 Month',
+          accessUrl: `${dummyBase}/orders/ORD-604631?token=sample-preview-token`,
+          credentials: [
+            {
+              label: 'Canva Pro (Shared Profile 1)',
+              email: 'canva.vip.user@streamhub.io',
+              password: 'ProSecretKey#2026',
+              pin: '4821',
+              note: 'Do not change the account password or profile name.',
+            },
+          ],
+        },
+        branding,
+      );
       break;
     case 'payment_rejected_customer':
-      email = paymentRejectedCustomerMail({
-        customerName: 'Hasan Mahmud',
-        orderId: 'ORD-604631',
-        reason: 'Transaction ID "BL9842XQ87" could not be verified on bKash statement. Please recheck your SMS.',
-        supportUrl: `${dummyBase}/contact`,
-      });
+      email = paymentRejectedCustomerMail(
+        {
+          customerName: 'Hasan Mahmud',
+          orderId: 'ORD-604631',
+          reason: 'Transaction ID "BL9842XQ87" could not be verified on bKash statement. Please recheck your SMS.',
+          supportUrl: `${dummyBase}/contact`,
+        },
+        branding,
+      );
       break;
     case 'renewal_reminder_customer':
-      email = renewalReminderCustomerMail({
-        customerName: 'Hasan Mahmud',
-        productName: 'Canva Pro',
-        expiresInDays: 5,
-        renewalUrl: `${dummyBase}/orders/ORD-604631`,
-      });
+      email = renewalReminderCustomerMail(
+        {
+          customerName: 'Hasan Mahmud',
+          productName: 'Canva Pro',
+          expiresInDays: 5,
+          renewalUrl: `${dummyBase}/orders/ORD-604631`,
+        },
+        branding,
+      );
       break;
     case 'verify_email':
-      email = verifyEmailMail('hasan.customer@example.com', 'Hasan Mahmud', `${dummyBase}/api/auth/verify-email?token=sample-token`);
+      email = verifyEmailMail(
+        'hasan.customer@example.com',
+        'Hasan Mahmud',
+        `${dummyBase}/api/auth/verify-email?token=sample-token`,
+        branding,
+      );
       break;
     case 'reset_password':
-      email = resetPasswordMail('hasan.customer@example.com', `${dummyBase}/reset-password?token=sample-token`);
+      email = resetPasswordMail('hasan.customer@example.com', `${dummyBase}/reset-password?token=sample-token`, branding);
       break;
     case 'password_changed_admin':
-      email = passwordChangedByAdminMail('hasan.customer@example.com', `${dummyBase}/login`);
+      email = passwordChangedByAdminMail('hasan.customer@example.com', `${dummyBase}/login`, branding);
       break;
     case 'test_mail':
     default:
-      email = testMail('admin@bitlogic.local');
+      email = testMail('admin@blumartbd.com', branding);
       break;
-  }
-
-  // Inject branding if available
-  if (branding) {
-    const titleMatch = email.html.match(/<h1[^>]*>([^<]+)<\/h1>/);
-    const title = titleMatch ? titleMatch[1] : 'Notification';
-    // re-wrap with dynamic branding
-    const bodyMatch = email.html.match(/<div style="font-size:14px;line-height:1.6;color:#334155">([\s\S]*?)<\/div>\s*<\/td>/);
-    if (bodyMatch) {
-      email.html = layout(title, bodyMatch[1], { branding });
-    }
   }
 
   if (customSubject?.trim()) {

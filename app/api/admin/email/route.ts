@@ -63,7 +63,8 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => ({}))) as { to?: string };
   const to = String(body.to || session?.email || '').trim();
   if (!EMAIL_RE.test(to)) return NextResponse.json({ error: 'Enter a valid email to send the test to.' }, { status: 400 });
-  const result = await sendEmail(testMail(to));
+  const cfg = await getEmailConfig();
+  const result = await sendEmail(testMail(to, cfg.branding), cfg);
   return result.ok
     ? NextResponse.json({ ok: true })
     : NextResponse.json({ error: result.error }, { status: 422 });

@@ -260,10 +260,10 @@ export default function PaymentMethodsView({
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-12">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div className="min-w-0 flex-1">
           <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <CreditCard className="w-5 h-5 text-emerald-600" />
+            <CreditCard className="w-5 h-5 text-emerald-600 shrink-0" />
             Payment Methods &amp; Verification
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -271,48 +271,50 @@ export default function PaymentMethodsView({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={runManualSync}
-            disabled={reconciling}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md border border-emerald-600/30 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800 transition cursor-pointer"
-            title="Re-scan unmatched SMS logs from the last 72h and auto-verify any matching pending orders"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${reconciling ? 'animate-spin' : ''}`} />
-            {reconciling ? 'Syncing & Matching...' : 'Manual Sync Now'}
-          </button>
-
-          {activeTab === 'methods' && (
+        {activeTab !== 'devices' && (
+          <div className="flex flex-wrap lg:flex-nowrap items-center gap-2 shrink-0">
             <button
-              onClick={saveSettings}
-              disabled={busy || !dirty}
-              className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md shadow-sm transition cursor-pointer ${
-                dirty
-                  ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                  : 'bg-slate-100 text-slate-400 dark:bg-slate-800 cursor-not-allowed'
-              }`}
+              type="button"
+              onClick={runManualSync}
+              disabled={reconciling}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md border border-emerald-600/30 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800 transition cursor-pointer whitespace-nowrap shrink-0"
+              title="Re-scan unmatched SMS logs from the last 72h and auto-verify any matching pending orders"
             >
-              {busy ? (
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-              ) : status === 'saved' ? (
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
-              ) : (
-                <Save className="w-3.5 h-3.5" />
-              )}
-              {status === 'saved' ? 'Saved' : 'Save Changes'}
+              <RefreshCw className={`w-3.5 h-3.5 shrink-0 ${reconciling ? 'animate-spin' : ''}`} />
+              {reconciling ? 'Syncing & Matching...' : 'Manual Sync Now'}
             </button>
-          )}
 
-          <a
-            href="/blumart-sync.apk"
-            download="blumart-sync.apk"
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white shadow-sm transition no-underline"
-          >
-            <Download className="w-3.5 h-3.5" />
-            Download Sync APK
-          </a>
-        </div>
+            {activeTab === 'methods' && (
+              <button
+                onClick={saveSettings}
+                disabled={busy || !dirty}
+                className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md shadow-sm transition cursor-pointer whitespace-nowrap shrink-0 ${
+                  dirty
+                    ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                    : 'bg-slate-100 text-slate-400 dark:bg-slate-800 cursor-not-allowed'
+                }`}
+              >
+                {busy ? (
+                  <RefreshCw className="w-3.5 h-3.5 shrink-0 animate-spin" />
+                ) : status === 'saved' ? (
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-200" />
+                ) : (
+                  <Save className="w-3.5 h-3.5 shrink-0" />
+                )}
+                {status === 'saved' ? 'Saved' : 'Save Changes'}
+              </button>
+            )}
+
+            <a
+              href="/blumart-sync.apk"
+              download="blumart-sync.apk"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white shadow-sm transition no-underline whitespace-nowrap shrink-0"
+            >
+              <Download className="w-3.5 h-3.5 shrink-0" />
+              Download Sync APK
+            </a>
+          </div>
+        )}
       </div>
 
       {reconcileResult && (
@@ -349,31 +351,28 @@ export default function PaymentMethodsView({
       )}
 
       {/* Tabs Navigation */}
-      <div className="flex border-b border-slate-200 dark:border-slate-800 gap-4">
+      <div className="flex items-center gap-5 overflow-x-auto no-scrollbar border-b border-slate-200 dark:border-slate-800">
         <button
           onClick={() => handleTabChange('methods')}
-          className={`pb-2.5 text-xs font-semibold flex items-center gap-1.5 border-b-2 transition cursor-pointer ${
+          className={`pb-2.5 text-xs font-semibold flex items-center gap-1.5 border-b-2 transition cursor-pointer whitespace-nowrap shrink-0 ${
             activeTab === 'methods'
               ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
               : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'
           }`}
         >
-          <CreditCard className="w-4 h-4" />
+          <CreditCard className="w-4 h-4 shrink-0" />
           Methods &amp; Verification Modes
         </button>
 
         <button
-          onClick={() => {
-            handleTabChange('devices');
-            loadDevices();
-          }}
-          className={`pb-2.5 text-xs font-semibold flex items-center gap-1.5 border-b-2 transition cursor-pointer ${
+          onClick={() => handleTabChange('devices')}
+          className={`pb-2.5 text-xs font-semibold flex items-center gap-1.5 border-b-2 transition cursor-pointer whitespace-nowrap shrink-0 ${
             activeTab === 'devices'
               ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
               : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'
           }`}
         >
-          <Smartphone className="w-4 h-4" />
+          <Smartphone className="w-4 h-4 shrink-0" />
           Sync Devices
           {devices.length > 0 && (
             <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
@@ -383,17 +382,14 @@ export default function PaymentMethodsView({
         </button>
 
         <button
-          onClick={() => {
-            handleTabChange('logs');
-            loadLogs(1);
-          }}
-          className={`pb-2.5 text-xs font-semibold flex items-center gap-1.5 border-b-2 transition cursor-pointer ${
+          onClick={() => handleTabChange('logs')}
+          className={`pb-2.5 text-xs font-semibold flex items-center gap-1.5 border-b-2 transition cursor-pointer whitespace-nowrap shrink-0 ${
             activeTab === 'logs'
               ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
               : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'
           }`}
         >
-          <Activity className="w-4 h-4" />
+          <Activity className="w-4 h-4 shrink-0" />
           SMS Logs
           {(logCounts?.all ?? logTotalCount) > 0 && (
             <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">

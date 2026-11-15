@@ -102,6 +102,7 @@ export function AdminSidebarNav({
                 <div key={item.id} className="space-y-0.5">
                   <Link
                     href={adminTabToPath(item.id)}
+                    prefetch={false}
                     data-sidebar-group-active={active ? 'true' : undefined}
                     aria-current={active ? 'page' : undefined}
                     onClick={(e) => {
@@ -196,6 +197,7 @@ export function AdminSidebarNav({
                           <Link
                             key={sub.id}
                             href={adminTabToPath(sub.id)}
+                            prefetch={false}
                             data-sidebar-sub-active={subActive ? 'true' : undefined}
                             onClick={(e) => {
                               if (!isPlainLeftClick(e)) {
@@ -241,6 +243,7 @@ export function AdminSidebarNav({
                 <div key={item.id} className="space-y-0.5">
                   <Link
                     href={adminTabToPath(item.id)}
+                    prefetch={false}
                     data-sidebar-group-active={active ? 'true' : undefined}
                     aria-current={activeTab === item.id ? 'page' : undefined}
                     onClick={(e) => {
@@ -295,6 +298,7 @@ export function AdminSidebarNav({
                           <Link
                             key={sub.id}
                             href={adminTabToPath(sub.id)}
+                            prefetch={false}
                             data-sidebar-sub-active={subActive ? 'true' : undefined}
                             onClick={(e) => {
                               if (!isPlainLeftClick(e)) {
@@ -330,6 +334,7 @@ export function AdminSidebarNav({
       <div className="p-4 space-y-2.5 border-t border-slate-200/80 dark:border-slate-800">
         <Link
           href={adminTabToPath('deliveries')}
+          prefetch={false}
           onClick={(e) => {
             if (!isPlainLeftClick(e)) {
               setMobileMenuOpen(false);
@@ -360,6 +365,7 @@ export function AdminSidebarNav({
         <div className="flex items-center justify-between gap-1.5 pt-1">
           <Link
             href={adminTabToPath('profile')}
+            prefetch={false}
             onClick={(e) => {
               if (!isPlainLeftClick(e)) {
                 setMobileMenuOpen(false);
@@ -444,6 +450,7 @@ export function AdminMobileBottomNav({
             <Link
               key={item.id}
               href={adminTabToPath(item.id)}
+              prefetch={false}
               onClick={(e) => {
                 if (!isPlainLeftClick(e)) return;
                 e.preventDefault();

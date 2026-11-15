@@ -9,7 +9,7 @@ import {
   paymentRejectedCustomerMail,
 } from '@/lib/email/templates';
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://bitlogic.local';
+const BASE_URL = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://blumartbd.com').replace(/\/$/, '');
 
 /**
  * Triggered after an order is successfully created in create-order.ts
@@ -36,20 +36,23 @@ export async function dispatchOrderPlacedEmails(params: {
 
     // 1. Notify Customer
     if (cfg.triggers.orderPlaced.notifyCustomer && params.customerEmail) {
-      const mail = orderPlacedCustomerMail({
-        customerName: params.customerName,
-        orderId: params.orderId,
-        itemsSummary: params.summary,
-        totalBdt: params.totalBdt,
-        gateway: params.gateway,
-        trxId: params.trxId,
-        accessUrl,
-      });
+      const mail = orderPlacedCustomerMail(
+        {
+          customerName: params.customerName,
+          orderId: params.orderId,
+          itemsSummary: params.summary,
+          totalBdt: params.totalBdt,
+          gateway: params.gateway,
+          trxId: params.trxId,
+          accessUrl,
+        },
+        cfg.branding,
+      );
       mail.to = params.customerEmail;
       if (cfg.triggers.orderPlaced.customSubject?.trim()) {
         mail.subject = cfg.triggers.orderPlaced.customSubject.trim();
       }
-      void sendEmail(mail).catch((err) =>
+      void sendEmail(mail, cfg).catch((err) =>
         console.error('[EmailTrigger] Failed sending customer orderPlaced mail:', err),
       );
     }
@@ -58,19 +61,22 @@ export async function dispatchOrderPlacedEmails(params: {
     if (cfg.triggers.orderPlaced.notifyAdmin) {
       const adminTo = cfg.triggers.orderPlaced.adminEmail || cfg.fromEmail;
       if (adminTo) {
-        const mail = orderPlacedAdminMail({
-          customerName: params.customerName,
-          customerEmail: params.customerEmail,
-          customerPhone: params.customerPhone,
-          orderId: params.orderId,
-          itemsSummary: params.summary,
-          totalBdt: params.totalBdt,
-          gateway: params.gateway,
-          trxId: params.trxId,
-          adminOrderUrl,
-        });
+        const mail = orderPlacedAdminMail(
+          {
+            customerName: params.customerName,
+            customerEmail: params.customerEmail,
+            customerPhone: params.customerPhone,
+            orderId: params.orderId,
+            itemsSummary: params.summary,
+            totalBdt: params.totalBdt,
+            gateway: params.gateway,
+            trxId: params.trxId,
+            adminOrderUrl,
+          },
+          cfg.branding,
+        );
         mail.to = adminTo;
-        void sendEmail(mail).catch((err) =>
+        void sendEmail(mail, cfg).catch((err) =>
           console.error('[EmailTrigger] Failed sending admin orderPlaced alert:', err),
         );
       }
@@ -131,32 +137,38 @@ export async function dispatchPaymentStatusEmail(payment: {
         });
 
       const accessUrl = `${BASE_URL}/orders/${payment.orderId}`;
-      const mail = paymentVerifiedCustomerMail({
-        customerName: payment.buyerName,
-        orderId: payment.orderId,
-        itemsSummary: payment.productSummary,
-        accessUrl,
-        credentials: creds.length > 0 ? creds : undefined,
-      });
+      const mail = paymentVerifiedCustomerMail(
+        {
+          customerName: payment.buyerName,
+          orderId: payment.orderId,
+          itemsSummary: payment.productSummary,
+          accessUrl,
+          credentials: creds.length > 0 ? creds : undefined,
+        },
+        cfg.branding,
+      );
       mail.to = payment.buyerEmail;
       if (cfg.triggers.paymentVerified.customSubject?.trim()) {
         mail.subject = cfg.triggers.paymentVerified.customSubject.trim();
       }
-      void sendEmail(mail).catch((err) =>
+      void sendEmail(mail, cfg).catch((err) =>
         console.error('[EmailTrigger] Failed sending paymentVerified mail:', err),
       );
     } else if (payment.status === 'rejected' && cfg.triggers.paymentRejected.enabled && cfg.triggers.paymentRejected.notifyCustomer) {
-      const mail = paymentRejectedCustomerMail({
-        customerName: payment.buyerName,
-        orderId: payment.orderId,
-        reason: payment.note || 'The transaction ID could not be confirmed on our payment gateway records.',
-        supportUrl: `${BASE_URL}/contact`,
-      });
+      const mail = paymentRejectedCustomerMail(
+        {
+          customerName: payment.buyerName,
+          orderId: payment.orderId,
+          reason: payment.note || 'The transaction ID could not be confirmed on our payment gateway records.',
+          supportUrl: `${BASE_URL}/contact`,
+        },
+        cfg.branding,
+      );
       mail.to = payment.buyerEmail;
       if (cfg.triggers.paymentRejected.customSubject?.trim()) {
         mail.subject = cfg.triggers.paymentRejected.customSubject.trim();
       }
-      void sendEmail(mail).catch((err) =>
+      void sendEmail(mail, cfg).catch((err) =>
         console.error('[EmailTrigger] Failed sending paymentRejected mail:', err),
       );
     }

@@ -548,9 +548,13 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
             />
           )}
 
-          {activeTab === 'payment-methods' && <PaymentMethodsView initialTab="methods" />}
-          {activeTab === 'payment-devices' && <PaymentMethodsView initialTab="devices" />}
-          {activeTab === 'payment-logs' && <PaymentMethodsView initialTab="logs" />}
+          {(activeTab === 'payment-methods' || activeTab === 'payment-devices' || activeTab === 'payment-logs') && (
+            <PaymentMethodsView
+              initialTab={
+                activeTab === 'payment-devices' ? 'devices' : activeTab === 'payment-logs' ? 'logs' : 'methods'
+              }
+            />
+          )}
 
           {activeTab === 'coupons' && (
             <CouponsView

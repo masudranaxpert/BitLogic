@@ -406,15 +406,15 @@ export function PaymentDevicesTab({
                     </div>
                   )}
 
-                  <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 px-2.5 py-1 rounded-md">
+                  <div className="flex items-center gap-1.5 min-w-0 max-w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 px-2.5 py-1 rounded-md">
                     <Key className="w-3 h-3 text-slate-400 shrink-0" />
-                    <span className="font-mono text-xs text-slate-700 dark:text-slate-300 select-all">
+                    <span className="font-mono text-xs text-slate-700 dark:text-slate-300 select-all truncate min-w-0">
                       {dev.apiKey}
                     </span>
                     <button
                       type="button"
                       onClick={() => copyToClipboard(dev.apiKey, dev.id)}
-                      className="p-1 hover:text-emerald-600 text-slate-400 transition cursor-pointer"
+                      className="p-1 hover:text-emerald-600 text-slate-400 transition cursor-pointer shrink-0"
                       title="Copy API Key"
                     >
                       {copiedKey === dev.id ? (

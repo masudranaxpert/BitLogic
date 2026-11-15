@@ -70,7 +70,7 @@ export async function POST(request: Request) {
         phone,
         role,
         passwordHash: await hashPassword(password),
-        emailVerifiedAt: mustVerify ? null : new Date(),
+        emailVerifiedAt: role === ROLES.ADMIN ? new Date() : null,
       },
     });
 
@@ -99,7 +99,7 @@ export async function POST(request: Request) {
     if (mustVerify) {
       const token = await issueAuthToken(user.id, 'verify_email');
       const sent = await sendEmail(
-        verifyEmailMail(email, name, `${appUrl(request)}/api/auth/verify-email?token=${token}`),
+        verifyEmailMail(email, name, `${appUrl(request)}/api/auth/verify-email?token=${token}`, cfg.branding),
         cfg,
       );
       if (!sent.ok) console.error('verification email failed', sent.error);

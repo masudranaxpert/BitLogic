@@ -65,7 +65,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Set up email in Settings first.' }, { status: 400 });
     }
     const token = await issueAuthToken(user.id, 'reset_password');
-    const sent = await sendEmail(resetPasswordMail(email, `${appUrl(request)}/reset-password?token=${token}`), cfg);
+    const sent = await sendEmail(resetPasswordMail(email, `${appUrl(request)}/reset-password?token=${token}`, cfg.branding), cfg);
     if (!sent.ok) return NextResponse.json({ error: `Could not send: ${sent.error}` }, { status: 502 });
     await recordActivity({
       userId: session.id,
@@ -86,12 +86,11 @@ export async function POST(request: Request) {
     data: {
       passwordHash: await hashPassword(password),
       sessionVersion: { increment: 1 },
-      emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
     },
   });
   let notified = false;
   if (body.notify && isEmailReady(cfg)) {
-    notified = (await sendEmail(passwordChangedByAdminMail(email, `${appUrl(request)}/login`), cfg)).ok;
+    notified = (await sendEmail(passwordChangedByAdminMail(email, `${appUrl(request)}/login`, cfg.branding), cfg)).ok;
   }
   await recordActivity({
     userId: session.id,

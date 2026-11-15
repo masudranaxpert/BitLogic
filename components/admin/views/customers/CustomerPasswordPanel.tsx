@@ -64,7 +64,6 @@ export function CustomerPasswordPanel({ email }: { email: string }) {
     setIssued(d.password);
     setPassword('');
     setMode('idle');
-    setStatus((s) => (s ? { ...s, emailVerified: true } : s));
     setMsg({
       tone: 'ok',
       text: d.notified
