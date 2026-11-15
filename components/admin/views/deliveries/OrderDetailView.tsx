@@ -689,7 +689,9 @@ export function OrderDetailView({
                             ) : u.supplierState === 'delivered' ? (
                               <span className="text-slate-500">Bought from supplier</span>
                             ) : u.supplierState === 'needs_review' ? (
-                              <span className="font-medium text-amber-700 dark:text-amber-400">Supplier price is higher than this sale allows — buy anyway, or refund.</span>
+                              <span className="font-medium text-amber-700 dark:text-amber-400">Supplier price is higher than this sale allows — buy anyway, send manually, or refund.</span>
+                            ) : u.supplierState === 'manual' && !secret ? (
+                              <span className="font-medium text-amber-700 dark:text-amber-400">Supplier purchase stopped (low balance / account block) — handed over for manual delivery. Click Send, or top up and Retry supplier.</span>
                             ) : u.supplierState === 'failed' && !secret ? (
                               <span className="font-medium text-rose-700 dark:text-rose-400">Supplier purchase failed (retries every 30 min). See Suppliers → Purchases.</span>
                             ) : null}
@@ -717,7 +719,7 @@ export function OrderDetailView({
                                     onClick={() => void supplierAct(u, 'retry')}
                                     className="h-8 rounded-md bg-sky-600 px-3 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-60 cursor-pointer"
                                   >
-                                    {supBusy === u.id ? 'Buying…' : u.supplierState === 'failed' ? 'Retry supplier' : 'Buy from supplier'}
+                                    {supBusy === u.id ? 'Buying…' : u.supplierState === 'failed' || u.supplierState === 'manual' ? 'Retry supplier' : 'Buy from supplier'}
                                   </button>
                                   {u.supplierState === 'needs_review' ? (
                                     <button

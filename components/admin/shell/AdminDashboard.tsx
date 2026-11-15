@@ -1689,6 +1689,7 @@ export default function AdminDashboard() {
             n('delivered') ? `${n('delivered')} delivered by supplier` : '',
             n('processing') ? `${n('processing')} waiting for supplier` : '',
             n('needs_review') ? `${n('needs_review')} need your review (price)` : '',
+            n('manual') ? `${n('manual')} moved to manual delivery` : '',
             n('failed') ? `${n('failed')} supplier purchase failed` : '',
           ]
             .filter(Boolean)

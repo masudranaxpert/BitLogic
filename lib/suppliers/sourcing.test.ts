@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { allowsSupplierDispatch, isSupplierSourced, isValidSourcing } from './sourcing';
+import { allowsSupplierDispatch, classifySupplierFailure, isSupplierSourced, isValidSourcing } from './sourcing';
 
 assert.equal(isValidSourcing('own_then_supplier_manual'), true);
 assert.equal(isSupplierSourced('own_then_supplier_manual'), true);
@@ -25,5 +25,12 @@ assert.equal(allowsSupplierDispatch('supplier_manual', 'manual'), true);
 assert.equal(allowsSupplierDispatch('own', 'verify'), false);
 assert.equal(allowsSupplierDispatch('own', 'manual', false), false);
 assert.equal(allowsSupplierDispatch('own', 'manual', true), true);
+
+// Failure classification: low balance & account blockers hand over to manual delivery instead of retry loops.
+assert.equal(classifySupplierFailure('BALANCE'), 'manual');
+assert.equal(classifySupplierFailure('AUTH'), 'manual');
+assert.equal(classifySupplierFailure('LIMIT'), 'manual');
+assert.equal(classifySupplierFailure('PRICE_TOO_HIGH'), 'review');
+assert.equal(classifySupplierFailure('OUT_OF_STOCK'), 'next');
 
 console.log('sourcing: ok');

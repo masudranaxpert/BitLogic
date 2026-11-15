@@ -248,7 +248,7 @@ export function SendOrderCredentialsModal({ open, delivery, deliveries, vault, o
             const s = supply.units[u.id];
             const usable = usableOptions(u.id, supply);
             const result = results[u.id];
-            const locked = Boolean(result) && result.outcome !== 'failed' && result.outcome !== 'needs_review' && result.outcome !== 'skipped';
+            const locked = Boolean(result) && result.outcome !== 'failed' && result.outcome !== 'needs_review' && result.outcome !== 'manual' && result.outcome !== 'skipped';
             const tabs: Array<{ m: Mode; label: string }> = [
               { m: 'vault', label: `Stock (${stock.length})` },
               { m: 'supplier', label: supply.loading ? 'Supplier…' : `Supplier${s?.options.length ? ` (${usable.length})` : ''}` },

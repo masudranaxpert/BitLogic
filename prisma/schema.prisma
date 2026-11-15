@@ -366,7 +366,7 @@ model DigitalDelivery {
   credentialAssignedAt    String?
   credentialExpiresAt     String?
   renewalPending          Boolean  @default(false)
-  /// '' | processing | delivered | needs_review | failed : supplier purchase state for this unit
+  /// '' | processing | delivered | needs_review | manual | failed : supplier purchase state for this unit
   supplierState           String   @default("")
   /// Bumped on every server-side supplier write; a client save with an older value cannot overwrite fulfilment fields
   supplierRev             Int      @default(0)

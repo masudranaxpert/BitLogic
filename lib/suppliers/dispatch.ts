@@ -7,7 +7,7 @@ import { cappedCredentialExpiresAt } from '@/lib/admin/renewal-lifecycle';
 import { getRates, loadSupplier, notifyAdmin, nowStamp, singleFlight } from './core';
 import { scrub } from './http';
 import { costInBdt, maxUnitPriceFor } from './pricing';
-import { allowsSupplierDispatch, type DispatchTriggerKind } from './sourcing';
+import { allowsSupplierDispatch, classifySupplierFailure, type DispatchTriggerKind } from './sourcing';
 import { SupplierApiError, type SupplierOrderState } from './types';
 
 /**
@@ -21,7 +21,7 @@ export type DispatchTrigger = DispatchTriggerKind;
 
 export type UnitResult = {
   deliveryId: string;
-  outcome: 'delivered' | 'processing' | 'needs_review' | 'failed' | 'skipped';
+  outcome: 'delivered' | 'processing' | 'needs_review' | 'manual' | 'failed' | 'skipped';
   message: string;
 };
 
@@ -133,6 +133,7 @@ async function buyUnit(
   const sale = await salePriceFor(u, plan.id, Number(plan.priceBdt));
   const label = `${plan.product.name} · ${plan.label}`;
   let review = false;
+  let manual = false;
   const notes: string[] = [];
 
   const links = plan.supplierLinks.filter(
@@ -143,13 +144,17 @@ async function buyUnit(
       !l.supplierProduct.needsBuyerInput &&
       (!opts.supplierProductId || l.supplierProduct.id === opts.supplierProductId),
   );
-  if (links.length === 0) notes.push(opts.supplierProductId ? 'That supplier item cannot be bought now.' : 'No usable supplier link.');
+  if (links.length === 0) {
+    notes.push(opts.supplierProductId ? 'That supplier item cannot be bought now.' : 'No usable supplier link.');
+    manual = true;
+  }
 
   for (const link of links) {
     const sp = link.supplierProduct;
     const rate = rates[sp.currency.toUpperCase()];
     if (!rate) {
       notes.push(`${sp.supplier.name}: no exchange rate for ${sp.currency}.`);
+      manual = true;
       continue;
     }
     // Highest unit price we accept. "Buy anyway" reads the supplier's live price (the cache may be old) + 2%.
@@ -173,25 +178,38 @@ async function buyUnit(
     }
     notes.push(`${sp.supplier.name}: ${outcome.message}`);
     if (outcome.kind === 'review') review = true;
+    else if (outcome.kind === 'manual') manual = true;
   }
 
-  // Nothing worked: release the unit (pending again) and tell the admin.
+  // Nothing worked: hand over to admin (manual / review) when non-retryable (e.g. low balance or price jump), otherwise keep retrying.
+  const nextState = review ? 'needs_review' : manual ? 'manual' : 'failed';
   await db.digitalDelivery.update({
     where: { id: u.id },
-    data: { supplierState: review ? 'needs_review' : 'failed', supplierRev: { increment: 1 } },
+    data: { supplierState: nextState, supplierRev: { increment: 1 } },
   });
   await notifyAdmin(
-    review ? `Supplier price check: ${u.orderId}` : `Supplier purchase failed: ${u.orderId}`,
-    `${label} (unit #${u.unitIndex}): ${notes.join(' ') || 'no supplier could deliver.'}${review ? ' Open the order to buy anyway or refund.' : ''}`,
+    review
+      ? `Supplier price check: ${u.orderId}`
+      : manual
+        ? `Manual delivery needed: ${u.orderId}`
+        : `Supplier purchase failed: ${u.orderId}`,
+    `${label} (unit #${u.unitIndex}): ${notes.join(' ') || 'no supplier could deliver.'}${
+      review
+        ? ' Open the order to buy anyway, deliver manually, or refund.'
+        : manual
+          ? ' Handed over for manual delivery — open the order to Send credentials, or top up balance and Retry supplier.'
+          : ''
+    }`,
     u.orderId,
   );
-  return { deliveryId: u.id, outcome: review ? 'needs_review' : 'failed', message: notes.join(' ') };
+  return { deliveryId: u.id, outcome: nextState, message: notes.join(' ') };
 }
 
 type AttemptOutcome =
   | { kind: 'done'; message: string }
   | { kind: 'processing'; message: string }
   | { kind: 'next'; message: string }
+  | { kind: 'manual'; message: string }
   | { kind: 'review'; message: string };
 
 type SP = {
@@ -276,10 +294,10 @@ async function attempt(
       await db.supplierOrder.update({ where: { id: so.id }, data: { status: 'failed', errorCode: code, lastError: msg } });
       return attempt(u, planId, label, sp, sale, maxUnit, rate, true);
     }
-    const review = err?.code === 'PRICE_TOO_HIGH' || err?.code === 'IDEMPOTENCY_CONFLICT';
+    const kind = classifySupplierFailure(code);
     await db.supplierOrder.update({
       where: { id: so.id },
-      data: { status: review ? 'needs_review' : 'failed', errorCode: code, lastError: msg },
+      data: { status: kind === 'review' ? 'needs_review' : 'failed', errorCode: code, lastError: msg },
     });
     // Keep the cache honest so the storefront stops offering what the supplier can't sell.
     if (err?.code === 'OUT_OF_STOCK') {
@@ -289,7 +307,7 @@ async function attempt(
     } else if (err?.code === 'AUTH') {
       await db.supplier.update({ where: { id: sp.supplierId }, data: { lastSyncStatus: 'error', lastSyncError: `AUTH: ${msg}` } });
     }
-    return { kind: review ? 'review' : 'next', message: friendly(code, msg) };
+    return { kind, message: friendly(code, msg) };
   }
 }
 
@@ -348,7 +366,8 @@ export async function handleState(soId: string, state: SupplierOrderState): Prom
       await notifyAdmin(`Supplier ${state.externalStatus} a delivered order`, `${so.productLabel} (${so.orderId}): the supplier now says "${state.externalStatus}". Check the customer's access.`, so.orderId);
       return { kind: 'review', message: `Supplier marked it ${state.externalStatus} after delivery.` };
     }
-    return { kind: 'next', message: state.failureMessage || `Supplier marked it ${state.externalStatus}.` };
+    const kind = classifySupplierFailure(state.failureCode);
+    return { kind, message: state.failureMessage || `Supplier marked it ${state.externalStatus}.` };
   }
 
   // Delivered with data.
@@ -507,6 +526,9 @@ export async function pollSupplierOrders(limit = 15) {
           // Definitive failure after an earlier ambiguous send: free the unit for another try.
           await releaseUnit(so.deliveryId, 'failed');
           await notifyAdmin(`Supplier purchase failed: ${so.orderId}`, `${so.productLabel}: ${out.message}`, so.orderId);
+        } else if (out.kind === 'manual') {
+          await releaseUnit(so.deliveryId, 'manual');
+          await notifyAdmin(`Manual delivery needed: ${so.orderId}`, `${so.productLabel}: ${out.message} Open the order to Send credentials manually.`, so.orderId);
         } else if (out.kind === 'review') {
           await releaseUnit(so.deliveryId, 'needs_review');
         }
@@ -516,9 +538,15 @@ export async function pollSupplierOrders(limit = 15) {
         const definitive = err && !err.opts.retryable && err.code !== 'NETWORK';
         if (definitive && !so.externalOrderId) {
           // The supplier rejected the re-sent order: nothing was bought.
-          await db.supplierOrder.update({ where: { id: so.id }, data: { status: 'failed', attempts, errorCode: err.code, lastError: scrub(err.message, ctx.apiKey) } });
-          await releaseUnit(so.deliveryId, 'failed');
-          await notifyAdmin(`Supplier purchase failed: ${so.orderId}`, `${so.productLabel}: ${friendly(err.code, err.message)}`, so.orderId);
+          const kind = classifySupplierFailure(err.code);
+          const releaseTo = kind === 'review' ? 'needs_review' : kind === 'manual' ? 'manual' : 'failed';
+          await db.supplierOrder.update({ where: { id: so.id }, data: { status: kind === 'review' ? 'needs_review' : 'failed', attempts, errorCode: err.code, lastError: scrub(err.message, ctx.apiKey) } });
+          await releaseUnit(so.deliveryId, releaseTo);
+          await notifyAdmin(
+            kind === 'manual' ? `Manual delivery needed: ${so.orderId}` : `Supplier purchase failed: ${so.orderId}`,
+            `${so.productLabel}: ${friendly(err.code, err.message)}`,
+            so.orderId,
+          );
           return;
         }
         const waitS = Math.min(1800, 30 * 2 ** Math.min(attempts, 6)) + (err?.opts.retryAfterSec || 0);
