@@ -6,12 +6,14 @@ import { Card, BBCodeEditor } from '@/components/admin/ui/primitives';
 
 export interface ProductGeneralInfoCardProps {
   name: string;
+  slug: string;
   platform: string;
   categoryId: string;
   categories: ProductCategory[];
   status: DigitalProduct['status'];
   description: string;
   onNameChange: (value: string) => void;
+  onSlugChange: (value: string) => void;
   onPlatformChange: (value: string) => void;
   onCategoryIdChange: (value: string) => void;
   onStatusChange: (value: DigitalProduct['status']) => void;
@@ -21,12 +23,14 @@ export interface ProductGeneralInfoCardProps {
 
 export default function ProductGeneralInfoCard({
   name,
+  slug,
   platform,
   categoryId,
   categories,
   status,
   description,
   onNameChange,
+  onSlugChange,
   onPlatformChange,
   onCategoryIdChange,
   onStatusChange,
@@ -104,6 +108,22 @@ export default function ProductGeneralInfoCard({
             <option value="active">Available</option>
             <option value="draft">Not available</option>
           </select>
+        </div>
+
+        <div>
+          <label className="admin-label block mb-1.5">URL Slug</label>
+          <div className="flex items-center h-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 overflow-hidden focus-within:border-emerald-600">
+            <span className="px-2.5 text-xs text-slate-400 dark:text-slate-500 border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 h-full inline-flex items-center shrink-0">
+              /product/
+            </span>
+            <input
+              type="text"
+              value={slug}
+              onChange={(e) => onSlugChange(e.target.value)}
+              placeholder="gemini-ai"
+              className="w-full h-full px-2.5 bg-transparent text-xs font-mono focus:outline-none"
+            />
+          </div>
         </div>
 
       </div>

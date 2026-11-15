@@ -13,7 +13,7 @@ export async function PUT(request: Request) {
     if (!body.product?.id || !body.product.name) {
       return NextResponse.json({ error: 'Invalid product' }, { status: 400 });
     }
-    const events = await saveDigitalProduct(body.product, session?.email || '');
+    const { events, slug } = await saveDigitalProduct(body.product, session?.email || '');
     const ip = requestIp(request);
     await recordActivities(
       events.map((ev) => ({
@@ -25,7 +25,7 @@ export async function PUT(request: Request) {
         ip,
       })),
     );
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, slug });
   } catch (err) {
     console.error('[admin/catalog/products PUT]', err);
     return NextResponse.json(

@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { recordPriceChange } from '@/lib/suppliers/core';
+import { resolveNewProductSlug, slugifyProductName } from '@/lib/catalog/slug';
 import { linkPlan } from '@/lib/suppliers/admin';
 import { normalizeDurationUnit } from '@/lib/warranty';
 import type {
@@ -86,6 +87,27 @@ async function applyPendingSupplierLinks(
   return events;
 }
 
+async function ensureUniqueProductSlug(
+  baseSlug: string,
+  excludeProductId?: string,
+): Promise<string> {
+  const base = slugifyProductName(baseSlug) || `item-${Date.now()}`;
+  const existingRows = await db.product.findMany({
+    select: { id: true, slug: true },
+  });
+  const taken = new Set(
+    existingRows
+      .filter((r) => r.id !== excludeProductId)
+      .map((r) => r.slug),
+  );
+  if (!taken.has(base)) return base;
+  let suffix = 2;
+  while (taken.has(`${base}-${suffix}`)) {
+    suffix += 1;
+  }
+  return `${base}-${suffix}`;
+}
+
 export async function saveDigitalProduct(product: DigitalProduct, actor = '') {
   const payload = digitalProductToDbPayload(product);
 
@@ -118,6 +140,7 @@ export async function saveDigitalProduct(product: DigitalProduct, actor = '') {
     },
     select: {
       id: true,
+      slug: true,
       name: true,
       description: true,
       tagline: true,
@@ -128,7 +151,14 @@ export async function saveDigitalProduct(product: DigitalProduct, actor = '') {
   });
 
   if (existing) {
+    const requestedSlug = product.slug?.trim();
+    const nextSlug = requestedSlug
+      ? await ensureUniqueProductSlug(requestedSlug, existing.id)
+      : existing.slug;
+    const slugChanged = nextSlug !== existing.slug;
+
     const productFieldsChanged =
+      slugChanged ||
       existing.name !== payload.name ||
       existing.description !== payload.description ||
       existing.tagline !== payload.tagline ||
@@ -136,22 +166,43 @@ export async function saveDigitalProduct(product: DigitalProduct, actor = '') {
       existing.imageUrl !== payload.imageUrl ||
       existing.status !== payload.status;
 
-    await db.product.update({
-      where: { id: existing.id },
-      data: {
-        name: payload.name,
-        description: payload.description,
-        tagline: payload.tagline,
-        category: payload.category,
-        categoryId,
-        platform: payload.platform,
-        imageUrl: payload.imageUrl,
-        galleryJson: payload.galleryJson,
-        featuresJson: payload.featuresJson,
-        isActive: payload.isActive,
-        sku: payload.sku,
-        status: payload.status,
-      },
+    await db.$transaction(async (tx) => {
+      await tx.product.update({
+        where: { id: existing.id },
+        data: {
+          ...(slugChanged ? { slug: nextSlug } : {}),
+          name: payload.name,
+          description: payload.description,
+          tagline: payload.tagline,
+          category: payload.category,
+          categoryId,
+          platform: payload.platform,
+          imageUrl: payload.imageUrl,
+          galleryJson: payload.galleryJson,
+          featuresJson: payload.featuresJson,
+          isActive: payload.isActive,
+          sku: payload.sku,
+          status: payload.status,
+        },
+      });
+      if (slugChanged) {
+        await tx.homeBanner.updateMany({
+          where: { linkType: 'product', linkValue: existing.slug },
+          data: { linkValue: nextSlug },
+        });
+        await tx.vaultCredential.updateMany({
+          where: { productId: existing.slug },
+          data: { productId: nextSlug },
+        });
+        await tx.digitalDelivery.updateMany({
+          where: { productId: existing.slug },
+          data: { productId: nextSlug },
+        });
+        await tx.priceHistory.updateMany({
+          where: { productId: existing.slug },
+          data: { productId: nextSlug },
+        });
+      }
     });
 
     const incomingCodes = payload.plans.map((p) => p.code);
@@ -211,7 +262,7 @@ export async function saveDigitalProduct(product: DigitalProduct, actor = '') {
       });
       if (!autoPriced) {
         await recordPriceChange({
-          productId: payload.slug,
+          productId: nextSlug,
           planCode: planData.code,
           planLabel: planData.label,
           oldValue: prev ? Number(prev.priceBdt) : '—',
@@ -245,42 +296,48 @@ export async function saveDigitalProduct(product: DigitalProduct, actor = '') {
     const linkEvents = await applyPendingSupplierLinks(
       existing.id,
       payload.name,
-      payload.slug,
+      nextSlug,
       product.variants || [],
     );
 
-    return [
-      ...buildProductAuditEvents({
-        isNew: false,
-        productName: payload.name,
-        productSlug: payload.slug,
-        beforePlans: existingPlans.map((p) => ({
-          code: p.code,
-          label: p.label,
-          isActive: p.isActive,
-          priceBdt: Number(p.priceBdt),
-        })),
-        afterPlans: payload.plans.map((p) => ({
-          code: p.code,
-          label: p.label,
-          isActive: p.isActive,
-          priceBdt: Number(p.priceBdt),
-        })),
-        removedPlans: removedPlans.map((p) => ({
-          code: p.code,
-          label: p.label,
-          isActive: p.isActive,
-          priceBdt: Number(p.priceBdt),
-        })),
-        productFieldsChanged,
-      }),
-      ...linkEvents,
-    ];
+    return {
+      slug: nextSlug,
+      events: [
+        ...buildProductAuditEvents({
+          isNew: false,
+          productName: payload.name,
+          productSlug: nextSlug,
+          beforePlans: existingPlans.map((p) => ({
+            code: p.code,
+            label: p.label,
+            isActive: p.isActive,
+            priceBdt: Number(p.priceBdt),
+          })),
+          afterPlans: payload.plans.map((p) => ({
+            code: p.code,
+            label: p.label,
+            isActive: p.isActive,
+            priceBdt: Number(p.priceBdt),
+          })),
+          removedPlans: removedPlans.map((p) => ({
+            code: p.code,
+            label: p.label,
+            isActive: p.isActive,
+            priceBdt: Number(p.priceBdt),
+          })),
+          productFieldsChanged,
+        }),
+        ...linkEvents,
+      ],
+    };
   }
 
+  const createSlug = await ensureUniqueProductSlug(
+    resolveNewProductSlug(product.slug ?? payload.slug, payload.name),
+  );
   const created = await db.product.create({
     data: {
-      slug: payload.slug,
+      slug: createSlug,
       name: payload.name,
       description: payload.description,
       tagline: payload.tagline,
@@ -299,7 +356,7 @@ export async function saveDigitalProduct(product: DigitalProduct, actor = '') {
   });
   for (const p of payload.plans) {
     await recordPriceChange({
-      productId: payload.slug,
+      productId: createSlug,
       planCode: p.code,
       planLabel: p.label,
       oldValue: '—',
@@ -312,25 +369,28 @@ export async function saveDigitalProduct(product: DigitalProduct, actor = '') {
   const linkEvents = await applyPendingSupplierLinks(
     created.id,
     payload.name,
-    payload.slug,
+    createSlug,
     product.variants || [],
   );
-  return [
-    ...buildProductAuditEvents({
-      isNew: true,
-      productName: payload.name,
-      productSlug: payload.slug,
-      beforePlans: [],
-      afterPlans: payload.plans.map((p) => ({
-        code: p.code,
-        label: p.label,
-        isActive: p.isActive,
-        priceBdt: Number(p.priceBdt),
-      })),
-      removedPlans: [],
-    }),
-    ...linkEvents,
-  ];
+  return {
+    slug: createSlug,
+    events: [
+      ...buildProductAuditEvents({
+        isNew: true,
+        productName: payload.name,
+        productSlug: createSlug,
+        beforePlans: [],
+        afterPlans: payload.plans.map((p) => ({
+          code: p.code,
+          label: p.label,
+          isActive: p.isActive,
+          priceBdt: Number(p.priceBdt),
+        })),
+        removedPlans: [],
+      }),
+      ...linkEvents,
+    ],
+  };
 }
 
 export async function toggleProductPlanActive(

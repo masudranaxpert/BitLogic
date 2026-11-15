@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
+import { slugifyProductName } from '@/lib/catalog/slug';
 import type {
   DigitalProduct,
   ProductVariant,
@@ -91,6 +92,8 @@ export default function ProductAddView({
   const defaultCredentialSchemeId = credentialSchemes[0]?.id || '';
 
   const [name, setName] = useState(editingProduct?.name ?? '');
+  const [slug, setSlug] = useState(editingProduct?.id ?? '');
+  const [slugEdited, setSlugEdited] = useState(Boolean(editingProduct));
   const [platform, setPlatform] = useState(editingProduct?.shortDescription ?? '');
   const [categoryId, setCategoryId] = useState(() =>
     resolveCategoryId(editingProduct, productCategories),
@@ -139,6 +142,8 @@ export default function ProductAddView({
   useEffect(() => {
     if (!editingProduct) return;
     setName(editingProduct.name);
+    setSlug(editingProduct.id);
+    setSlugEdited(true);
     setPlatform(editingProduct.shortDescription || '');
     setCategoryId(resolveCategoryId(editingProduct, productCategories));
     setStatus(editingProduct.status === 'draft' ? 'draft' : 'active');
@@ -213,7 +218,8 @@ export default function ProductAddView({
     if (!name.trim()) return;
     if (draftVariants.some((dv) => scheduleProblem(dv.availableFrom, dv.availableUntil))) return;
 
-    const prodId = editingProduct?.id ?? `prod-${Date.now()}`;
+    const cleanedSlug = slugifyProductName(slug) || slugifyProductName(name);
+    const prodId = editingProduct?.id ?? (cleanedSlug || `item-${Date.now()}`);
     const finalGallery = customImageUrl.trim()
       ? [customImageUrl.trim(), ...selectedMediaUrls]
       : selectedMediaUrls;
@@ -292,6 +298,7 @@ export default function ProductAddView({
 
     const product: DigitalProduct = {
       id: prodId,
+      ...(cleanedSlug && cleanedSlug !== prodId ? { slug: cleanedSlug } : {}),
       name: name.trim(),
       category: selectedCategory?.name || '',
       categoryId: selectedCategory?.id,
@@ -371,12 +378,20 @@ export default function ProductAddView({
           <div className="lg:col-span-8 space-y-5">
             <ProductGeneralInfoCard
               name={name}
+              slug={slug}
               platform={platform}
               categoryId={categoryId}
               categories={productCategories}
               status={status}
               description={description}
-              onNameChange={setName}
+              onNameChange={(val) => {
+                setName(val);
+                if (!slugEdited) setSlug(slugifyProductName(val));
+              }}
+              onSlugChange={(val) => {
+                setSlugEdited(true);
+                setSlug(val);
+              }}
               onPlatformChange={setPlatform}
               onCategoryIdChange={setCategoryId}
               onStatusChange={setStatus}

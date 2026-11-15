@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { StorefrontShell } from '@/components/storefront';
 import { getCatalogProductBySlug } from '@/lib/catalog/queries';
 import { JsonLd } from '@/lib/seo/json-ld';
@@ -48,6 +48,9 @@ export default async function ProductPage({ params }: Props) {
   const { id } = await params;
   const product = await getCatalogProductBySlug(id);
   if (!product) notFound();
+  if (product.id !== id) {
+    permanentRedirect(`/product/${encodeURIComponent(product.id)}`);
+  }
 
   const base = getSiteUrl();
   const low = product.plans.length

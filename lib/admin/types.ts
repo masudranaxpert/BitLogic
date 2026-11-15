@@ -149,6 +149,8 @@ export interface ProductVariant {
 
 export interface DigitalProduct {
   id: string;
+  /** Optional target URL slug when renaming an existing product's slug. */
+  slug?: string;
   name: string;
   /** Display name from Product → Categories taxonomy */
   category: string;

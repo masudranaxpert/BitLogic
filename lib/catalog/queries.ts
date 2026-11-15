@@ -25,14 +25,26 @@ export const listCatalogProducts = cache(async (): Promise<Product[]> => {
 
 export const getCatalogProductBySlug = cache(
   async (slugOrId: string): Promise<Product | null> => {
-    const row = await db.product.findFirst({
-      where: {
-        OR: [{ slug: slugOrId }, { id: slugOrId }],
-        isActive: true,
-        status: 'active',
-      },
-      include,
-    });
+    const cleanFallback = slugOrId.startsWith('prod-') ? slugOrId.slice(5) : null;
+    const row =
+      (await db.product.findFirst({
+        where: {
+          OR: [{ slug: slugOrId }, { id: slugOrId }],
+          isActive: true,
+          status: 'active',
+        },
+        include,
+      })) ??
+      (cleanFallback
+        ? await db.product.findFirst({
+            where: {
+              slug: cleanFallback,
+              isActive: true,
+              status: 'active',
+            },
+            include,
+          })
+        : null);
     if (!row) return null;
     return mapDbProductToCatalog(row, await planSupplyMap([row]));
   },

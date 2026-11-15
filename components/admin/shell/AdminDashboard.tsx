@@ -763,8 +763,16 @@ export default function AdminDashboard() {
     if (initialCredentials.length > 0) {
       commitVault((prev) => [...initialCredentials, ...prev]);
     }
-    void persistAdminProduct(newProduct).then((ok) => {
-      if (!ok) showToast('Saved locally — DB write failed.');
+    void persistAdminProduct(newProduct).then(({ ok, slug }) => {
+      if (!ok) {
+        showToast('Saved locally — DB write failed.');
+        return;
+      }
+      if (slug && slug !== newProduct.id) {
+        setProducts((prev) =>
+          prev.map((p) => (p.id === newProduct.id ? { ...p, id: slug, slug: undefined } : p)),
+        );
+      }
     });
     setActiveTab('products');
     showToast(`Published "${newProduct.name}" (${newProduct.variants.length} plans).`);
@@ -774,14 +782,24 @@ export default function AdminDashboard() {
     product: DigitalProduct,
     newCredentials: VaultCredential[],
   ) => {
-    setProducts((prev) => prev.map((p) => (p.id === product.id ? product : p)));
+    const nextId = product.slug?.trim() || product.id;
+    const optimistic = nextId !== product.id ? { ...product, id: nextId, slug: undefined } : product;
+    setProducts((prev) => prev.map((p) => (p.id === product.id ? optimistic : p)));
     if (newCredentials.length > 0) {
       commitVault((prev) => [...newCredentials, ...prev]);
     }
     setActiveTab('products');
     showToast(`Saved "${product.name}" (${product.variants.length} plans).`);
-    void persistAdminProduct(product).then((ok) => {
-      if (!ok) showToast('DB write failed — changes may not survive refresh.');
+    void persistAdminProduct(product).then(({ ok, slug }) => {
+      if (!ok) {
+        showToast('DB write failed — changes may not survive refresh.');
+        return;
+      }
+      if (slug && slug !== optimistic.id) {
+        setProducts((prev) =>
+          prev.map((p) => (p.id === optimistic.id ? { ...p, id: slug, slug: undefined } : p)),
+        );
+      }
     });
   };
 
@@ -820,7 +838,7 @@ export default function AdminDashboard() {
       })
     );
     if (updatedProduct) {
-      void persistAdminProduct(updatedProduct).then((ok) => {
+      void persistAdminProduct(updatedProduct).then(({ ok }) => {
         if (!ok) showToast('DB write failed — changes may not survive refresh.');
       });
     }
@@ -845,7 +863,7 @@ export default function AdminDashboard() {
       })
     );
     if (updatedProduct) {
-      void persistAdminProduct(updatedProduct).then((ok) => {
+      void persistAdminProduct(updatedProduct).then(({ ok }) => {
         if (!ok) showToast('DB write failed — changes may not survive refresh.');
       });
     }

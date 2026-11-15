@@ -96,10 +96,15 @@ export function StoreNavProvider({ children }: { children: ReactNode }) {
         accountTab: options?.accountTab ?? accountTab,
       });
 
-      router.push(href);
-      if (typeof window !== 'undefined') {
+      const currentHref =
+        typeof window !== 'undefined'
+          ? window.location.pathname + window.location.search
+          : '';
+      if (typeof window !== 'undefined' && href === currentHref) {
         window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
       }
+      router.push(href);
     },
     [accountTab, loginMode, router, selectedProductId],
   );

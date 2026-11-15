@@ -153,7 +153,7 @@ class MainActivity : AppCompatActivity() {
                     SyncApiClient.pingServer(this@MainActivity)
                 }
                 btnTestPing.isEnabled = true
-                btnTestPing.text = "Test Connection"
+                btnTestPing.text = "Test Ping"
                 refreshStatsAndLogs()
                 when {
                     res.ok -> Toast.makeText(this@MainActivity, "Connected (HTTP ${res.httpCode})!", Toast.LENGTH_SHORT).show()
@@ -195,7 +195,7 @@ class MainActivity : AppCompatActivity() {
                     SyncApiClient.scanRecentInboxMfsSms(this@MainActivity, 1440, onlyUnsynced = false)
                 }
                 btnScanInbox.isEnabled = true
-                btnScanInbox.text = "Scan Inbox (24h)"
+                btnScanInbox.text = "Scan Inbox"
                 refreshStatsAndLogs()
                 Toast.makeText(
                     this@MainActivity,
@@ -220,7 +220,7 @@ class MainActivity : AppCompatActivity() {
                     SyncApiClient.flushQueue(this@MainActivity)
                 }
                 btnFlushQueue.isEnabled = true
-                btnFlushQueue.text = "Retry Queued SMS"
+                btnFlushQueue.text = "Retry Queue"
                 refreshStatsAndLogs()
                 Toast.makeText(this@MainActivity, "Flushed $flushed SMS from queue", Toast.LENGTH_SHORT).show()
             }
@@ -350,14 +350,14 @@ class MainActivity : AppCompatActivity() {
             tvServiceStatusPill.setTextColor(0xFF34D399.toInt())
             tvServiceStatusPill.backgroundTintList = ColorStateList.valueOf(0xFF064E3B.toInt())
 
-            btnToggleService.text = "Stop 24/7 Auto-Sync Service"
+            btnToggleService.text = "Stop Auto-Sync"
             btnToggleService.backgroundTintList = ColorStateList.valueOf(0xFFDC2626.toInt())
         } else {
             tvServiceStatusPill.text = "● Stopped"
             tvServiceStatusPill.setTextColor(0xFFF87171.toInt())
             tvServiceStatusPill.backgroundTintList = ColorStateList.valueOf(0xFF232B47.toInt())
 
-            btnToggleService.text = "Start 24/7 Auto-Sync Service"
+            btnToggleService.text = "Start Auto-Sync"
             btnToggleService.backgroundTintList = ColorStateList.valueOf(0xFF059669.toInt())
         }
     }
@@ -384,31 +384,31 @@ class MainActivity : AppCompatActivity() {
 
     private fun refreshPermissionAndBatteryBadges() {
         if (hasSmsPermissions()) {
-            tvPermissionStatus.text = "✓ SMS Read & Receive Permissions Granted"
+            tvPermissionStatus.text = "✓ SMS Permissions Granted"
             tvPermissionStatus.setTextColor(0xFF065F46.toInt())
             tvPermissionStatus.backgroundTintList = ColorStateList.valueOf(0xFFECFDF5.toInt())
         } else {
-            tvPermissionStatus.text = "⚠ SMS Permission Missing — Tap 'Grant Permissions'"
+            tvPermissionStatus.text = "⚠ SMS Permission Missing — Tap Permissions"
             tvPermissionStatus.setTextColor(0xFF991B1B.toInt())
             tvPermissionStatus.backgroundTintList = ColorStateList.valueOf(0xFFFEF2F2.toInt())
         }
 
         if (hasNotificationPermission()) {
-            tvNotificationStatus.text = "✓ Foreground Notifications Allowed"
+            tvNotificationStatus.text = "✓ Notifications Allowed"
             tvNotificationStatus.setTextColor(0xFF065F46.toInt())
             tvNotificationStatus.backgroundTintList = ColorStateList.valueOf(0xFFECFDF5.toInt())
         } else {
-            tvNotificationStatus.text = "⚠ Notification Permission Off — Tap 'Grant Permissions'"
+            tvNotificationStatus.text = "⚠ Notifications Off — Tap Permissions"
             tvNotificationStatus.setTextColor(0xFF92400E.toInt())
             tvNotificationStatus.backgroundTintList = ColorStateList.valueOf(0xFFFFFBEB.toInt())
         }
 
         if (OemBatteryHelper.isBatteryOptimizationIgnored(this)) {
-            tvBatteryStatus.text = "✓ Unrestricted Battery Mode Active (24/7 Safe)"
+            tvBatteryStatus.text = "✓ Battery Unrestricted"
             tvBatteryStatus.setTextColor(0xFF065F46.toInt())
             tvBatteryStatus.backgroundTintList = ColorStateList.valueOf(0xFFECFDF5.toInt())
         } else {
-            tvBatteryStatus.text = "⚠ Battery Optimization Active — Tap 'Disable Sleep Killer'"
+            tvBatteryStatus.text = "⚠ Battery Restricted — Tap Battery Mode"
             tvBatteryStatus.setTextColor(0xFF92400E.toInt())
             tvBatteryStatus.backgroundTintList = ColorStateList.valueOf(0xFFFFFBEB.toInt())
         }

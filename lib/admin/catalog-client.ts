@@ -20,13 +20,19 @@ export async function fetchAdminCatalog(): Promise<AdminCatalogPayload | null> {
 
 export async function persistAdminProduct(
   product: DigitalProduct,
-): Promise<boolean> {
+): Promise<{ ok: boolean; slug?: string }> {
   const res = await fetch('/api/admin/catalog/products', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ product }),
   });
-  return res.ok;
+  if (!res.ok) return { ok: false };
+  try {
+    const data = (await res.json()) as { slug?: string };
+    return { ok: true, slug: data.slug };
+  } catch {
+    return { ok: true };
+  }
 }
 
 export async function persistPlanActive(
