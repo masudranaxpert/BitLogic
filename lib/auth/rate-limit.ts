@@ -14,6 +14,14 @@ export function rateLimit(key: string, limit: number, windowMs: number): { ok: b
     if (buckets.size > 5000) {
       for (const [k, v] of buckets) if (v.resetAt <= now) buckets.delete(k);
     }
+    if (buckets.size > 10000) {
+      for (const k of buckets.keys()) {
+        if (!k.includes(':email:')) {
+          buckets.delete(k);
+          if (buckets.size <= 10000) break;
+        }
+      }
+    }
     return { ok: true, retryAfterSec: 0 };
   }
   b.count += 1;
@@ -31,8 +39,10 @@ function cleanIp(ip: string | null | undefined): string | null {
 }
 
 export function clientIp(request: Request): string {
-  const cf = cleanIp(request.headers.get('cf-connecting-ip'));
-  if (cf) return cf;
+  if (request.headers.get('cf-ray')) {
+    const cf = cleanIp(request.headers.get('cf-connecting-ip'));
+    if (cf) return cf;
+  }
 
   const real = cleanIp(request.headers.get('x-real-ip'));
   if (real) return real;

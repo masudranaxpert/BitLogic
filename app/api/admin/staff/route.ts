@@ -217,8 +217,10 @@ export async function PATCH(request: Request) {
     if (weak) return NextResponse.json({ error: weak }, { status: 400 });
     data.passwordHash = await hashPassword(String(body.password));
   }
-  // New password, or less access: their open sessions must sign in again.
-  if (body.password || role !== target.role) data.sessionVersion = { increment: 1 };
+  // New password, or role/permission change: their open sessions must sign in again.
+  if (body.password || role !== target.role || data.permissionsJson !== target.permissionsJson) {
+    data.sessionVersion = { increment: 1 };
+  }
 
   const user = await db.user.update({ where: { id }, data });
   await recordActivity({

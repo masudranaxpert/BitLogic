@@ -2,12 +2,14 @@
 
 import React, { useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { X, Sun, Moon, ChevronRight, ChevronDown, Send } from 'lucide-react';
+import { X, Sun, Moon, ChevronRight, ChevronDown, Send, LogOut } from 'lucide-react';
 import { BrandLogo } from '@/components/brand/BrandLogo';
 import type { AdminTab } from '@/lib/admin-data';
 import type { ConsoleUser, NavGroupItem } from '@/components/admin/shell/admin-nav-types';
 import { isAdminNavGroupActive } from '@/components/admin/shell/admin-nav-config';
 import { adminTabToPath, isPlainLeftClick } from '@/lib/admin-routes';
+import { clearCachedAdminWorkspace } from '@/lib/admin/workspace-client';
+import { clearCustomer } from '@/lib/customerSession';
 
 export type AdminSidebarNavProps = {
   mobileMenuOpen: boolean;
@@ -43,6 +45,13 @@ export function AdminSidebarNav({
   const isGroupActive = (item: NavGroupItem) =>
     isAdminNavGroupActive(item, activeTab);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const handleAdminLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+    clearCachedAdminWorkspace();
+    clearCustomer();
+    window.location.href = '/login';
+  };
 
   useEffect(() => {
     const menu = menuRef.current;
@@ -413,6 +422,16 @@ export function AdminSidebarNav({
             ) : (
               <Moon className="w-4 h-4 text-slate-600" />
             )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => void handleAdminLogout()}
+            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-rose-600 dark:text-rose-400 hover:border-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer shrink-0"
+            title="Sign out"
+            aria-label="Sign out"
+          >
+            <LogOut className="w-4 h-4" />
           </button>
         </div>
       </div>

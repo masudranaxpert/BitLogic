@@ -74,10 +74,17 @@ export function writeCustomer(session: CustomerSession) {
   }
 }
 
+const ORDERS_KEY = 'bitlogic-order-ids';
+const ACCESS_KEY = 'bitlogic-order-access';
+
 export function clearCustomer() {
   if (typeof window === 'undefined') return;
   try {
     localStorage.removeItem(KEY);
+    localStorage.removeItem(ORDERS_KEY);
+    localStorage.removeItem(ACCESS_KEY);
+    sessionStorage.removeItem('admin_workspace_cache');
+    sessionStorage.removeItem('admin_console_user');
     cachedRaw = null;
     cachedSession = null;
     emitChange();
@@ -85,9 +92,6 @@ export function clearCustomer() {
     // ignore
   }
 }
-
-const ORDERS_KEY = 'bitlogic-order-ids';
-const ACCESS_KEY = 'bitlogic-order-access';
 
 /** Guest checkout has no login cookie, so remember order ids to prove ownership. */
 export function readRememberedOrderIds(): string[] {

@@ -75,6 +75,17 @@ export function setCachedAdminWorkspace(data: AdminWorkspacePayload) {
   }
 }
 
+export function clearCachedAdminWorkspace() {
+  cachedWorkspace = null;
+  cachedConsoleUser = null;
+  if (typeof window !== 'undefined') {
+    try {
+      sessionStorage.removeItem('admin_workspace_cache');
+      sessionStorage.removeItem('admin_console_user');
+    } catch {}
+  }
+}
+
 export async function fetchAdminWorkspace(): Promise<AdminWorkspacePayload | null> {
   try {
     const res = await fetch('/api/admin/workspace', { cache: 'no-store' });

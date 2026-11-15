@@ -93,15 +93,25 @@ export function AccountPageView() {
       })
       .catch(() => setServerCheck('none'));
   }, [hydrated, storedSession, serverCheck]);
-  // Refresh name/phone from the account. Guest buyers (no login) get 401 and keep their order-link access.
+  // Refresh name/phone/email from the account. Guest buyers (no login) keep their order-link access.
   useEffect(() => {
     if (!storedSession) return;
     let alive = true;
     fetch('/api/account/profile', { cache: 'no-store' })
       .then(async (r) => {
-        if (!alive || !r.ok) return;
+        if (!alive) return;
+        if (r.status === 401) {
+          if (orderAccessProofs().length === 0) clearCustomer();
+          return;
+        }
+        if (!r.ok) return;
         const d = await r.json().catch(() => null);
-        if (d?.user && (d.user.name !== storedSession.name || (d.user.phone || '') !== (storedSession.phone || ''))) {
+        if (
+          d?.user &&
+          (d.user.email !== storedSession.email ||
+            d.user.name !== storedSession.name ||
+            (d.user.phone || '') !== (storedSession.phone || ''))
+        ) {
           writeCustomer({ name: d.user.name || storedSession.name, email: d.user.email, phone: d.user.phone || '' });
         }
       })

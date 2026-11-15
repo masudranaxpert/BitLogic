@@ -102,6 +102,13 @@ export async function getSession(): Promise<SessionUser | null> {
   });
   if (!user || user.sessionVersion !== (fromToken.sessionVersion ?? 0)) return null;
   const role = (user.role === ROLES.ADMIN || user.role === ROLES.STAFF ? user.role : ROLES.CUSTOMER) as Role;
+  if (role === ROLES.CUSTOMER) {
+    const sub = await db.adminSubscriber.findFirst({
+      where: { email: user.email.toLowerCase(), status: 'suspended' },
+      select: { id: true },
+    });
+    if (sub) return null;
+  }
   const { parsePermissionsJson } = await import('@/lib/auth/permissions');
   return {
     id: fromToken.id,

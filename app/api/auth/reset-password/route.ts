@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { hashPassword } from '@/lib/auth/password';
 import { passwordProblem } from '@/lib/auth/password-policy';
-import { consumeAuthToken, peekAuthToken } from '@/lib/auth/tokens';
+import { consumeAuthToken, findAuthTokenUser, peekAuthToken } from '@/lib/auth/tokens';
 import { recordActivity, requestIp } from '@/lib/audit/record';
 import { clientIp, rateLimit } from '@/lib/auth/rate-limit';
 
@@ -29,8 +29,13 @@ export async function POST(request: Request) {
     { status: 400 },
   );
   if (!(await peekAuthToken(token, 'reset_password'))) return expired;
+  const ownerId = await findAuthTokenUser(token, 'reset_password');
+  const owner = ownerId
+    ? await db.user.findUnique({ where: { id: ownerId }, select: { email: true, name: true, phone: true } })
+    : null;
+  if (!owner) return expired;
   // Check the new password before using up the single-use link.
-  const weak = passwordProblem(password);
+  const weak = passwordProblem(password, { email: owner.email, name: owner.name, phone: owner.phone });
   if (weak) return NextResponse.json({ error: weak }, { status: 400 });
 
   const userId = await consumeAuthToken(token, 'reset_password');

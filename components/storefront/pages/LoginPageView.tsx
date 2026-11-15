@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Mail, ArrowRight, User, CircleAlert, CircleCheck, X, Loader2 } from 'lucide-react';
-import { writeCustomer } from '@/lib/customerSession';
+import { clearCustomer, writeCustomer } from '@/lib/customerSession';
 import { PasswordField } from '@/components/storefront/features/PasswordField';
 import { StoreButton, StoreInputField, StoreSurfaceCard } from '@/components/storefront/ui';
 import { useStoreNav } from '@/context/StoreNavContext';
@@ -178,6 +178,7 @@ export function LoginPageView() {
 
   const goAfterSignIn = (user: AuthUser) => {
     if (user.role === 'ADMIN' || user.role === 'STAFF') {
+      clearCustomer();
       const next = searchParams.get('next');
       window.location.href = getSafeRedirectUrl(next, user.role);
       return;

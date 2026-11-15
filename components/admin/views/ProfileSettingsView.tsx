@@ -8,6 +8,7 @@ import {
   EyeOff,
   KeyRound,
   Lock,
+  LogOut,
   Mail,
   ShieldCheck,
   User,
@@ -19,6 +20,8 @@ import {
   STAFF_PERMISSIONS,
 } from '@/lib/auth/permissions';
 import type { ConsoleUser } from '@/components/admin/shell/admin-nav-types';
+import { clearCachedAdminWorkspace } from '@/lib/admin/workspace-client';
+import { clearCustomer } from '@/lib/customerSession';
 
 const inputClass =
   'w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-emerald-600 disabled:bg-slate-100 disabled:text-slate-500 dark:disabled:bg-slate-900/70 dark:disabled:text-slate-400';
@@ -226,6 +229,25 @@ export default function ProfileSettingsView({
               )}
             </div>
           ) : null}
+
+          <div className="border-t border-slate-200/80 dark:border-slate-800 pt-4">
+            <button
+              type="button"
+              onClick={() => {
+                void fetch('/api/auth/logout', { method: 'POST' })
+                  .catch(() => {})
+                  .finally(() => {
+                    clearCachedAdminWorkspace();
+                    clearCustomer();
+                    window.location.href = '/login';
+                  });
+              }}
+              className="w-full h-9 px-3 rounded-lg border border-rose-200 dark:border-rose-900/70 bg-rose-50/70 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-950/60 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" aria-hidden />
+              <span>Sign out of console</span>
+            </button>
+          </div>
         </Card>
 
         <Card className="lg:col-span-8 p-5 sm:p-6">
