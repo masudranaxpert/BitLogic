@@ -15,9 +15,6 @@ import {
   HelpCircle,
   AlertTriangle,
   RefreshCw,
-  Clock,
-  Wifi,
-  Zap,
 } from 'lucide-react';
 
 export interface MfsDevice {
@@ -138,7 +135,7 @@ export function PaymentDevicesTab({
 
   return (
     <div className="space-y-6">
-      {/* Banner */}
+      {/* Sync App Bar */}
       <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 flex items-center justify-center shrink-0">
@@ -146,15 +143,15 @@ export function PaymentDevicesTab({
           </div>
           <div>
             <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100">
-              Blumart SMS Sync Companion App
+              Blumartbd Sync App
             </h3>
             <p className="text-[11px] text-slate-500">
-              Install on the Android phone where your MFS SIM is inserted to forward payment SMS automatically.
+              Install on the phone holding your MFS SIM.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => setShowPlayProtectGuide(!showPlayProtectGuide)}
@@ -177,100 +174,46 @@ export function PaymentDevicesTab({
 
       {/* Play Protect Help */}
       {showPlayProtectGuide && (
-        <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-200 text-xs text-amber-900 space-y-1.5 dark:bg-amber-950/20 dark:border-amber-900 dark:text-amber-200">
-          <div className="flex items-center gap-2 font-bold">
-            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-            <span>How to bypass Google Play Protect during installation:</span>
+        <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200 text-[11px] leading-relaxed text-amber-900 space-y-1 dark:bg-amber-950/20 dark:border-amber-900 dark:text-amber-200">
+          <div className="flex items-center gap-1.5 font-bold text-xs">
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+            <span>Install Steps</span>
           </div>
-          <p className="text-[11px] leading-relaxed m-0">
-            1. Open the downloaded APK and tap <strong>&quot;More details&quot;</strong> on the Play Protect prompt, then select <strong>&quot;Install anyway&quot;</strong>.<br />
-            2. Inside the app, tap <strong>Allow Battery Whitelist</strong> so Android does not stop background syncing when the screen is locked.
+          <p className="m-0">
+            1. On Play Protect prompt, tap More details &rarr; Install anyway.<br />
+            2. Inside the app, tap Grant Permissions &amp; Disable Sleep Killer.
           </p>
         </div>
       )}
 
-      {/* Sync Schedule & Interval Telemetry Card */}
-      <Card className="p-4 border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-slate-200/80 dark:border-slate-800 pb-2.5">
-          <div>
-            <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-              <Clock className="w-4 h-4 text-emerald-600" />
-              Sync Frequency &amp; Verification Schedule
-            </h3>
-            <p className="text-[11px] text-slate-500 mt-0.5">
-              How often the Android Sync App and server check for incoming payments and match pending orders.
-            </p>
-          </div>
+      {/* Action Row */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+          Registered Phones ({devices.length})
+        </h2>
+
+        <div className="flex items-center gap-2">
           {onManualSync && (
             <button
               type="button"
               onClick={onManualSync}
               disabled={reconciling}
-              className="px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-2xs flex items-center gap-1.5 cursor-pointer shrink-0"
+              className="px-2.5 py-1.5 rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 text-xs font-semibold hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${reconciling ? 'animate-spin' : ''}`} />
-              {reconciling ? 'Matching Pending Orders...' : 'Manual Sync & Match Now'}
+              {reconciling ? 'Syncing...' : 'Sync Now'}
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={() => setIsAddingDevice(!isAddingDevice)}
+            className="px-3 py-1.5 rounded-md bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-slate-200 text-white dark:text-slate-900 text-xs font-semibold shadow-xs flex items-center gap-1.5 cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            {isAddingDevice ? 'Cancel' : 'Register Phone'}
+          </button>
         </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-          <div className="p-2.5 rounded-lg bg-white dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800">
-            <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
-              <Zap className="w-3.5 h-3.5 text-emerald-600" />
-              <span>1. Real-Time SMS Push</span>
-            </div>
-            <p className="text-[11px] text-slate-500 mt-1 m-0">
-              <strong>Instant (&lt; 1 sec)</strong> whenever a new bKash, Nagad, Rocket, or Upay SMS arrives on the phone.
-            </p>
-          </div>
-
-          <div className="p-2.5 rounded-lg bg-white dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800">
-            <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
-              <Wifi className="w-3.5 h-3.5 text-blue-600" />
-              <span>2. Offline Recovery</span>
-            </div>
-            <p className="text-[11px] text-slate-500 mt-1 m-0">
-              <strong>Instant on Wi-Fi / Data reconnect</strong> — flushes queued offline SMS and sweeps 24h inbox automatically.
-            </p>
-          </div>
-
-          <div className="p-2.5 rounded-lg bg-white dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800">
-            <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
-              <Clock className="w-3.5 h-3.5 text-amber-600" />
-              <span>3. Background Sweep</span>
-            </div>
-            <p className="text-[11px] text-slate-500 mt-1 m-0">
-              <strong>Every 15 minutes</strong> via Android WorkManager + Foreground Service heartbeat &amp; 24h inbox check.
-            </p>
-          </div>
-
-          <div className="p-2.5 rounded-lg bg-white dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800">
-            <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
-              <RefreshCw className="w-3.5 h-3.5 text-purple-600" />
-              <span>4. Manual Re-Sync</span>
-            </div>
-            <p className="text-[11px] text-slate-500 mt-1 m-0">
-              <strong>On-Demand</strong> — click &quot;Manual Sync Now&quot; anytime to re-match all 72h unmatched SMS against pending orders.
-            </p>
-          </div>
-        </div>
-      </Card>
-
-      {/* Action Row */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-          Registered Phones ({devices.length})
-        </h2>
-
-        <button
-          type="button"
-          onClick={() => setIsAddingDevice(!isAddingDevice)}
-          className="px-3 py-1.5 rounded-md bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-slate-200 text-white dark:text-slate-900 text-xs font-semibold shadow-xs flex items-center gap-1.5 cursor-pointer"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          {isAddingDevice ? 'Cancel' : 'Register Phone'}
-        </button>
       </div>
 
       {/* Add Device Form (No Duplicate Phone Number Input!) */}
@@ -346,7 +289,7 @@ export function PaymentDevicesTab({
             No phones registered yet
           </h4>
           <p className="text-xs text-slate-400 max-w-sm mx-auto">
-            Click &quot;Register Phone&quot; to create a Device API Key and paste it into the Blumart Sync app.
+            Register a phone to generate its API key.
           </p>
         </Card>
       ) : (

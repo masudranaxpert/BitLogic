@@ -3,7 +3,7 @@
 import React from 'react';
 import { Card } from '@/components/admin/ui/primitives';
 import { type StoreSettings } from '@/lib/store-settings';
-import { Smartphone, Check, SlidersHorizontal } from 'lucide-react';
+import { Check, SlidersHorizontal } from 'lucide-react';
 
 export type PaymentConfigDraft = Pick<
   StoreSettings,
@@ -27,8 +27,6 @@ export type PaymentConfigDraft = Pick<
 interface MethodTabProps {
   draft: PaymentConfigDraft;
   setField: <K extends keyof PaymentConfigDraft>(k: K, v: PaymentConfigDraft[K]) => void;
-  onNavigateToDevices: () => void;
-  devicesCount: number;
 }
 
 const inputClass =
@@ -37,8 +35,6 @@ const inputClass =
 export function PaymentMethodConfigTab({
   draft,
   setField,
-  onNavigateToDevices,
-  devicesCount,
 }: MethodTabProps) {
   const isDefaultMode =
     draft.verifyModeSenderFifo &&
@@ -75,21 +71,16 @@ export function PaymentMethodConfigTab({
 
   return (
     <div className="space-y-6">
-      {/* 3-Mode Autonomous Verification Rules Controller */}
+      {/* Auto-Verification Rules */}
       <Card className="p-5 border border-slate-200 dark:border-slate-800 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3.5">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center shrink-0">
               <SlidersHorizontal className="w-4 h-4" />
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                Verification Engine Modes
-              </h3>
-              <p className="text-[11px] text-slate-500">
-                Choose which matching rules are allowed to auto-approve orders when SMS arrives.
-              </p>
-            </div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+              Auto-Verification Rules
+            </h3>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -102,7 +93,7 @@ export function PaymentMethodConfigTab({
                   : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300'
               }`}
             >
-              Default (Sender + TrxID)
+              Sender + TrxID
             </button>
             <button
               type="button"
@@ -113,7 +104,7 @@ export function PaymentMethodConfigTab({
                   : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300'
               }`}
             >
-              All 3 Modes (+ Reference)
+              All 3
             </button>
             <button
               type="button"
@@ -124,15 +115,7 @@ export function PaymentMethodConfigTab({
                   : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300'
               }`}
             >
-              Strict TrxID Only
-            </button>
-            <button
-              type="button"
-              onClick={onNavigateToDevices}
-              className="px-2.5 py-1.5 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 flex items-center gap-1.5 cursor-pointer"
-            >
-              <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
-              Devices ({devicesCount})
+              TrxID Only
             </button>
           </div>
         </div>
@@ -140,7 +123,7 @@ export function PaymentMethodConfigTab({
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {/* Mode 1 */}
           <label
-            className={`p-3.5 rounded-lg border cursor-pointer transition flex flex-col justify-between gap-2 ${
+            className={`p-3.5 rounded-lg border cursor-pointer transition flex flex-col justify-between gap-1.5 ${
               draft.verifyModeSenderFifo
                 ? 'border-emerald-500/60 bg-emerald-50/20 dark:bg-emerald-950/15'
                 : 'border-slate-200 dark:border-slate-800 opacity-75'
@@ -148,7 +131,7 @@ export function PaymentMethodConfigTab({
           >
             <div className="flex items-start justify-between gap-2">
               <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                1. Sender + Time (FIFO)
+                1. Sender Number
               </span>
               <input
                 type="checkbox"
@@ -158,13 +141,13 @@ export function PaymentMethodConfigTab({
               />
             </div>
             <p className="text-[11px] text-slate-500 leading-relaxed m-0">
-              Default automatic mode: asks customer for their sender number on Step 1 &amp; matches SMS by sender + amount.
+              Matches sender mobile and amount.
             </p>
           </label>
 
           {/* Mode 2 */}
           <label
-            className={`p-3.5 rounded-lg border cursor-pointer transition flex flex-col justify-between gap-2 ${
+            className={`p-3.5 rounded-lg border cursor-pointer transition flex flex-col justify-between gap-1.5 ${
               draft.verifyModeReference
                 ? 'border-emerald-500/60 bg-emerald-50/20 dark:bg-emerald-950/15'
                 : 'border-slate-200 dark:border-slate-800 opacity-75'
@@ -172,7 +155,7 @@ export function PaymentMethodConfigTab({
           >
             <div className="flex items-start justify-between gap-2">
               <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                2. Reference + Amount
+                2. Order Reference
               </span>
               <input
                 type="checkbox"
@@ -182,13 +165,13 @@ export function PaymentMethodConfigTab({
               />
             </div>
             <p className="text-[11px] text-slate-500 leading-relaxed m-0">
-              Shows Order ID (Reference Copy Box) in Gateway UI &amp; auto-verifies when typed in MFS Reference.
+              Matches Order ID in payment reference.
             </p>
           </label>
 
           {/* Mode 3 */}
           <label
-            className={`p-3.5 rounded-lg border cursor-pointer transition flex flex-col justify-between gap-2 ${
+            className={`p-3.5 rounded-lg border cursor-pointer transition flex flex-col justify-between gap-1.5 ${
               draft.verifyModeTrxId
                 ? 'border-emerald-500/60 bg-emerald-50/20 dark:bg-emerald-950/15'
                 : 'border-slate-200 dark:border-slate-800 opacity-75'
@@ -196,7 +179,7 @@ export function PaymentMethodConfigTab({
           >
             <div className="flex items-start justify-between gap-2">
               <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                3. Transaction ID (TrxID)
+                3. Transaction ID
               </span>
               <input
                 type="checkbox"
@@ -206,7 +189,7 @@ export function PaymentMethodConfigTab({
               />
             </div>
             <p className="text-[11px] text-slate-500 leading-relaxed m-0">
-              Records customer TrxID immediately (no waiting screen) &amp; verifies against present or incoming SMS.
+              Matches customer TrxID against SMS.
             </p>
           </label>
         </div>
@@ -270,7 +253,7 @@ export function PaymentMethodConfigTab({
           </div>
 
           <div className="pt-2 text-[11px] text-slate-400 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-            <span>{draft.bkashEnabled ? 'Active in checkout & gateway' : 'Hidden from customers'}</span>
+            <span>{draft.bkashEnabled ? 'Active' : 'Hidden'}</span>
             {draft.bkashEnabled && <Check className="w-3.5 h-3.5 text-emerald-600" />}
           </div>
         </Card>
@@ -331,7 +314,7 @@ export function PaymentMethodConfigTab({
           </div>
 
           <div className="pt-2 text-[11px] text-slate-400 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-            <span>{draft.nagadEnabled ? 'Active in checkout & gateway' : 'Hidden from customers'}</span>
+            <span>{draft.nagadEnabled ? 'Active' : 'Hidden'}</span>
             {draft.nagadEnabled && <Check className="w-3.5 h-3.5 text-emerald-600" />}
           </div>
         </Card>
@@ -346,7 +329,7 @@ export function PaymentMethodConfigTab({
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Rocket</h3>
-                  <p className="text-[11px] text-slate-500">SMS Sender: 16216</p>
+                  <p className="text-[11px] text-slate-500">SMS Sender: 16221</p>
                 </div>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -392,7 +375,7 @@ export function PaymentMethodConfigTab({
           </div>
 
           <div className="pt-2 text-[11px] text-slate-400 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-            <span>{draft.rocketEnabled ? 'Active in checkout & gateway' : 'Hidden from customers'}</span>
+            <span>{draft.rocketEnabled ? 'Active' : 'Hidden'}</span>
             {draft.rocketEnabled && <Check className="w-3.5 h-3.5 text-emerald-600" />}
           </div>
         </Card>

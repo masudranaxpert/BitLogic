@@ -264,11 +264,8 @@ export default function PaymentMethodsView({
         <div className="min-w-0 flex-1">
           <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <CreditCard className="w-5 h-5 text-emerald-600 shrink-0" />
-            Payment Methods &amp; Verification
+            Payment Methods
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Configure MFS receiving numbers, 3-mode auto-verification rules, Android sync devices, and raw SMS logs.
-          </p>
         </div>
 
         {activeTab !== 'devices' && (
@@ -278,10 +275,9 @@ export default function PaymentMethodsView({
               onClick={runManualSync}
               disabled={reconciling}
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md border border-emerald-600/30 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800 transition cursor-pointer whitespace-nowrap shrink-0"
-              title="Re-scan unmatched SMS logs from the last 72h and auto-verify any matching pending orders"
             >
               <RefreshCw className={`w-3.5 h-3.5 shrink-0 ${reconciling ? 'animate-spin' : ''}`} />
-              {reconciling ? 'Syncing & Matching...' : 'Manual Sync Now'}
+              {reconciling ? 'Syncing...' : 'Sync Now'}
             </button>
 
             {activeTab === 'methods' && (
@@ -301,7 +297,7 @@ export default function PaymentMethodsView({
                 ) : (
                   <Save className="w-3.5 h-3.5 shrink-0" />
                 )}
-                {status === 'saved' ? 'Saved' : 'Save Changes'}
+                {status === 'saved' ? 'Saved' : 'Save'}
               </button>
             )}
 
@@ -311,7 +307,7 @@ export default function PaymentMethodsView({
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white shadow-sm transition no-underline whitespace-nowrap shrink-0"
             >
               <Download className="w-3.5 h-3.5 shrink-0" />
-              Download Sync APK
+              Download APK
             </a>
           </div>
         )}
@@ -361,7 +357,7 @@ export default function PaymentMethodsView({
           }`}
         >
           <CreditCard className="w-4 h-4 shrink-0" />
-          Methods &amp; Verification Modes
+          Methods
         </button>
 
         <button
@@ -404,8 +400,6 @@ export default function PaymentMethodsView({
         <PaymentMethodConfigTab
           draft={draft}
           setField={setField}
-          onNavigateToDevices={() => handleTabChange('devices')}
-          devicesCount={devices.length}
         />
       )}
 

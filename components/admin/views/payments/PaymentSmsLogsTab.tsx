@@ -120,10 +120,10 @@ export function PaymentSmsLogsTab({
   };
 
   const statusTabs = [
-    { id: 'all', label: 'All SMS', count: counts?.all ?? totalCount },
+    { id: 'all', label: 'All', count: counts?.all ?? totalCount },
     { id: 'matched', label: 'Matched', count: counts?.matched },
     { id: 'unmatched', label: 'Unmatched', count: counts?.unmatched },
-    { id: 'parse_failed', label: 'Raw / Unparsed', count: counts?.parse_failed },
+    { id: 'parse_failed', label: 'Unparsed', count: counts?.parse_failed },
   ];
 
   return (
@@ -138,7 +138,7 @@ export function PaymentSmsLogsTab({
               type="text"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="Search TrxID, sender number, Order ID, reference, or raw SMS text..."
+              placeholder="Search TrxID, phone, Order ID..."
               className="w-full pl-8 pr-8 py-1.5 text-xs rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
             />
             {searchQuery && (
@@ -218,12 +218,12 @@ export function PaymentSmsLogsTab({
         <Card className="p-8 text-center space-y-2 border-dashed border-2 border-slate-200 dark:border-slate-800">
           <Radio className="w-8 h-8 text-slate-400 mx-auto" />
           <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
-            No matching SMS logs found
+            No SMS logs
           </h4>
           <p className="text-xs text-slate-400 max-w-sm mx-auto">
             {searchQuery || statusFilter !== 'all' || gatewayFilter !== 'all'
-              ? 'Try clearing your search query or changing the active filters.'
-              : 'Every incoming MFS SMS (including unparsed raw messages) from your Android Sync APK will appear here.'}
+              ? 'No logs match the current filter.'
+              : 'Incoming MFS messages will appear here.'}
           </p>
         </Card>
       ) : (
@@ -407,7 +407,7 @@ export function PaymentSmsLogsTab({
                       onClick={() => handleManualLink(log.id)}
                       className="px-3 py-1 rounded bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 text-white text-xs font-semibold disabled:opacity-50 cursor-pointer"
                     >
-                      {linkLoading ? 'Verifying...' : 'Confirm & Verify Order'}
+                      {linkLoading ? 'Verifying...' : 'Verify'}
                     </button>
                     <button
                       type="button"
