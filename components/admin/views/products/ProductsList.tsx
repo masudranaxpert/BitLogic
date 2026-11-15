@@ -73,7 +73,8 @@ export type VariantRow = {
 
 const SOURCING_SHORT: Record<string, string> = {
   own: 'Own stock',
-  own_then_supplier: 'Own, then supplier',
+  own_then_supplier: 'Own, then supplier (auto)',
+  own_then_supplier_manual: 'Own, then supplier (manual)',
   supplier_auto: 'Auto-buy',
   supplier_manual: 'Buy by hand',
 };

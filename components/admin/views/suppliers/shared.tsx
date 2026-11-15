@@ -20,7 +20,14 @@ export async function api<T = Record<string, unknown>>(path: string, init?: { me
 
 export const SOURCING: Record<string, { label: string; help: string }> = {
   own: { label: 'Your credentials', help: 'Only credentials you added. A supplier link is not used.' },
-  own_then_supplier: { label: 'Your credentials, then supplier', help: 'Your credentials first. Buy from the supplier when those run out.' },
+  own_then_supplier: {
+    label: 'Your credentials, then supplier (auto)',
+    help: 'Your credentials first. Auto-buy from supplier when those run out.',
+  },
+  own_then_supplier_manual: {
+    label: 'Your credentials, then supplier (manual)',
+    help: 'Your credentials first. Press Buy on the order manually when those run out.',
+  },
   supplier_auto: { label: 'Supplier, automatic', help: 'Buy as soon as the payment is verified. Your credentials are not used.' },
   supplier_manual: { label: 'Supplier, manual', help: 'You press Buy on the order. Your credentials are not used.' },
 };

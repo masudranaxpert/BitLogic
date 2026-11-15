@@ -2,10 +2,11 @@
 
 import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, ChevronDown, KeyRound, Zap, ClipboardList, RefreshCw } from 'lucide-react';
+import { Check, ChevronDown, KeyRound, Zap, ClipboardList, RefreshCw, Hand } from 'lucide-react';
+import type { SourcingMode } from '@/lib/suppliers/sourcing';
 import { cn } from '@/lib/utils';
 
-export type SourcingValue = 'own' | 'supplier_auto' | 'supplier_manual' | 'own_then_supplier';
+export type SourcingValue = SourcingMode;
 
 export interface SourcingOptionConfig {
   value: SourcingValue;
@@ -64,7 +65,7 @@ export const SOURCING_OPTIONS: SourcingOptionConfig[] = [
   {
     value: 'own_then_supplier',
     label: 'Vault First → Supplier Auto',
-    sublabel: 'Fallback to supplier',
+    sublabel: 'Auto-buy if empty',
     description: 'Uses vault credentials first, auto buys from supplier when empty.',
     icon: RefreshCw,
     color: {
@@ -72,6 +73,19 @@ export const SOURCING_OPTIONS: SourcingOptionConfig[] = [
       text: 'text-indigo-800 dark:text-indigo-300',
       border: 'border-indigo-200/80 dark:border-indigo-800/60',
       icon: 'text-indigo-600 dark:text-indigo-400',
+    },
+  },
+  {
+    value: 'own_then_supplier_manual',
+    label: 'Vault First → Supplier Manual',
+    sublabel: 'Buy manually if empty',
+    description: 'Uses vault credentials first, lets you click Buy manually when empty.',
+    icon: Hand,
+    color: {
+      bg: 'bg-violet-50 dark:bg-violet-950/40',
+      text: 'text-violet-800 dark:text-violet-300',
+      border: 'border-violet-200/80 dark:border-violet-800/60',
+      icon: 'text-violet-600 dark:text-violet-400',
     },
   },
 ];

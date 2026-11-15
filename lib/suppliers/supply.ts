@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { getStoreSettings } from '@/lib/store-settings';
+import { isSupplierSourced } from './sourcing';
 
 /**
  * Per-option availability = own stock + usable supplier items. One place for the storefront,
@@ -34,8 +35,6 @@ type PlanRow = {
   allowBackorder: boolean | null;
 };
 type ProductRow = { id: string; slug: string; plans: PlanRow[] };
-
-const isSupplierSourced = (s: string) => s === 'supplier_auto' || s === 'supplier_manual' || s === 'own_then_supplier';
 
 export async function planSupplyMap(products: ProductRow[]): Promise<Map<string, PlanSupply>> {
   const out = new Map<string, PlanSupply>();
@@ -92,6 +91,7 @@ export async function planSupplyMap(products: ProductRow[]): Promise<Map<string,
           if (!inStock) reason = priceBlocked && usable.length ? 'Temporarily unavailable' : 'Out of stock';
           break;
         case 'own_then_supplier':
+        case 'own_then_supplier_manual':
           inStock = own > 0 || manualOwn || supplierOk;
           stock = manualOwn ? null : supplierOk ? (supplierStock === null ? null : own + supplierStock) : own;
           if (!inStock) reason = 'Out of stock';

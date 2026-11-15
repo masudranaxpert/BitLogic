@@ -6,6 +6,7 @@ import type {
 } from '@/lib/admin/types';
 import { getCredentialTypeLabel } from '@/components/admin/ui/format';
 import { formatDurationDays } from '@/lib/warranty';
+import type { SourcingValue } from '@/components/admin/ui/SourcingSelect';
 
 export type ProductOptionFormValues = {
   name: string;
@@ -25,7 +26,7 @@ export type ProductOptionFormValues = {
   loginStepsText: string;
   optionDescription: string;
   warningNote: string;
-  sourcing: 'own' | 'own_then_supplier' | 'supplier_auto' | 'supplier_manual';
+  sourcing: SourcingValue;
   renewable: boolean;
   allowOrderWhenOutOfStock: boolean;
   availableFrom: string;

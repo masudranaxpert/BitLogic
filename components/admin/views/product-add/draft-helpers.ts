@@ -9,6 +9,7 @@ import {
   findCredentialScheme,
 } from '@/lib/admin/credential-schemes';
 import { formatDurationDays } from '@/lib/warranty';
+import type { SourcingValue } from '@/components/admin/ui/SourcingSelect';
 
 export interface DraftSupplierLink {
   id: string;
@@ -38,7 +39,7 @@ export interface DraftVariant {
   detailsText: string;
   /** Plan On/Off visibility toggle on storefront */
   isActive: boolean;
-  sourcing: 'own' | 'own_then_supplier' | 'supplier_auto' | 'supplier_manual';
+  sourcing: SourcingValue;
   supplierLinks: DraftSupplierLink[];
   renewable: boolean;
   /** current = today's price; locked = the price they first paid */

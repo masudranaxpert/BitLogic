@@ -506,6 +506,8 @@ export default function OptionSourcingEditor({
                   disabled={disabled}
                   onClick={() => set('sourcing', key)}
                   className={`rounded-xl border p-3.5 text-left transition-all disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer ${
+                    key === 'own' ? 'sm:col-span-2' : ''
+                  } ${
                     active
                       ? 'border-emerald-600 bg-emerald-50/70 shadow-xs ring-1 ring-emerald-600/30 dark:bg-emerald-950/40'
                       : 'border-slate-200 bg-white hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/40'

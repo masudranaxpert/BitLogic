@@ -7,6 +7,7 @@ import { autoPrice, costInBdt, margin, type RateMap } from './pricing';
 import { getAdapter, SUPPLIER_KINDS } from './registry';
 import { repricePlans, syncSupplier, evaluatePlan } from './sync';
 import { planSupplyMap } from './supply';
+import { isValidSourcing } from './sourcing';
 import { SupplierApiError } from './types';
 
 /** View models for the Suppliers admin pages. Nothing here ever returns an API key. */
@@ -350,8 +351,6 @@ function planView(pl: PlanRow, rates: RateMap, supply?: { inStock: boolean; stoc
   };
 }
 
-const SOURCING = ['own', 'own_then_supplier', 'supplier_auto', 'supplier_manual'];
-
 /** Updates an option's sourcing/pricing settings. Applying an auto price is logged. */
 export async function updatePlanSourcing(
   planId: string,
@@ -376,7 +375,7 @@ export async function updatePlanSourcing(
   });
   const data: Record<string, unknown> = {};
   if (input.sourcing !== undefined) {
-    if (!SOURCING.includes(input.sourcing)) throw new SupplierInputError('Unknown sourcing.');
+    if (!isValidSourcing(input.sourcing)) throw new SupplierInputError('Unknown sourcing.');
     if (input.sourcing !== 'own' && plan.supplierLinks.length === 0) {
       throw new SupplierInputError('Link a supplier item first.');
     }

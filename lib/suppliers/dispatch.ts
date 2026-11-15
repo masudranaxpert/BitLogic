@@ -7,6 +7,7 @@ import { cappedCredentialExpiresAt } from '@/lib/admin/renewal-lifecycle';
 import { getRates, loadSupplier, notifyAdmin, nowStamp, singleFlight } from './core';
 import { scrub } from './http';
 import { costInBdt, maxUnitPriceFor } from './pricing';
+import { allowsSupplierDispatch, type DispatchTriggerKind } from './sourcing';
 import { SupplierApiError, type SupplierOrderState } from './types';
 
 /**
@@ -16,7 +17,7 @@ import { SupplierApiError, type SupplierOrderState } from './types';
  * - Ambiguous failures (timeout, 5xx) keep the claim and are re-sent later with the same key.
  */
 
-export type DispatchTrigger = 'verify' | 'manual' | 'sweep' | 'renewal';
+export type DispatchTrigger = DispatchTriggerKind;
 
 export type UnitResult = {
   deliveryId: string;
@@ -59,10 +60,7 @@ function eligible(u: Unit, sourcing: string, trigger: DispatchTrigger, explicit 
   if (DONE_UNIT.includes(u.status) || u.supplierState === 'processing') return false;
   if (u.vaultCredentialId) return false;
   if (!(u.status === 'pending_dispatch' || u.renewalPending)) return false;
-  // Admin picked a supplier item in "Send credentials": allowed whatever the option's sourcing.
-  if (explicit && trigger === 'manual') return true;
-  if (sourcing === 'supplier_auto' || sourcing === 'own_then_supplier') return true;
-  return sourcing === 'supplier_manual' && trigger === 'manual';
+  return allowsSupplierDispatch(sourcing, trigger, explicit);
 }
 
 /** Dispatch every eligible unit of an order (or only `deliveryIds`). Safe to call repeatedly. */
