@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { startingAmount, type Product } from '@/lib/products';
+import { fuzzySearchProducts } from '@/lib/catalog/fuzzy-search';
 import { useStoreNav } from '@/context/StoreNavContext';
 import { useCatalog } from '@/context/CatalogContext';
 
@@ -20,16 +21,10 @@ export function SearchCommandModal({
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return products;
-    return products.filter((p) => {
-      const planText = p.plans.map((pl) => pl.label).join(' ');
-      return `${p.name} ${p.platform} ${p.code} ${planText}`
-        .toLowerCase()
-        .includes(q);
-    });
-  }, [products, query]);
+  const filtered = useMemo(
+    () => fuzzySearchProducts(products, query),
+    [products, query],
+  );
 
   useEffect(() => {
     if (open) {

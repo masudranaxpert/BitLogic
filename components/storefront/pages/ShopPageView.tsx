@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { ProductCard } from '@/components/storefront/features/ProductCard';
 import type { Category } from '@/lib/products';
+import { fuzzySearchProducts } from '@/lib/catalog/fuzzy-search';
 import { useStoreNav } from '@/context/StoreNavContext';
 import { useCatalog } from '@/context/CatalogContext';
 
@@ -20,14 +21,16 @@ export function ShopPageView() {
   const { categoryCode, searchQuery, navigateTo } = useStoreNav();
   const [localSearch, setLocalSearch] = useState(searchQuery);
 
+  useEffect(() => {
+    setLocalSearch(searchQuery);
+  }, [searchQuery]);
+
   const filtered = useMemo(() => {
-    const q = localSearch.trim().toLowerCase();
-    return products.filter((p) => {
-      const codeOk = categoryCode === 'ALL' || p.code === categoryCode;
-      const text = `${p.name} ${p.platform} ${p.code}`.toLowerCase();
-      const queryOk = !q || text.includes(q);
-      return codeOk && queryOk;
-    });
+    const byCategory =
+      categoryCode === 'ALL'
+        ? products
+        : products.filter((p) => p.code === categoryCode);
+    return fuzzySearchProducts(byCategory, localSearch);
   }, [categoryCode, localSearch, products]);
 
   return (

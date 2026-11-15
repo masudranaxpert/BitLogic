@@ -184,12 +184,12 @@ export default function ProductAddView({
   const handleAddDraftVariant = () => {
     const newTempId = `draft-${Date.now()}`;
     setDraftVariants((prev) => [
-      ...prev,
       emptyDraftVariant(
         { tempId: newTempId },
         defaultWarrantyId,
         defaultCredentialSchemeId,
       ),
+      ...prev,
     ]);
     setPreviewOptionTempId(newTempId);
   };
