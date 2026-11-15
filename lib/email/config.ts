@@ -65,7 +65,15 @@ export type EmailConfig = {
   replyTo: string;
   /** New accounts must click the emailed link before they can sign in. */
   requireVerification: boolean;
-  smtp: { preset: SmtpPreset; host: string; port: number; secure: boolean; user: string; pass: string };
+  smtp: {
+    preset: SmtpPreset;
+    host: string;
+    port: number;
+    secure: boolean;
+    user: string;
+    pass: string;
+    ignoreTlsErrors?: boolean;
+  };
   apiKey: string;
   mailgunDomain: string;
   mailgunRegion: 'us' | 'eu';
@@ -189,18 +197,22 @@ export function isEmailReady(c: EmailConfig): boolean {
   }
 }
 
-/** Safe copy for the admin UI: secrets never leave the server. */
+/** Admin UI copy (behind requirePermission('settings')). */
 export function publicEmailConfig(c: EmailConfig) {
   return {
     ...c,
-    smtp: { ...c.smtp, pass: '', hasPass: Boolean(c.smtp.pass) },
+    smtp: {
+      ...c.smtp,
+      hasPass: Boolean(c.smtp.pass),
+      ignoreTlsErrors: c.smtp.ignoreTlsErrors ?? c.smtp.preset === 'custom',
+    },
     apiKey: '',
     apiKeyHint: c.apiKey ? `••••${c.apiKey.slice(-4)}` : '',
     ready: isEmailReady(c),
   };
 }
 
-/** Empty secret fields keep the stored value (the UI never receives it). */
+/** Empty API key keeps stored value; explicit SMTP password updates or preserves when omitted. */
 export async function saveEmailConfig(input: Partial<EmailConfig>): Promise<EmailConfig> {
   const cur = await getEmailConfig();
   const patch = Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined)) as Partial<EmailConfig>;
@@ -221,7 +233,7 @@ export async function saveEmailConfig(input: Partial<EmailConfig>): Promise<Emai
       ...(patch.customTemplates || {}),
     },
   };
-  if (patch.smtp && !patch.smtp.pass) next.smtp.pass = cur.smtp.pass;
+  if (patch.smtp && patch.smtp.pass === undefined) next.smtp.pass = cur.smtp.pass;
   if (!patch.apiKey) next.apiKey = cur.apiKey;
   next.smtp.port = Math.max(1, Math.min(65535, Math.round(Number(next.smtp.port)) || 587));
   const stored = {

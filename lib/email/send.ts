@@ -26,11 +26,14 @@ export async function sendEmail(mail: OutgoingEmail, override?: EmailConfig): Pr
   switch (c.provider) {
     case 'smtp': {
       try {
+        const allowCertMismatch =
+          c.smtp.ignoreTlsErrors ?? c.smtp.preset === 'custom';
         const t = nodemailer.createTransport({
           host: c.smtp.host,
           port: c.smtp.port,
           secure: c.smtp.secure,
           auth: { user: c.smtp.user, pass: c.smtp.pass },
+          ...(allowCertMismatch ? { tls: { rejectUnauthorized: false } } : {}),
           connectionTimeout: 15000,
         });
         await t.sendMail({

@@ -66,5 +66,5 @@ export async function POST(request: Request) {
   const result = await sendEmail(testMail(to));
   return result.ok
     ? NextResponse.json({ ok: true })
-    : NextResponse.json({ error: result.error }, { status: 502 });
+    : NextResponse.json({ error: result.error }, { status: 422 });
 }

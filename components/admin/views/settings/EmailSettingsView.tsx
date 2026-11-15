@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { Card, StatusIndicator, SwitchToggle } from '@/components/admin/ui/primitives';
 
 type Provider = 'none' | 'smtp' | 'resend' | 'brevo' | 'sendgrid' | 'postmark' | 'mailgun';
@@ -20,6 +21,7 @@ type PublicConfig = {
     user: string;
     pass: string;
     hasPass: boolean;
+    ignoreTlsErrors?: boolean;
   };
   apiKey: string;
   apiKeyHint: string;
@@ -67,13 +69,13 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <label className="block space-y-1.5">
+    <div className="block space-y-1.5">
       <span className="block text-sm font-medium text-slate-800 dark:text-slate-200">
         {label}
       </span>
       {children}
       {hint ? <span className="block text-xs text-slate-500">{hint}</span> : null}
-    </label>
+    </div>
   );
 }
 
@@ -85,6 +87,7 @@ export default function EmailSettingsView() {
   const [msg, setMsg] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
   const [testTo, setTestTo] = useState('');
   const [testing, setTesting] = useState(false);
+  const [showSmtpPass, setShowSmtpPass] = useState(false);
 
   useEffect(() => {
     fetch('/api/admin/email', { cache: 'no-store' })
@@ -146,6 +149,7 @@ export default function EmailSettingsView() {
       port: p.port,
       secure: p.secure,
       user: id === 'sendgrid' ? 'apikey' : draft.smtp.user,
+      ignoreTlsErrors: id === 'custom',
     });
   };
   const provider = PROVIDERS.find((p) => p.id === draft.provider) ?? PROVIDERS[0];
@@ -314,17 +318,45 @@ export default function EmailSettingsView() {
             </Field>
             <Field
               label="Password"
-              hint={saved.smtp.hasPass ? 'Saved. Leave empty to keep it.' : undefined}
+              hint={
+                saved.smtp.hasPass && draft.smtp.pass === saved.smtp.pass
+                  ? 'Password is saved.'
+                  : undefined
+              }
             >
-              <input
-                type="password"
-                value={draft.smtp.pass}
-                onChange={(e) => setSmtp({ pass: e.target.value })}
-                className={field}
-                autoComplete="new-password"
-                placeholder={saved.smtp.hasPass ? '••••••••' : ''}
-              />
+              <div className="relative">
+                <input
+                  type={showSmtpPass ? 'text' : 'password'}
+                  value={draft.smtp.pass}
+                  onChange={(e) => setSmtp({ pass: e.target.value })}
+                  className={`${field} pr-10`}
+                  autoComplete="new-password"
+                  placeholder="Enter SMTP password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowSmtpPass((v) => !v)}
+                  aria-label={showSmtpPass ? 'Hide password' : 'Show password'}
+                  title={showSmtpPass ? 'Hide password' : 'Show password'}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer border-0 bg-transparent p-1"
+                >
+                  {showSmtpPass ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
             </Field>
+            <label className="sm:col-span-2 inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={Boolean(draft.smtp.ignoreTlsErrors)}
+                onChange={(e) => setSmtp({ ignoreTlsErrors: e.target.checked })}
+                className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-600"
+              />
+              <span>Allow certificate hostname mismatch (for custom domain hosts like mail.yourdomain.com)</span>
+            </label>
           </div>
         </Card>
       ) : null}
