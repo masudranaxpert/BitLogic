@@ -36,11 +36,12 @@ export function todayYmd(): string {
   return formatYmd(new Date());
 }
 
-/** Credential assign window: assignedAt + validDays. */
+/** Credential assign window: assignedAt + validDays ("" when validDays <= 0). */
 export function computeCredentialExpiresAt(
   assignedAt: string,
   validDays: number,
 ): string {
+  if (!(validDays > 0)) return '';
   const day = assignedAt.slice(0, 10);
   return addDaysYmd(day, Math.max(1, validDays));
 }

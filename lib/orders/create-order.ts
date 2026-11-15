@@ -4,7 +4,7 @@ import type { Prisma } from '@prisma/client';
 import { db } from '@/lib/db';
 import { dispatchOrderPlacedEmails } from '@/lib/email/dispatch';
 import { getStoreSettings } from '@/lib/store-settings';
-import { warrantyWindow } from '@/lib/warranty';
+import { computeOrderExpiresAt, warrantyWindow } from '@/lib/warranty';
 import { scheduleState } from '@/lib/catalog/schedule';
 import { planSupplyMap, supplyProblem } from '@/lib/suppliers/supply';
 import { decryptSecret, encryptSecret } from '@/lib/crypto/secrets';
@@ -361,9 +361,8 @@ export async function createOrder(
 
       for (const l of lines) {
         const { product, plan, qty } = l;
-        const durationDays = plan.durationDays || 30;
-        const expires = new Date(now.getTime() + Math.max(0, durationDays) * 86_400_000);
-        const expiresAt = durationDays % 1 !== 0 ? formatStamp(expires) : formatDate(expires);
+        const durationDays = plan.durationDays ?? 30;
+        const expiresAt = computeOrderExpiresAt(durationDays, now);
 
         const candidates =
           // Security: only fulfill immediately if payment is verified (e.g. admin created with paid status)

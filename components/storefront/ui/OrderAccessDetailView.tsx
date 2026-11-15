@@ -318,7 +318,7 @@ export function OrderAccessDetailView({
                         ? 'Lifetime Access'
                         : typeof order.daysRemaining === 'number'
                           ? `${order.daysRemaining} Days Remaining`
-                          : order.duration}
+                          : order.duration || 'No Expiry'}
                   </span>
                   {!isPending && !isLifetime && order.totalDays && (
                     <span className="text-xs font-semibold text-slate-500 tabular-nums">
@@ -366,7 +366,9 @@ export function OrderAccessDetailView({
                 <span>
                   {isPending
                     ? 'Activation in progress'
-                    : `Expires ${order.expiryDate}`}
+                    : order.expiryDate && order.expiryDate !== 'N/A'
+                      ? `Expires ${order.expiryDate}`
+                      : 'No expiry'}
                 </span>
               </div>
             </div>

@@ -8,7 +8,7 @@ import {
 } from './mfs-parser';
 import { dispatchPaymentStatusEmail } from '@/lib/email/dispatch';
 import { getStoreSettings } from '@/lib/store-settings';
-import { warrantyWindow } from '@/lib/warranty';
+import { computeOrderExpiresAt, warrantyWindow } from '@/lib/warranty';
 import { decryptSecret, encryptSecret } from '@/lib/crypto/secrets';
 import { dispatchOrder } from '@/lib/suppliers/dispatch';
 import { recordSystemActivity } from '@/lib/audit/record';
@@ -732,11 +732,9 @@ export async function fulfillPaidOrderDeliveries(orderId: string): Promise<numbe
 
           if (claimed.count !== 1) continue;
 
-          const durationDays = unit.credentialValidDays || plan?.durationDays || 30;
-          const expires = new Date(now.getTime() + Math.max(0, durationDays) * 86_400_000);
+          const durationDays = unit.credentialValidDays ?? plan?.durationDays ?? 30;
           const expiresAt =
-            unit.orderExpiresAt ||
-            (durationDays % 1 !== 0 ? formatStamp(expires) : formatDate(expires));
+            unit.orderExpiresAt || computeOrderExpiresAt(durationDays, now);
           const credExpires = candidate.expiresAt || expiresAt;
 
           const warrantyPatch =

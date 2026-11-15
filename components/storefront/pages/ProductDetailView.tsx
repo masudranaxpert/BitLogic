@@ -332,9 +332,11 @@ export function ProductDetailView({ productId }: { productId: string }) {
                       <span className="text-xs sm:text-[13px] font-extrabold text-[#0F172A] leading-snug break-words">
                         {selectedPlan.label}
                       </span>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded bg-[#FFF1F0] text-[#FF5E5B] border border-[#FF5E5B]/25 text-[11px] font-extrabold tracking-tight shrink-0">
-                        {selectedPlan.duration}
-                      </span>
+                      {selectedPlan.duration ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded bg-[#FFF1F0] text-[#FF5E5B] border border-[#FF5E5B]/25 text-[11px] font-extrabold tracking-tight shrink-0">
+                          {selectedPlan.duration}
+                        </span>
+                      ) : null}
                     </div>
                   ) : (
                     <span className="text-xs font-semibold text-slate-500">
@@ -388,15 +390,17 @@ export function ProductDetailView({ productId }: { productId: string }) {
                               <span className="text-xs sm:text-[13px] font-bold leading-snug break-words">
                                 {p.label}
                               </span>
-                              <span
-                                className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-extrabold tracking-tight shrink-0 ${
-                                  isSelected
-                                    ? 'bg-[#FF5E5B] text-white'
-                                    : 'bg-[#FFF1F0] text-[#FF5E5B] border border-[#FF5E5B]/20'
-                                }`}
-                              >
-                                {p.duration}
-                              </span>
+                              {p.duration ? (
+                                <span
+                                  className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-extrabold tracking-tight shrink-0 ${
+                                    isSelected
+                                      ? 'bg-[#FF5E5B] text-white'
+                                      : 'bg-[#FFF1F0] text-[#FF5E5B] border border-[#FF5E5B]/20'
+                                  }`}
+                                >
+                                  {p.duration}
+                                </span>
+                              ) : null}
                               {soldOut ? (
                                 <span className="text-[10px] font-extrabold uppercase text-slate-500">Out of stock</span>
                               ) : p.inStock === false ? (
@@ -432,9 +436,11 @@ export function ProductDetailView({ productId }: { productId: string }) {
                     <span className="font-mono text-2xl sm:text-[26px] font-extrabold text-[#0F172A] tabular-nums leading-none">
                       {formatPrice(selectedPlan.price)}
                     </span>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded bg-white border border-slate-200 text-[11px] font-extrabold text-[#0F172A]">
-                      {selectedPlan.duration}
-                    </span>
+                    {selectedPlan.duration ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded bg-white border border-slate-200 text-[11px] font-extrabold text-[#0F172A]">
+                        {selectedPlan.duration}
+                      </span>
+                    ) : null}
                   </div>
 
                   <WarrantyBadge
@@ -578,7 +584,9 @@ export function ProductDetailView({ productId }: { productId: string }) {
                 <span className="text-slate-500 font-medium shrink-0">Selected option</span>
                 <span className="font-bold text-[#0F172A] text-right">
                   {selectedPlan
-                    ? `${selectedPlan.label} (${selectedPlan.duration})`
+                    ? selectedPlan.duration
+                      ? `${selectedPlan.label} (${selectedPlan.duration})`
+                      : selectedPlan.label
                     : 'Not selected yet'}
                 </span>
               </div>

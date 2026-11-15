@@ -6,6 +6,7 @@ import type { CredentialScheme, WarrantyPlan } from '@/lib/admin-data';
 import { Card, SourcingSelect, SwitchToggle } from '@/components/admin/ui/primitives';
 import { allWarranties, type DraftSupplierLink, type DraftVariant } from './draft-helpers';
 import ProductSchedulePicker from './ProductSchedulePicker';
+import { formatDurationChipLabel, parseDurationDays } from '@/lib/warranty';
 import { ItemView, Pill, SOURCING, api, stockPill, taka, type OptionLink, type OptionView, type SupplierCatalogItem } from '@/components/admin/views/suppliers/shared';
 
 export interface ProductOptionsEditorProps {
@@ -187,40 +188,60 @@ export default function ProductOptionsEditor({
             </div>
 
             <div>
-              <div className="flex items-center justify-between gap-1 mb-1.5">
+              <div className="flex flex-wrap items-center justify-between gap-1 mb-1.5">
                 <label className="admin-label m-0">Duration</label>
-                <div className="flex items-center gap-1">
-                  {(['Hours', 'Days', 'Month'] as const).map((unit) => (
+                <div className="flex flex-wrap items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onUpdate(dv.tempId, 'durationLabel', '');
+                      onUpdate(dv.tempId, 'durationDays', 0);
+                    }}
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-medium cursor-pointer ${
+                      !dv.durationLabel.trim() || parseDurationDays(dv.durationLabel, 0) === 0
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 dark:bg-slate-800 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-300 text-slate-600 dark:text-slate-400'
+                    }`}
+                  >
+                    None
+                  </button>
+                  {(
+                    [
+                      ['Hours', 'hours'],
+                      ['Days', 'days'],
+                      ['Month', 'months'],
+                      ['Year', 'years'],
+                    ] as const
+                  ).map(([labelText, unit]) => (
                     <button
                       key={unit}
                       type="button"
                       onClick={() => {
-                        const num = Number.parseInt(dv.durationLabel.replace(/[^\d]/g, ''), 10) || 1;
-                        const label =
-                          unit === 'Hours'
-                            ? `${num} Hours`
-                            : unit === 'Days'
-                            ? `${num} Days`
-                            : num === 1
-                            ? '1 Month'
-                            : `${num} Months`;
-                        onUpdate(dv.tempId, 'durationLabel', label);
+                        const num =
+                          Number.parseInt(
+                            dv.durationLabel.replace(/[^\d]/g, ''),
+                            10,
+                          ) || 1;
+                        onUpdate(
+                          dv.tempId,
+                          'durationLabel',
+                          formatDurationChipLabel(num, unit),
+                        );
                       }}
                       className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 dark:bg-slate-800 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-300 text-slate-600 dark:text-slate-400 cursor-pointer"
                     >
-                      +{unit}
+                      +{labelText}
                     </button>
                   ))}
                 </div>
               </div>
               <input
                 type="text"
-                required
                 value={dv.durationLabel}
                 onChange={(e) =>
                   onUpdate(dv.tempId, 'durationLabel', e.target.value)
                 }
-                placeholder="e.g. 1 Month, 28 Days, 24 Hours"
+                placeholder="No duration (optional) e.g. 1 Month, 1 Year"
                 className="w-full h-9 px-3 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs"
               />
             </div>
@@ -358,7 +379,7 @@ export default function ProductOptionsEditor({
                   onChange={(links) => {
                     onUpdate(dv.tempId, 'supplierLinks', links);
                     if (links.length > 0 && (dv.sourcing || 'own') === 'own') {
-                      onUpdate(dv.tempId, 'sourcing', 'own_then_supplier');
+                      onUpdate(dv.tempId, 'sourcing', 'own_then_supplier_manual');
                     }
                   }}
                   onInspect={setInspectingItem}

@@ -414,7 +414,7 @@ async function deliverToUnit(
     });
     if (previous) await tx.vaultCredential.update({ where: { id: previous.id }, data: { status: 'replaced' } });
     const assignedDay = stamp.slice(0, 10);
-    const credExpires = cappedCredentialExpiresAt(assignedDay, unit.credentialValidDays || 30, undefined);
+    const credExpires = cappedCredentialExpiresAt(assignedDay, unit.credentialValidDays ?? 30, undefined) || null;
     const warranty =
       unit.hasWarranty && unit.warrantyDays && !unit.warrantyStartsAt
         ? warrantyWindow(new Date(), unit.warrantyDays, unit.orderExpiresAt)

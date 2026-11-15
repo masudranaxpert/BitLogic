@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import Image from 'next/image';
+import { adminProductEditHref, isPlainLeftClick } from '@/lib/admin-routes';
 import {
   ArrowLeft,
   Pencil,
@@ -18,6 +20,7 @@ import {
 } from 'lucide-react';
 import type { DigitalProduct, ProductVariant, VaultCredential } from '@/lib/admin-data';
 import { Card, formatBDT, StatusIndicator, BBCodeRenderer } from '@/components/admin/ui/primitives';
+import { formatDurationDays } from '@/lib/warranty';
 
 export interface ProductDetailViewProps {
   product: DigitalProduct | null;
@@ -128,14 +131,18 @@ export default function ProductDetailView({
             <ExternalLink className="w-3.5 h-3.5" />
             Store View
           </a>
-          <button
-            type="button"
-            onClick={() => onEdit(product.id, currentVariant?.id)}
-            className="px-4 h-9 text-xs sm:text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-2xs inline-flex items-center gap-1.5 cursor-pointer"
+          <Link
+            href={adminProductEditHref(product.id, currentVariant?.id)}
+            onClick={(e) => {
+              if (!isPlainLeftClick(e)) return;
+              e.preventDefault();
+              onEdit(product.id, currentVariant?.id);
+            }}
+            className="px-4 h-9 text-xs sm:text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-2xs inline-flex items-center gap-1.5 cursor-pointer no-underline"
           >
             <Pencil className="w-3.5 h-3.5" />
             Edit Product
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -254,9 +261,14 @@ export default function ProductDetailView({
                               Default
                             </span>
                           )}
-                          <span className="text-xs text-slate-500 dark:text-slate-400">
-                            ({v.durationLabel || `${v.durationDays} Days`})
-                          </span>
+                          {(() => {
+                            const dur = v.durationLabel || formatDurationDays(v.durationDays);
+                            return dur ? (
+                              <span className="text-xs text-slate-500 dark:text-slate-400">
+                                ({dur})
+                              </span>
+                            ) : null;
+                          })()}
                         </div>
                         <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                           Mode: {v.deliveryMode === 'auto_vault' ? 'Instant Vault' : 'Manual Dispatch'} • Warranty: {v.hasWarranty ? `${v.warrantyDays} Days` : 'Login Only'}
@@ -387,7 +399,7 @@ export default function ProductDetailView({
                       )}
                     </div>
                     <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      {v.durationLabel || `${v.durationDays} Days`} • {formatBDT(v.priceBDT)}
+                      {[v.durationLabel || formatDurationDays(v.durationDays), formatBDT(v.priceBDT)].filter(Boolean).join(' • ')}
                     </div>
                   </div>
                   <StatusIndicator
@@ -447,7 +459,9 @@ export default function ProductDetailView({
                   <div className="p-3.5 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40">
                     <div className="text-slate-500 dark:text-slate-400 font-medium mb-1">Duration & Expiry</div>
                     <div className="font-semibold text-slate-800 dark:text-slate-200 text-sm">
-                      {currentVariant.durationLabel || `${currentVariant.durationDays} Days`}
+                      {currentVariant.durationLabel ||
+                        formatDurationDays(currentVariant.durationDays) ||
+                        'No duration (No expiry)'}
                     </div>
                   </div>
                   <div className="p-3.5 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40">

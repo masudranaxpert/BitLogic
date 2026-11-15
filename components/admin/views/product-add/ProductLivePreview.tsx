@@ -108,9 +108,11 @@ export default function ProductLivePreview({
                   <span className="admin-price text-lg">
                     {formatBDT(activePreviewVariant.priceBDT)}
                   </span>
-                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                    {activePreviewVariant.durationLabel || '—'}
-                  </span>
+                  {activePreviewVariant.durationLabel ? (
+                    <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                      {activePreviewVariant.durationLabel}
+                    </span>
+                  ) : null}
                 </div>
                 <span
                   className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0 ${

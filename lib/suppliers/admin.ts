@@ -247,10 +247,10 @@ export async function supplierCatalog(filter: { id?: string; supplierId?: string
 
 /** Every option of every product with its sourcing, links, cost, margin and alerts. */
 export async function linkedOptions(opts: { productId?: string } = {}) {
-  // A link on "your credentials" was ignored. Use the supplier once those credentials run out.
+  // A link on "your credentials" was ignored. Default to manual supplier dispatch once those credentials run out.
   await db.productPlan.updateMany({
     where: { sourcing: 'own', supplierLinks: { some: {} } },
-    data: { sourcing: 'own_then_supplier' },
+    data: { sourcing: 'own_then_supplier_manual' },
   });
   const [rates, products] = await Promise.all([
     getRates(),
@@ -445,7 +445,7 @@ export async function linkPlan(planId: string, supplierProductId: string) {
   const priority = plan.supplierLinks.length ? Math.max(...plan.supplierLinks.map((l) => l.priority)) + 1 : 0;
   await db.planSupplierLink.create({ data: { planId, supplierProductId, priority } });
   if (plan.sourcing === 'own') {
-    await db.productPlan.update({ where: { id: planId }, data: { sourcing: 'own_then_supplier' } });
+    await db.productPlan.update({ where: { id: planId }, data: { sourcing: 'own_then_supplier_manual' } });
   }
   await repricePlans({ planIds: [planId], reason: 'link' });
 }

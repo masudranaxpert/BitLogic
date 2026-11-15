@@ -82,9 +82,11 @@ export function QoPlanSelectStep({
                 <span className="font-mono text-base font-extrabold text-[#0F172A] tabular-nums leading-none">
                   {formatPrice(plan.price)}
                 </span>
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-[10px] font-extrabold text-[#0F172A]">
-                  {plan.duration}
-                </span>
+                {plan.duration ? (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-[10px] font-extrabold text-[#0F172A]">
+                    {plan.duration}
+                  </span>
+                ) : null}
               </>
             ) : (
               <span className="font-mono text-sm sm:text-base font-extrabold text-[#FF5E5B] tabular-nums leading-none">

@@ -161,6 +161,7 @@ export default function WarrantiesView({ warranties, onChange }: WarrantiesViewP
                   <option value="hours">Hours</option>
                   <option value="days">Days</option>
                   <option value="months">Months</option>
+                  <option value="years">Years</option>
                 </select>
               </div>
               <p className="m-0 mt-1 text-[11px] text-slate-500">
@@ -270,6 +271,7 @@ export default function WarrantiesView({ warranties, onChange }: WarrantiesViewP
                               <option value="hours">Hours</option>
                               <option value="days">Days</option>
                               <option value="months">Months</option>
+                              <option value="years">Years</option>
                             </select>
                           </div>
                         );

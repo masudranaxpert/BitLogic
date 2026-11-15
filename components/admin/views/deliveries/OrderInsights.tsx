@@ -163,8 +163,12 @@ function paysForUnit(u: DigitalDelivery, payments: PaymentTransaction[], status:
  * backwards from the seat's current end date.
  */
 export function seatPeriods(u: DigitalDelivery, payments: PaymentTransaction[], orderDate: string): Period[] {
-  const valid = Math.max(1, u.credentialValidDays || 30);
+  const rawValid = u.credentialValidDays ?? 30;
   const end = (u.orderExpiresAt || '').slice(0, 10);
+  if (rawValid <= 0 && !end) {
+    return [{ kind: 'purchase', from: orderDate, to: orderDate }];
+  }
+  const valid = Math.max(1, rawValid);
   const renewals = paysForUnit(u, payments, 'verified');
   const out: Period[] = [];
   let cursor = end || addDays(orderDate, valid);

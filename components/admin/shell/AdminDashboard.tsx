@@ -1065,11 +1065,12 @@ export default function AdminDashboard() {
     const vaultForCap = linkedVaultCredentialId
       ? vault.find((v) => v.id === linkedVaultCredentialId)
       : undefined;
-    const credExpires = cappedCredentialExpiresAt(
-      assignedDay,
-      validDays,
-      vaultForCap?.expiresAt,
-    );
+    const credExpires =
+      cappedCredentialExpiresAt(
+        assignedDay,
+        validDays,
+        vaultForCap?.expiresAt,
+      ) || undefined;
     const wasRenewal = Boolean(targetDelivery?.renewalPending);
 
     commitDeliveries((prev) =>
@@ -1410,7 +1411,8 @@ export default function AdminDashboard() {
         if (scope.size > 0 && !scope.has(d.id)) return withMsg;
         const early = Boolean(d.orderExpiresAt && d.orderExpiresAt >= today);
         const base = early ? (d.orderExpiresAt as string) : today;
-        const newEnd = addDaysYmd(base, d.credentialValidDays ?? 30);
+        const planValidDays = d.credentialValidDays ?? 30;
+        const newEnd = planValidDays > 0 ? addDaysYmd(base, planValidDays) : base;
         const periodStart = early ? parseStamp(addDaysYmd(base, 1)) ?? new Date() : new Date();
         const fromYmd = early ? addDaysYmd(base, 1) : today;
         if (!periodFrom || fromYmd < periodFrom) periodFrom = fromYmd;

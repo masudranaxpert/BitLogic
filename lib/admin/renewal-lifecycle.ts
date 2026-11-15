@@ -39,6 +39,7 @@ function assignmentEnd(
   planDays: number,
   vaultExpiresAt?: string | null,
 ): string {
+  if (!(planDays > 0)) return vaultExpiresAt ? vaultExpiresAt.slice(0, 10) : '';
   const byPlan = computeCredentialExpiresAt(assignedDay, planDays);
   if (!vaultExpiresAt) return byPlan;
   return vaultExpiresAt.slice(0, 10) < byPlan

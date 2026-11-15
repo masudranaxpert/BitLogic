@@ -257,7 +257,9 @@ export function AddCustomerForm({
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500">Duration</span>
                     <span className="font-mono font-semibold text-slate-900 dark:text-slate-100">
-                      {selectedInitialVar.durationDays}d
+                      {selectedInitialVar.durationDays > 0
+                        ? `${selectedInitialVar.durationDays}d`
+                        : 'No expiry'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">

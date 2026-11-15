@@ -166,9 +166,11 @@ export function DeliveryChatPanel({
               label: 'Cred window',
               value: delivery.credentialExpiresAt
                 ? `${delivery.credentialExpiresAt} (${delivery.credentialValidDays ?? 30}d)`
-                : delivery.credentialClearedAt
-                  ? `Cleared ${delivery.credentialClearedAt}`
-                  : 'Not assigned',
+                : delivery.credentialValidDays === 0 && delivery.deliveredAt
+                  ? 'No expiry'
+                  : delivery.credentialClearedAt
+                    ? `Cleared ${delivery.credentialClearedAt}`
+                    : 'Not assigned',
             },
             {
               label: 'Warranty',

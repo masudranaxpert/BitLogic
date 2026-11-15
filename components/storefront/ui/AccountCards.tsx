@@ -138,8 +138,12 @@ export function CredentialItemCard({
             <span className="font-semibold text-slate-800">{item.orderId}</span>
             <span aria-hidden="true">·</span>
             <span>{item.planName}</span>
-            <span aria-hidden="true">·</span>
-            <span>Exp {item.expiryDate}</span>
+            {item.expiryDate && item.expiryDate !== 'N/A' ? (
+              <>
+                <span aria-hidden="true">·</span>
+                <span>Exp {item.expiryDate}</span>
+              </>
+            ) : null}
           </div>
         </div>
 
@@ -188,11 +192,13 @@ export function OrderRowCard({
         ? `Refunded (${order.paymentMethod.toUpperCase()})`
         : order.expiryDate === 'Lifetime'
           ? 'Lifetime'
-          : typeof order.daysRemaining === 'number'
-            ? order.daysRemaining > 0
-              ? `${order.daysRemaining}d left`
-              : 'Expired'
-            : `Exp ${order.expiryDate}`;
+          : !order.expiryDate || order.expiryDate === 'N/A'
+            ? 'No expiry'
+            : typeof order.daysRemaining === 'number'
+              ? order.daysRemaining > 0
+                ? `${order.daysRemaining}d left`
+                : 'Expired'
+              : `Exp ${order.expiryDate}`;
 
   const unreadCount = order.unreadChatCount ?? 0;
   const warrantyExpired =

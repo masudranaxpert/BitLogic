@@ -1,7 +1,15 @@
 'use client';
 
 import React, { Fragment, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import Image from 'next/image';
+import {
+  adminProductEditHref,
+  adminProductOptionHref,
+  adminProductViewHref,
+  adminTabToPath,
+  isPlainLeftClick,
+} from '@/lib/admin-routes';
 import {
   Plus,
   Search,
@@ -217,14 +225,18 @@ export function ProductsList({
           Product
         </h1>
 
-        <button
-          type="button"
-          onClick={onOpenAddProductPage}
-          className="h-9 px-3.5 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-2xs inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 self-start sm:self-auto"
+        <Link
+          href={adminTabToPath('product-add')}
+          onClick={(e) => {
+            if (!isPlainLeftClick(e)) return;
+            e.preventDefault();
+            onOpenAddProductPage();
+          }}
+          className="h-9 px-3.5 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-2xs inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 self-start sm:self-auto no-underline"
         >
           <Plus className="w-3.5 h-3.5" aria-hidden />
           <span>Add Product</span>
-        </button>
+        </Link>
       </div>
 
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
@@ -364,6 +376,13 @@ export function ProductsList({
                       defaultOrFirstVariantId
                         ? onOpenEditOptionPage(product.id, defaultOrFirstVariantId)
                         : onOpenAddOptionPage(product.id);
+                    const productEditHref = defaultOrFirstVariantId
+                      ? adminProductEditHref(product.id, defaultOrFirstVariantId)
+                      : adminProductOptionHref(product.id);
+                    const productViewHref = adminProductViewHref(
+                      product.id,
+                      defaultOrFirstVariantId,
+                    );
 
                     const priceText =
                       group.minPriceBDT === null
@@ -423,10 +442,14 @@ export function ProductsList({
                                 <span className="w-6 shrink-0" aria-hidden />
                               )}
 
-                              <button
-                                type="button"
-                                onClick={openProductTarget}
-                                className="flex items-center gap-2.5 text-left cursor-pointer border-0 bg-transparent p-0 min-w-0"
+                              <Link
+                                href={productEditHref}
+                                onClick={(e) => {
+                                  if (!isPlainLeftClick(e)) return;
+                                  e.preventDefault();
+                                  openProductTarget();
+                                }}
+                                className="flex items-center gap-2.5 text-left cursor-pointer border-0 bg-transparent p-0 min-w-0 no-underline"
                               >
                                 {product.imageUrl && (
                                   <div className="relative w-6 h-6 rounded overflow-hidden border border-slate-200 dark:border-slate-700 shrink-0">
@@ -443,7 +466,7 @@ export function ProductsList({
                                 <span className="font-semibold text-slate-900 dark:text-slate-100 hover:text-emerald-700 dark:hover:text-emerald-400">
                                   {product.name}
                                 </span>
-                              </button>
+                              </Link>
 
                               {hasPlans ? (
                                 <button
@@ -468,13 +491,17 @@ export function ProductsList({
 
                           <td className="py-2.5 px-3">
                             {!hasPlans ? (
-                              <button
-                                type="button"
-                                onClick={() => onOpenAddOptionPage(product.id)}
-                                className="text-sm font-sans font-semibold text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
+                              <Link
+                                href={adminProductOptionHref(product.id)}
+                                onClick={(e) => {
+                                  if (!isPlainLeftClick(e)) return;
+                                  e.preventDefault();
+                                  onOpenAddOptionPage(product.id);
+                                }}
+                                className="text-sm font-sans font-semibold text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer no-underline"
                               >
                                 +Add plan
-                              </button>
+                              </Link>
                             ) : group.allManual ? (
                               <span className="text-sm text-slate-500 dark:text-slate-400 font-sans">
                                 Manual
@@ -533,30 +560,36 @@ export function ProductsList({
                                   label={product.status === 'active' ? 'On' : 'Off'}
                                 />
                               ) : null}
-                              <button
-                                type="button"
+                              <Link
+                                href={productViewHref}
                                 title="View product"
                                 aria-label={`View ${product.name}`}
-                                onClick={() =>
-                                  onOpenViewOptionPage(product.id, defaultOrFirstVariantId)
-                                }
-                                className={iconBtnClass}
+                                onClick={(e) => {
+                                  if (!isPlainLeftClick(e)) return;
+                                  e.preventDefault();
+                                  onOpenViewOptionPage(product.id, defaultOrFirstVariantId);
+                                }}
+                                className={`${iconBtnClass} no-underline`}
                               >
                                 <Eye className="w-3.5 h-3.5" strokeWidth={2.2} />
-                              </button>
-                              <button
-                                type="button"
+                              </Link>
+                              <Link
+                                href={productEditHref}
                                 title={hasPlans ? 'Edit product' : 'Edit product / add plans'}
                                 aria-label={
                                   hasPlans
                                     ? `Edit ${product.name}`
                                     : `Add plans to ${product.name}`
                                 }
-                                onClick={openProductTarget}
-                                className={iconBtnClass}
+                                onClick={(e) => {
+                                  if (!isPlainLeftClick(e)) return;
+                                  e.preventDefault();
+                                  openProductTarget();
+                                }}
+                                className={`${iconBtnClass} no-underline`}
                               >
                                 <Pencil className="w-3.5 h-3.5" strokeWidth={2.2} />
-                              </button>
+                              </Link>
                             </div>
                           </td>
                         </tr>
@@ -585,13 +618,17 @@ export function ProductsList({
 
                                 <td className="py-2 px-3">
                                   <div className="flex items-center gap-2 pl-7 border-l-2 border-slate-200 dark:border-slate-700 ml-2.5">
-                                    <button
-                                      type="button"
-                                      onClick={() => onOpenEditOptionPage(product.id, variant.id)}
-                                      className="font-medium text-sm text-slate-800 dark:text-slate-200 hover:text-emerald-700 dark:hover:text-emerald-400 cursor-pointer border-0 bg-transparent p-0 text-left"
+                                    <Link
+                                      href={adminProductEditHref(product.id, variant.id)}
+                                      onClick={(e) => {
+                                        if (!isPlainLeftClick(e)) return;
+                                        e.preventDefault();
+                                        onOpenEditOptionPage(product.id, variant.id);
+                                      }}
+                                      className="font-medium text-sm text-slate-800 dark:text-slate-200 hover:text-emerald-700 dark:hover:text-emerald-400 cursor-pointer border-0 bg-transparent p-0 text-left no-underline"
                                     >
                                       {variant.name}
-                                    </button>
+                                    </Link>
                                     {variant.isDefault && (
                                       <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 rounded">
                                         Default
@@ -652,24 +689,32 @@ export function ProductsList({
                                         label={variant.isActive !== false ? 'On' : 'Off'}
                                       />
                                     ) : null}
-                                    <button
-                                      type="button"
+                                    <Link
+                                      href={adminProductViewHref(product.id, variant.id)}
                                       title="View plan"
                                       aria-label={`View ${variant.name}`}
-                                      onClick={() => onOpenViewOptionPage(product.id, variant.id)}
-                                      className={iconBtnClass}
+                                      onClick={(e) => {
+                                        if (!isPlainLeftClick(e)) return;
+                                        e.preventDefault();
+                                        onOpenViewOptionPage(product.id, variant.id);
+                                      }}
+                                      className={`${iconBtnClass} no-underline`}
                                     >
                                       <Eye className="w-3.5 h-3.5" strokeWidth={2.2} />
-                                    </button>
-                                    <button
-                                      type="button"
+                                    </Link>
+                                    <Link
+                                      href={adminProductEditHref(product.id, variant.id)}
                                       title="Edit plan"
                                       aria-label={`Edit ${variant.name}`}
-                                      onClick={() => onOpenEditOptionPage(product.id, variant.id)}
-                                      className={iconBtnClass}
+                                      onClick={(e) => {
+                                        if (!isPlainLeftClick(e)) return;
+                                        e.preventDefault();
+                                        onOpenEditOptionPage(product.id, variant.id);
+                                      }}
+                                      className={`${iconBtnClass} no-underline`}
                                     >
                                       <Pencil className="w-3.5 h-3.5" strokeWidth={2.2} />
-                                    </button>
+                                    </Link>
                                   </div>
                                 </td>
                               </tr>
@@ -740,17 +785,25 @@ export function ProductsList({
                         />
                       </div>
                     )}
-                    <button
-                      type="button"
-                      onClick={() =>
+                    <Link
+                      href={
                         defaultOrFirstVariantId
-                          ? onOpenEditOptionPage(product.id, defaultOrFirstVariantId)
-                          : onOpenAddOptionPage(product.id)
+                          ? adminProductEditHref(product.id, defaultOrFirstVariantId)
+                          : adminProductOptionHref(product.id)
                       }
-                      className="font-display text-base font-bold text-slate-900 dark:text-slate-100 hover:text-emerald-700 dark:hover:text-emerald-400 cursor-pointer border-0 bg-transparent p-0 text-left"
+                      onClick={(e) => {
+                        if (!isPlainLeftClick(e)) return;
+                        e.preventDefault();
+                        if (defaultOrFirstVariantId) {
+                          onOpenEditOptionPage(product.id, defaultOrFirstVariantId);
+                        } else {
+                          onOpenAddOptionPage(product.id);
+                        }
+                      }}
+                      className="font-display text-base font-bold text-slate-900 dark:text-slate-100 hover:text-emerald-700 dark:hover:text-emerald-400 cursor-pointer border-0 bg-transparent p-0 text-left no-underline"
                     >
                       {product.name}
-                    </button>
+                    </Link>
                     <span className="text-xs font-mono text-slate-400 dark:text-slate-500">
                       {product.sku}
                     </span>
@@ -777,28 +830,38 @@ export function ProductsList({
                         label={product.status === 'active' ? 'On' : 'Off'}
                       />
                     ) : null}
-                    <button
-                      type="button"
+                    <Link
+                      href={adminProductViewHref(product.id, defaultOrFirstVariantId)}
                       title="View product"
                       aria-label={`View ${product.name}`}
-                      onClick={() =>
-                        onOpenViewOptionPage(product.id, defaultOrFirstVariantId)
-                      }
-                      className={iconBtnClass}
+                      onClick={(e) => {
+                        if (!isPlainLeftClick(e)) return;
+                        e.preventDefault();
+                        onOpenViewOptionPage(product.id, defaultOrFirstVariantId);
+                      }}
+                      className={`${iconBtnClass} no-underline`}
                     >
                       <Eye className="w-3.5 h-3.5" strokeWidth={2.2} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
+                    </Link>
+                    <Link
+                      href={
                         defaultOrFirstVariantId
-                          ? onOpenEditOptionPage(product.id, defaultOrFirstVariantId)
-                          : onOpenAddOptionPage(product.id)
+                          ? adminProductEditHref(product.id, defaultOrFirstVariantId)
+                          : adminProductOptionHref(product.id)
                       }
-                      className="h-8 px-3 text-xs font-semibold rounded-md bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer inline-flex items-center gap-1.5"
+                      onClick={(e) => {
+                        if (!isPlainLeftClick(e)) return;
+                        e.preventDefault();
+                        if (defaultOrFirstVariantId) {
+                          onOpenEditOptionPage(product.id, defaultOrFirstVariantId);
+                        } else {
+                          onOpenAddOptionPage(product.id);
+                        }
+                      }}
+                      className="h-8 px-3 text-xs font-semibold rounded-md bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer inline-flex items-center gap-1.5 no-underline"
                     >
                       Edit
-                    </button>
+                    </Link>
                   </div>
                 </div>
                 {isExpanded && (
@@ -809,9 +872,17 @@ export function ProductsList({
                         className="px-5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/60 dark:hover:bg-slate-800/30"
                       >
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-semibold text-slate-900 dark:text-slate-100">
+                          <Link
+                            href={adminProductEditHref(product.id, v.id)}
+                            onClick={(e) => {
+                              if (!isPlainLeftClick(e)) return;
+                              e.preventDefault();
+                              onOpenEditOptionPage(product.id, v.id);
+                            }}
+                            className="font-semibold text-slate-900 dark:text-slate-100 hover:text-emerald-700 dark:hover:text-emerald-400 no-underline"
+                          >
                             {v.name}
-                          </span>
+                          </Link>
                           {v.isDefault && (
                             <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 rounded">
                               Default
@@ -842,24 +913,32 @@ export function ProductsList({
                               label={v.isActive !== false ? 'On' : 'Off'}
                             />
                           ) : null}
-                          <button
-                            type="button"
+                          <Link
+                            href={adminProductViewHref(product.id, v.id)}
                             title="View plan"
                             aria-label={`View ${v.name}`}
-                            onClick={() => onOpenViewOptionPage(product.id, v.id)}
-                            className={iconBtnClass}
+                            onClick={(e) => {
+                              if (!isPlainLeftClick(e)) return;
+                              e.preventDefault();
+                              onOpenViewOptionPage(product.id, v.id);
+                            }}
+                            className={`${iconBtnClass} no-underline`}
                           >
                             <Eye className="w-3.5 h-3.5" strokeWidth={2.2} />
-                          </button>
-                          <button
-                            type="button"
+                          </Link>
+                          <Link
+                            href={adminProductEditHref(product.id, v.id)}
                             title="Edit plan"
                             aria-label={`Edit ${v.name}`}
-                            onClick={() => onOpenEditOptionPage(product.id, v.id)}
-                            className={iconBtnClass}
+                            onClick={(e) => {
+                              if (!isPlainLeftClick(e)) return;
+                              e.preventDefault();
+                              onOpenEditOptionPage(product.id, v.id);
+                            }}
+                            className={`${iconBtnClass} no-underline`}
                           >
                             <Pencil className="w-3.5 h-3.5" strokeWidth={2.2} />
-                          </button>
+                          </Link>
                         </div>
                       </div>
                     ))}

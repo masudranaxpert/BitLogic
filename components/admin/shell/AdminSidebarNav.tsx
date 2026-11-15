@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { X, Sun, Moon, ChevronRight, ChevronDown, Send } from 'lucide-react';
 import { BrandLogo } from '@/components/brand/BrandLogo';
 import type { AdminTab } from '@/lib/admin-data';
 import type { ConsoleUser, NavGroupItem } from '@/components/admin/shell/admin-nav-types';
 import { isAdminNavGroupActive } from '@/components/admin/shell/admin-nav-config';
+import { adminTabToPath, isPlainLeftClick } from '@/lib/admin-routes';
 
 export type AdminSidebarNavProps = {
   mobileMenuOpen: boolean;
@@ -98,11 +100,16 @@ export function AdminSidebarNav({
 
               return (
                 <div key={item.id} className="space-y-0.5">
-                  <button
-                    type="button"
+                  <Link
+                    href={adminTabToPath(item.id)}
                     data-sidebar-group-active={active ? 'true' : undefined}
                     aria-current={active ? 'page' : undefined}
-                    onClick={() => {
+                    onClick={(e) => {
+                      if (!isPlainLeftClick(e)) {
+                        setMobileMenuOpen(false);
+                        return;
+                      }
+                      e.preventDefault();
                       if (hasSubs) {
                         toggleGroupExpand(item.id);
                         if (!active) {
@@ -113,7 +120,7 @@ export function AdminSidebarNav({
                         setMobileMenuOpen(false);
                       }
                     }}
-                    className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 ${
+                    className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg cursor-pointer no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 ${
                       active
                         ? 'bg-emerald-50/90 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 font-semibold shadow-[inset_0_0_0_1px_rgba(5,150,105,0.22)]'
                         : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100/70 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-100'
@@ -149,6 +156,7 @@ export function AdminSidebarNav({
                           tabIndex={0}
                           aria-label={`Toggle ${item.label} menu`}
                           onClick={(e) => {
+                            e.preventDefault();
                             e.stopPropagation();
                             toggleGroupExpand(item.id);
                           }}
@@ -169,7 +177,7 @@ export function AdminSidebarNav({
                         </span>
                       )}
                     </span>
-                  </button>
+                  </Link>
 
                   {hasSubs && isExpanded && (
                     <div className="ml-5 pl-3 border-l border-slate-200 dark:border-slate-800 space-y-0.5 py-0.5">
@@ -185,15 +193,20 @@ export function AdminSidebarNav({
                             activeTab === 'deliveries' &&
                             item.id === 'deliveries');
                         return (
-                          <button
+                          <Link
                             key={sub.id}
-                            type="button"
+                            href={adminTabToPath(sub.id)}
                             data-sidebar-sub-active={subActive ? 'true' : undefined}
-                            onClick={() => {
+                            onClick={(e) => {
+                              if (!isPlainLeftClick(e)) {
+                                setMobileMenuOpen(false);
+                                return;
+                              }
+                              e.preventDefault();
                               setActiveTab(sub.id);
                               setMobileMenuOpen(false);
                             }}
-                            className={`w-full text-left px-2.5 py-1.5 text-sm rounded-md transition-colors cursor-pointer flex items-center justify-between ${
+                            className={`w-full text-left px-2.5 py-1.5 text-sm rounded-md transition-colors cursor-pointer flex items-center justify-between no-underline ${
                               subActive
                                 ? 'text-emerald-700 dark:text-emerald-300 font-medium bg-emerald-50/60 dark:bg-emerald-950/40'
                                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/40'
@@ -203,7 +216,7 @@ export function AdminSidebarNav({
                             {subActive && (
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
                             )}
-                          </button>
+                          </Link>
                         );
                       })}
                     </div>
@@ -226,11 +239,16 @@ export function AdminSidebarNav({
               const isExpanded = Boolean(expandedGroups[item.id] || active);
               return (
                 <div key={item.id} className="space-y-0.5">
-                  <button
-                    type="button"
+                  <Link
+                    href={adminTabToPath(item.id)}
                     data-sidebar-group-active={active ? 'true' : undefined}
                     aria-current={activeTab === item.id ? 'page' : undefined}
-                    onClick={() => {
+                    onClick={(e) => {
+                      if (!isPlainLeftClick(e)) {
+                        setMobileMenuOpen(false);
+                        return;
+                      }
+                      e.preventDefault();
                       if (hasSubs) {
                         toggleGroupExpand(item.id);
                         if (!active) {
@@ -241,7 +259,7 @@ export function AdminSidebarNav({
                         setMobileMenuOpen(false);
                       }
                     }}
-                    className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 ${
+                    className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg cursor-pointer no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 ${
                       active
                         ? 'bg-emerald-50/90 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 font-semibold shadow-[inset_0_0_0_1px_rgba(5,150,105,0.22)]'
                         : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100/70 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-100'
@@ -268,21 +286,26 @@ export function AdminSidebarNav({
                         {item.count}
                       </span>
                     ) : null}
-                  </button>
+                  </Link>
                   {hasSubs && isExpanded ? (
                     <div className="ml-5 pl-3 border-l border-slate-200 dark:border-slate-800 space-y-0.5 py-0.5">
                       {item.subItems?.map((sub) => {
                         const subActive = activeTab === sub.id || (sub.id === 'staff' && (activeTab === 'staff-add' || activeTab === 'staff-view'));
                         return (
-                          <button
+                          <Link
                             key={sub.id}
-                            type="button"
+                            href={adminTabToPath(sub.id)}
                             data-sidebar-sub-active={subActive ? 'true' : undefined}
-                            onClick={() => {
+                            onClick={(e) => {
+                              if (!isPlainLeftClick(e)) {
+                                setMobileMenuOpen(false);
+                                return;
+                              }
+                              e.preventDefault();
                               setActiveTab(sub.id);
                               setMobileMenuOpen(false);
                             }}
-                            className={`w-full text-left px-2.5 py-1.5 text-sm rounded-md transition-colors cursor-pointer flex items-center justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 ${
+                            className={`w-full text-left px-2.5 py-1.5 text-sm rounded-md transition-colors cursor-pointer flex items-center justify-between no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 ${
                               subActive
                                 ? 'text-emerald-700 dark:text-emerald-300 font-medium bg-emerald-50/60 dark:bg-emerald-950/40'
                                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/40'
@@ -292,7 +315,7 @@ export function AdminSidebarNav({
                             {subActive ? (
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
                             ) : null}
-                          </button>
+                          </Link>
                         );
                       })}
                     </div>
@@ -305,13 +328,18 @@ export function AdminSidebarNav({
       </div>
 
       <div className="p-4 space-y-2.5 border-t border-slate-200/80 dark:border-slate-800">
-        <button
-          type="button"
-          onClick={() => {
+        <Link
+          href={adminTabToPath('deliveries')}
+          onClick={(e) => {
+            if (!isPlainLeftClick(e)) {
+              setMobileMenuOpen(false);
+              return;
+            }
+            e.preventDefault();
             setActiveTab('deliveries');
             setMobileMenuOpen(false);
           }}
-          className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)] hover:shadow-[inset_0_0_0_1px_#059669] flex items-center justify-between text-left cursor-pointer"
+          className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)] hover:shadow-[inset_0_0_0_1px_#059669] flex items-center justify-between text-left cursor-pointer no-underline"
         >
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-7 h-7 rounded-[6px] bg-emerald-600 text-white flex items-center justify-center shrink-0">
@@ -327,19 +355,24 @@ export function AdminSidebarNav({
             </div>
           </div>
           <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-        </button>
+        </Link>
 
         <div className="flex items-center justify-between gap-1.5 pt-1">
-          <button
-            type="button"
-            onClick={() => {
+          <Link
+            href={adminTabToPath('profile')}
+            onClick={(e) => {
+              if (!isPlainLeftClick(e)) {
+                setMobileMenuOpen(false);
+                return;
+              }
+              e.preventDefault();
               setMobileMenuOpen(false);
               onOpenProfile?.();
             }}
             aria-label="Open Profile Settings"
             title="Profile Settings"
             aria-current={activeTab === 'profile' ? 'page' : undefined}
-            className={`group flex-1 flex items-center gap-2.5 min-w-0 rounded-lg px-2 py-1.5 -ml-2 text-left transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${
+            className={`group flex-1 flex items-center gap-2.5 min-w-0 rounded-lg px-2 py-1.5 -ml-2 text-left transition-colors cursor-pointer no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${
               activeTab === 'profile'
                 ? 'bg-emerald-50/90 dark:bg-emerald-950/60 shadow-[inset_0_0_0_1px_rgba(5,150,105,0.22)]'
                 : 'hover:bg-slate-100 dark:hover:bg-slate-800/80'
@@ -360,7 +393,7 @@ export function AdminSidebarNav({
                     : '…'}
               </div>
             </div>
-          </button>
+          </Link>
 
           <button
             type="button"
@@ -408,11 +441,15 @@ export function AdminMobileBottomNav({
           const Icon = item.icon;
           const active = isGroupActive(item);
           return (
-            <button
+            <Link
               key={item.id}
-              type="button"
-              onClick={() => setActiveTab(item.id)}
-              className={`flex flex-col items-center justify-center gap-0.5 text-[11px] font-medium cursor-pointer ${
+              href={adminTabToPath(item.id)}
+              onClick={(e) => {
+                if (!isPlainLeftClick(e)) return;
+                e.preventDefault();
+                setActiveTab(item.id);
+              }}
+              className={`flex flex-col items-center justify-center gap-0.5 text-[11px] font-medium cursor-pointer no-underline ${
                 active
                   ? 'text-emerald-600 dark:text-emerald-400 font-semibold'
                   : 'text-slate-500 dark:text-slate-400'
@@ -420,7 +457,7 @@ export function AdminMobileBottomNav({
             >
               <Icon className="w-4 h-4" />
               <span className="truncate max-w-full px-1">{item.shortLabel}</span>
-            </button>
+            </Link>
           );
         })}
     </nav>

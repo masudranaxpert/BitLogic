@@ -105,19 +105,20 @@ export function renewWindow(
   return { state, opensOn: day(opens), closesOn: day(closes) };
 }
 
-export type DurationUnit = 'hours' | 'days' | 'months';
+export type DurationUnit = 'hours' | 'days' | 'months' | 'years';
 
 export function normalizeDurationUnit(
   raw?: string | null,
   days?: number,
 ): DurationUnit {
-  if (raw === 'hours' || raw === 'months') return raw;
+  if (raw === 'hours' || raw === 'months' || raw === 'years') return raw;
   if (raw === 'days') {
     if (typeof days === 'number' && days > 0 && days < 1) return 'hours';
     return 'days';
   }
   if (typeof days === 'number' && days > 0) {
     if (days < 1) return 'hours';
+    if (days >= 365 && days % 365 === 0) return 'years';
     if (days >= 30 && days % 30 === 0) return 'months';
   }
   return 'days';
@@ -127,6 +128,7 @@ export function calculateDays(value: number, unit: DurationUnit): number {
   const val = Math.max(0, Number.isFinite(value) ? value : 0);
   if (unit === 'hours') return Number((val / 24).toFixed(6));
   if (unit === 'months') return Math.round(val * 30);
+  if (unit === 'years') return Math.round(val * 365);
   return Number(val.toFixed(6));
 }
 
@@ -140,6 +142,9 @@ export function unitFromDays(
   if (unit === 'hours') {
     return { value: Number((safeDays * 24).toFixed(2)), unit: 'hours' };
   }
+  if (unit === 'years') {
+    return { value: Number((safeDays / 365).toFixed(2)), unit: 'years' };
+  }
   if (unit === 'months') {
     return { value: Number((safeDays / 30).toFixed(2)), unit: 'months' };
   }
@@ -151,10 +156,63 @@ export function formatDurationDays(
   preferredUnit?: string | null,
 ): string {
   const { value, unit } = unitFromDays(days, preferredUnit);
-  if (value <= 0) return '0 Days';
+  if (value <= 0) return '';
   if (unit === 'hours') return `${value} ${value === 1 ? 'Hour' : 'Hours'}`;
+  if (unit === 'years') return `${value} ${value === 1 ? 'Year' : 'Years'}`;
   if (unit === 'months') return `${value} ${value === 1 ? 'Month' : 'Months'}`;
   return `${value} ${value === 1 ? 'Day' : 'Days'}`;
+}
+
+/** Parse labels like "1 Year", "6 Months", "24 Hours", or "" / "0" / "None" -> days (0 = no duration). */
+export function parseDurationDays(label: string, fallback = 0): number {
+  const raw = label.trim().toLowerCase();
+  if (!raw || /^(none|no\s*duration|no\s*expiry|n\/?a|unlimited|one[- ]?time|lifetime)$/.test(raw)) {
+    return 0;
+  }
+  const num = Number.parseFloat(raw.replace(/[^\d.]/g, ''));
+  if (!Number.isFinite(num)) return fallback;
+  if (num <= 0) return 0;
+  if (/(hours?|hrs?|\d\s*h\b)/.test(raw)) return Number((num / 24).toFixed(6));
+  if (/\b(months?|mos?)/.test(raw)) return Math.round(num * 30);
+  if (/\b(years?|yrs?|\d\s*y\b)/.test(raw)) return Math.round(num * 365);
+  if (/\b(weeks?|wks?)/.test(raw)) return Math.round(num * 7);
+  return Number(num.toFixed(6));
+}
+
+export function formatDurationChipLabel(
+  value: number,
+  unit: 'none' | DurationUnit,
+): string {
+  if (unit === 'none' || value <= 0) return '';
+  const unitWord =
+    unit === 'hours'
+      ? value === 1
+        ? 'Hour'
+        : 'Hours'
+      : unit === 'years'
+        ? value === 1
+          ? 'Year'
+          : 'Years'
+        : unit === 'months'
+          ? value === 1
+            ? 'Month'
+            : 'Months'
+          : value === 1
+            ? 'Day'
+            : 'Days';
+  return `${value} ${unitWord}`;
+}
+
+/** Order/access expiration stamp, or null when the plan has no duration (`durationDays <= 0`). */
+export function computeOrderExpiresAt(
+  durationDays: number | null | undefined,
+  from = new Date(),
+): string | null {
+  const days = durationDays ?? 30;
+  if (!(days > 0)) return null;
+  const end = new Date(from.getTime() + days * 86_400_000);
+  const ymd = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
+  return days % 1 !== 0 ? `${ymd} ${pad(end.getHours())}:${pad(end.getMinutes())}` : ymd;
 }
 
 export function planWarrantyDisplay(

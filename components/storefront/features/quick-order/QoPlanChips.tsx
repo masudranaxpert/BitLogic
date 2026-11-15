@@ -76,15 +76,17 @@ export function QoPlanChips({
                   <span className="text-xs sm:text-[13px] font-bold leading-snug break-words">
                     {plan.label}
                   </span>
-                  <span
-                    className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-extrabold tracking-tight shrink-0 ${
-                      active
-                        ? 'bg-[#FF5E5B] text-white'
-                        : 'bg-[#FFF1F0] text-[#FF5E5B] border border-[#FF5E5B]/20'
-                    }`}
-                  >
-                    {plan.duration}
-                  </span>
+                  {plan.duration ? (
+                    <span
+                      className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-extrabold tracking-tight shrink-0 ${
+                        active
+                          ? 'bg-[#FF5E5B] text-white'
+                          : 'bg-[#FFF1F0] text-[#FF5E5B] border border-[#FF5E5B]/20'
+                      }`}
+                    >
+                      {plan.duration}
+                    </span>
+                  ) : null}
                   {soldOut ? (
                     <span className="text-[10px] font-extrabold uppercase text-slate-500">Out of stock</span>
                   ) : plan.inStock === false ? (

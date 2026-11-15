@@ -123,6 +123,37 @@ export function adminTabToPath(tab: AdminTab): string {
   return TAB_TO_PATH[tab] ?? '/admin';
 }
 
+export function adminProductEditHref(productId: string, variantId?: string): string {
+  const params = new URLSearchParams({ productId });
+  if (variantId) params.set('variantId', variantId);
+  return `/admin/products/add?${params.toString()}`;
+}
+
+export function adminProductViewHref(productId: string, variantId?: string): string {
+  const params = new URLSearchParams({ productId });
+  if (variantId) params.set('variantId', variantId);
+  return `/admin/products/view?${params.toString()}`;
+}
+
+export function adminProductOptionHref(productId?: string, variantId?: string): string {
+  const params = new URLSearchParams();
+  if (productId) params.set('productId', productId);
+  if (variantId) params.set('variantId', variantId);
+  const q = params.toString();
+  return `/admin/products/option${q ? `?${q}` : ''}`;
+}
+
+/** True for an unmodified primary click (lets Ctrl/Cmd/Shift/Middle clicks open new tabs). */
+export function isPlainLeftClick(e: {
+  metaKey: boolean;
+  ctrlKey: boolean;
+  shiftKey: boolean;
+  altKey: boolean;
+  button: number;
+}): boolean {
+  return !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey && e.button === 0;
+}
+
 export function pathToAdminTab(pathname: string): AdminTab {
   const normalized = pathname.replace(/\/$/, '') || '/admin';
   for (const entry of PATH_TO_TAB) {

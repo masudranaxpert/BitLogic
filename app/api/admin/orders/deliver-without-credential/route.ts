@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requirePermission } from '@/lib/auth/require-admin';
-import { warrantyWindow } from '@/lib/warranty';
+import { computeOrderExpiresAt, warrantyWindow } from '@/lib/warranty';
 import { recordActivity, requestIp } from '@/lib/audit/record';
 
 function pad(n: number) {
@@ -40,9 +40,7 @@ export async function POST(request: Request) {
   const now = new Date();
   const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
   const today = stamp.slice(0, 10);
-  const expires = new Date(now);
-  expires.setDate(expires.getDate() + (d.credentialValidDays || 30));
-  const expiresAt = `${expires.getFullYear()}-${pad(expires.getMonth() + 1)}-${pad(expires.getDate())}`;
+  const expiresAt = computeOrderExpiresAt(d.credentialValidDays ?? 30, now);
 
   let msgs: unknown[] = [];
   try {

@@ -236,9 +236,15 @@ export default function ProductAddView({
         dv.credentialSchemeId,
       );
 
-      const durationLabel =
-        dv.durationLabel.trim() || `${dv.durationDays || 30} Days`;
-      const parsedDays = parseDurationDays(durationLabel, dv.durationDays);
+      const rawDuration = dv.durationLabel.trim();
+      const parsedDays = parseDurationDays(rawDuration, 0);
+      const isExplicitNoDuration =
+        !rawDuration ||
+        (parsedDays <= 0 &&
+          /^(0+(\.0+)?(\s*\w+)?|none|no\s*duration|no\s*expiry|n\/?a)$/i.test(
+            rawDuration,
+          ));
+      const durationLabel = isExplicitNoDuration ? '' : rawDuration;
 
       return {
         id: varId,
