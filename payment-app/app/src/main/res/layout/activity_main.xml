@@ -2,7 +2,7 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0F172A"
+    android:background="#151A2D"
     android:fillViewport="true">
 
     <LinearLayout
@@ -10,51 +10,81 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <!-- Top Dark Hero Header + Telemetry Dashboard -->
+        <!-- Top Brand Hero Header + Telemetry Dashboard -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:paddingHorizontal="18dp"
-            android:paddingTop="28dp"
-            android:paddingBottom="22dp">
+            android:paddingTop="24dp"
+            android:paddingBottom="20dp">
 
             <!-- Brand + Status Row -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
                 <ImageView
                     android:id="@+id/imgBrandLogo"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    android:src="@drawable/ic_launcher"
-                    android:contentDescription="Blumart Logo" />
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:contentDescription="Blumartbd Logo"
+                    android:src="@drawable/ic_launcher" />
 
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
                     android:layout_marginStart="12dp"
+                    android:layout_weight="1"
                     android:orientation="vertical">
 
-                    <TextView
+                    <LinearLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Blumartbd Sync"
-                        android:textSize="18sp"
-                        android:textStyle="bold"
-                        android:textColor="#FFFFFF" />
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Blumartbd"
+                            android:textColor="#FFFFFF"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="5dp"
+                            android:text="Sync"
+                            android:textColor="#FF5E5B"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvAppVersion"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:background="@drawable/bg_status_badge"
+                            android:backgroundTint="#232B47"
+                            android:paddingHorizontal="7dp"
+                            android:paddingVertical="2dp"
+                            android:text="v1.1"
+                            android:textColor="#CBD5E1"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="1dp"
-                        android:text="MFS Payment Gateway Companion"
-                        android:textSize="11sp"
-                        android:textColor="#94A3B8" />
+                        android:layout_marginTop="2dp"
+                        android:text="MFS SMS Gateway Companion"
+                        android:textColor="#94A3B8"
+                        android:textSize="11sp" />
                 </LinearLayout>
 
                 <TextView
@@ -62,9 +92,9 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_status_badge"
-                    android:backgroundTint="#1E293B"
-                    android:paddingHorizontal="10dp"
-                    android:paddingVertical="5dp"
+                    android:backgroundTint="#232B47"
+                    android:paddingHorizontal="11dp"
+                    android:paddingVertical="6dp"
                     android:text="● Stopped"
                     android:textColor="#F87171"
                     android:textSize="11sp"
@@ -75,23 +105,24 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="18dp"
-                android:orientation="horizontal"
-                android:baselineAligned="false">
+                android:layout_marginTop="16dp"
+                android:baselineAligned="false"
+                android:orientation="horizontal">
 
-                <!-- Synced Count -->
+                <!-- Forwarded Count -->
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:background="@drawable/bg_status_badge"
-                    android:backgroundTint="#1E293B"
+                    android:backgroundTint="#1E2540"
                     android:orientation="vertical"
                     android:padding="12dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:letterSpacing="0.05"
                         android:text="FORWARDED"
                         android:textColor="#94A3B8"
                         android:textSize="9sp"
@@ -101,28 +132,29 @@
                         android:id="@+id/tvStatSynced"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="3dp"
+                        android:layout_marginTop="4dp"
                         android:fontFamily="monospace"
                         android:text="0"
                         android:textColor="#34D399"
-                        android:textSize="18sp"
+                        android:textSize="19sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
-                <!-- Offline Queue -->
+                <!-- Offline Retry Queue -->
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
                     android:layout_weight="1"
                     android:background="@drawable/bg_status_badge"
-                    android:backgroundTint="#1E293B"
+                    android:backgroundTint="#1E2540"
                     android:orientation="vertical"
                     android:padding="12dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:letterSpacing="0.05"
                         android:text="RETRY QUEUE"
                         android:textColor="#94A3B8"
                         android:textSize="9sp"
@@ -132,11 +164,11 @@
                         android:id="@+id/tvStatQueued"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="3dp"
+                        android:layout_marginTop="4dp"
                         android:fontFamily="monospace"
                         android:text="0"
                         android:textColor="#FBBF24"
-                        android:textSize="18sp"
+                        android:textSize="19sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
@@ -147,13 +179,14 @@
                     android:layout_marginStart="8dp"
                     android:layout_weight="1"
                     android:background="@drawable/bg_status_badge"
-                    android:backgroundTint="#1E293B"
+                    android:backgroundTint="#1E2540"
                     android:orientation="vertical"
                     android:padding="12dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:letterSpacing="0.05"
                         android:text="LAST SYNC"
                         android:textColor="#94A3B8"
                         android:textSize="9sp"
@@ -163,7 +196,7 @@
                         android:id="@+id/tvStatLastSync"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="5dp"
+                        android:layout_marginTop="6dp"
                         android:fontFamily="monospace"
                         android:text="Never"
                         android:textColor="#F8FAFC"
@@ -172,59 +205,78 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- Supported Gateways Strip -->
-            <LinearLayout
+            <!-- Supported Gateways Strip (Scrollable on narrow phones) -->
+            <HorizontalScrollView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
                 android:layout_marginTop="14dp"
-                android:gravity="center_vertical">
+                android:scrollbars="none">
 
-                <TextView
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:background="@drawable/bg_status_badge"
-                    android:backgroundTint="#831843"
-                    android:paddingHorizontal="9dp"
-                    android:paddingVertical="3dp"
-                    android:text="bKash • 16216"
-                    android:textColor="#FBCFE8"
-                    android:textSize="10sp"
-                    android:textStyle="bold" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
-                    android:background="@drawable/bg_status_badge"
-                    android:backgroundTint="#7C2D12"
-                    android:paddingHorizontal="9dp"
-                    android:paddingVertical="3dp"
-                    android:text="Nagad • 16167"
-                    android:textColor="#FED7AA"
-                    android:textSize="10sp"
-                    android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_status_badge"
+                        android:backgroundTint="#831843"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="4dp"
+                        android:text="bKash • 16216"
+                        android:textColor="#FCE7F3"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
-                    android:background="@drawable/bg_status_badge"
-                    android:backgroundTint="#581C87"
-                    android:paddingHorizontal="9dp"
-                    android:paddingVertical="3dp"
-                    android:text="Rocket • 16221"
-                    android:textColor="#E9D5FF"
-                    android:textSize="10sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:background="@drawable/bg_status_badge"
+                        android:backgroundTint="#7C2D12"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="4dp"
+                        android:text="Nagad • 16167"
+                        android:textColor="#FFEDD5"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:background="@drawable/bg_status_badge"
+                        android:backgroundTint="#581C87"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="4dp"
+                        android:text="Rocket • 16221"
+                        android:textColor="#F3E8FF"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:background="@drawable/bg_status_badge"
+                        android:backgroundTint="#1E3A8A"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="4dp"
+                        android:text="Upay • 16268"
+                        android:textColor="#DBEAFE"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </HorizontalScrollView>
         </LinearLayout>
 
-        <!-- Main Light Content Sheet -->
+        <!-- Warm Storefront-Matched Body Surface -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="#F8FAFC"
+            android:background="#FDF7F7"
             android:orientation="vertical"
             android:paddingHorizontal="16dp"
             android:paddingTop="18dp"
@@ -238,41 +290,62 @@
                 android:orientation="vertical"
                 android:padding="16dp">
 
-                <TextView
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="1. SERVER &amp; DEVICE CREDENTIALS"
-                    android:textSize="11sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.04"
-                    android:textColor="#64748B" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:letterSpacing="0.04"
+                        android:text="1. SERVER &amp; DEVICE CREDENTIALS"
+                        android:textColor="#64748B"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvConnectionPill"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_status_badge"
+                        android:backgroundTint="#F1F5F9"
+                        android:paddingHorizontal="8dp"
+                        android:paddingVertical="3dp"
+                        android:text="Not tested"
+                        android:textColor="#475569"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="12dp"
                     android:text="Store Domain URL"
+                    android:textColor="#151A2D"
                     android:textSize="12sp"
-                    android:textStyle="bold"
-                    android:textColor="#0F172A" />
+                    android:textStyle="bold" />
 
                 <EditText
                     android:id="@+id/editServerUrl"
                     android:layout_width="match_parent"
-                    android:layout_height="44dp"
-                    android:layout_marginTop="5dp"
+                    android:layout_height="46dp"
+                    android:layout_marginTop="6dp"
                     android:background="@drawable/bg_input"
                     android:hint="https://blumartbd.com"
                     android:inputType="textUri"
                     android:paddingHorizontal="12dp"
-                    android:textColor="#0F172A"
+                    android:textColor="#151A2D"
                     android:textColorHint="#94A3B8"
                     android:textSize="13sp" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="12dp"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
@@ -281,21 +354,23 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="Sync API Key"
+                        android:textColor="#151A2D"
                         android:textSize="12sp"
-                        android:textStyle="bold"
-                        android:textColor="#0F172A" />
+                        android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/btnPasteKey"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:background="@drawable/bg_status_badge"
-                        android:backgroundTint="#E2E8F0"
-                        android:paddingHorizontal="8dp"
-                        android:paddingVertical="3dp"
+                        android:backgroundTint="#F1F5F9"
+                        android:gravity="center"
+                        android:minHeight="32dp"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="6dp"
                         android:text="Paste Key"
-                        android:textColor="#0F172A"
-                        android:textSize="10sp"
+                        android:textColor="#151A2D"
+                        android:textSize="11sp"
                         android:textStyle="bold" />
 
                     <TextView
@@ -304,26 +379,28 @@
                         android:layout_height="wrap_content"
                         android:layout_marginStart="6dp"
                         android:background="@drawable/bg_status_badge"
-                        android:backgroundTint="#E2E8F0"
-                        android:paddingHorizontal="8dp"
-                        android:paddingVertical="3dp"
+                        android:backgroundTint="#F1F5F9"
+                        android:gravity="center"
+                        android:minHeight="32dp"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="6dp"
                         android:text="Show"
-                        android:textColor="#0F172A"
-                        android:textSize="10sp"
+                        android:textColor="#151A2D"
+                        android:textSize="11sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
                 <EditText
                     android:id="@+id/editApiKey"
                     android:layout_width="match_parent"
-                    android:layout_height="44dp"
-                    android:layout_marginTop="5dp"
+                    android:layout_height="46dp"
+                    android:layout_marginTop="6dp"
                     android:background="@drawable/bg_input"
                     android:fontFamily="monospace"
                     android:hint="mfs_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
                     android:inputType="textPassword"
                     android:paddingHorizontal="12dp"
-                    android:textColor="#0F172A"
+                    android:textColor="#151A2D"
                     android:textColorHint="#94A3B8"
                     android:textSize="12sp" />
 
@@ -331,15 +408,15 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="14dp"
                     android:orientation="horizontal">
 
                     <Button
                         android:id="@+id/btnSave"
                         android:layout_width="0dp"
-                        android:layout_height="42dp"
+                        android:layout_height="44dp"
                         android:layout_weight="1"
-                        android:backgroundTint="#0F172A"
+                        android:backgroundTint="#151A2D"
                         android:text="Save Config"
                         android:textAllCaps="false"
                         android:textColor="#FFFFFF"
@@ -349,10 +426,10 @@
                     <Button
                         android:id="@+id/btnTestPing"
                         android:layout_width="0dp"
-                        android:layout_height="42dp"
+                        android:layout_height="44dp"
                         android:layout_marginStart="8dp"
                         android:layout_weight="1"
-                        android:backgroundTint="#334155"
+                        android:backgroundTint="#FF5E5B"
                         android:text="Test Connection"
                         android:textAllCaps="false"
                         android:textColor="#FFFFFF"
@@ -364,17 +441,17 @@
                 <Button
                     android:id="@+id/btnToggleService"
                     android:layout_width="match_parent"
-                    android:layout_height="46dp"
+                    android:layout_height="48dp"
                     android:layout_marginTop="8dp"
                     android:backgroundTint="#059669"
-                    android:text="▶ Start 24/7 Auto-Sync Service"
+                    android:text="Start 24/7 Auto-Sync Service"
                     android:textAllCaps="false"
                     android:textColor="#FFFFFF"
                     android:textSize="13sp"
                     android:textStyle="bold" />
             </LinearLayout>
 
-            <!-- Card 2: Smart Operations (Inbox Scanner, Retry Queue & Test Simulator) -->
+            <!-- Card 2: Smart Recovery & Diagnostic Tools -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -386,11 +463,11 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="2. RECOVERY &amp; DIAGNOSTIC TOOLS"
-                    android:textSize="11sp"
-                    android:textStyle="bold"
                     android:letterSpacing="0.04"
-                    android:textColor="#64748B" />
+                    android:text="2. RECOVERY &amp; DIAGNOSTIC TOOLS"
+                    android:textColor="#64748B"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -401,43 +478,43 @@
                     <Button
                         android:id="@+id/btnScanInbox"
                         android:layout_width="0dp"
-                        android:layout_height="42dp"
+                        android:layout_height="44dp"
                         android:layout_weight="1"
-                        android:backgroundTint="#0F172A"
+                        android:backgroundTint="#151A2D"
                         android:text="Scan Inbox (24h)"
                         android:textAllCaps="false"
                         android:textColor="#FFFFFF"
-                        android:textSize="11sp"
+                        android:textSize="12sp"
                         android:textStyle="bold" />
 
                     <Button
                         android:id="@+id/btnFlushQueue"
                         android:layout_width="0dp"
-                        android:layout_height="42dp"
+                        android:layout_height="44dp"
                         android:layout_marginStart="8dp"
                         android:layout_weight="1"
                         android:backgroundTint="#475569"
                         android:text="Retry Queued SMS"
                         android:textAllCaps="false"
                         android:textColor="#FFFFFF"
-                        android:textSize="11sp"
+                        android:textSize="12sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
                 <Button
                     android:id="@+id/btnSimulateSms"
                     android:layout_width="match_parent"
-                    android:layout_height="40dp"
-                    android:layout_marginTop="6dp"
-                    android:backgroundTint="#E2E8F0"
+                    android:layout_height="42dp"
+                    android:layout_marginTop="8dp"
+                    android:backgroundTint="#F1F5F9"
                     android:text="Simulate Test bKash SMS (Pipeline Check)"
                     android:textAllCaps="false"
-                    android:textColor="#0F172A"
-                    android:textSize="11sp"
+                    android:textColor="#151A2D"
+                    android:textSize="12sp"
                     android:textStyle="bold" />
             </LinearLayout>
 
-            <!-- Card 3: System Permissions & Battery Protection -->
+            <!-- Card 3: System Permissions & Background Health -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -449,11 +526,11 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="3. PERMISSIONS &amp; BACKGROUND HEALTH"
-                    android:textSize="11sp"
-                    android:textStyle="bold"
                     android:letterSpacing="0.04"
-                    android:textColor="#64748B" />
+                    android:text="3. PERMISSIONS &amp; BACKGROUND HEALTH"
+                    android:textColor="#64748B"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
 
                 <TextView
                     android:id="@+id/tvPermissionStatus"
@@ -461,10 +538,22 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
                     android:background="@drawable/bg_status_badge"
-                    android:padding="10dp"
+                    android:padding="11dp"
                     android:text="Checking SMS permissions..."
-                    android:textColor="#0F172A"
-                    android:textSize="11sp"
+                    android:textColor="#151A2D"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvNotificationStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:background="@drawable/bg_status_badge"
+                    android:padding="11dp"
+                    android:text="Checking notification permission..."
+                    android:textColor="#151A2D"
+                    android:textSize="12sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -473,41 +562,41 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
                     android:background="@drawable/bg_status_badge"
-                    android:padding="10dp"
+                    android:padding="11dp"
                     android:text="Checking battery optimization..."
-                    android:textColor="#0F172A"
-                    android:textSize="11sp"
+                    android:textColor="#151A2D"
+                    android:textSize="12sp"
                     android:textStyle="bold" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="12dp"
                     android:orientation="horizontal">
 
                     <Button
                         android:id="@+id/btnGrantPermissions"
                         android:layout_width="0dp"
-                        android:layout_height="42dp"
+                        android:layout_height="44dp"
                         android:layout_weight="1"
                         android:backgroundTint="#334155"
-                        android:text="SMS Permissions"
+                        android:text="Grant Permissions"
                         android:textAllCaps="false"
                         android:textColor="#FFFFFF"
-                        android:textSize="11sp"
+                        android:textSize="12sp"
                         android:textStyle="bold" />
 
                     <Button
                         android:id="@+id/btnBatterySettings"
                         android:layout_width="0dp"
-                        android:layout_height="42dp"
+                        android:layout_height="44dp"
                         android:layout_marginStart="8dp"
                         android:layout_weight="1"
-                        android:backgroundTint="#0F172A"
+                        android:backgroundTint="#151A2D"
                         android:text="Disable Sleep Killer"
                         android:textAllCaps="false"
                         android:textColor="#FFFFFF"
-                        android:textSize="11sp"
+                        android:textSize="12sp"
                         android:textStyle="bold" />
                 </LinearLayout>
             </LinearLayout>
@@ -531,44 +620,55 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="LIVE TELEMETRY CONSOLE"
+                        android:letterSpacing="0.04"
+                        android:text="4. LIVE TELEMETRY CONSOLE"
                         android:textColor="#64748B"
                         android:textSize="11sp"
-                        android:letterSpacing="0.04"
                         android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/btnCopyLogs"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:padding="4dp"
+                        android:background="@drawable/bg_status_badge"
+                        android:backgroundTint="#F1F5F9"
+                        android:gravity="center"
+                        android:minHeight="32dp"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="6dp"
                         android:text="Copy"
-                        android:textColor="#0F172A"
-                        android:textStyle="bold"
-                        android:textSize="11sp" />
+                        android:textColor="#151A2D"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/btnClearLogs"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="10dp"
-                        android:padding="4dp"
+                        android:layout_marginStart="6dp"
+                        android:background="@drawable/bg_status_badge"
+                        android:backgroundTint="#FEF2F2"
+                        android:gravity="center"
+                        android:minHeight="32dp"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="6dp"
                         android:text="Clear"
                         android:textColor="#DC2626"
-                        android:textStyle="bold"
-                        android:textSize="11sp" />
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
                 </LinearLayout>
 
                 <TextView
                     android:id="@+id/tvLogsConsole"
                     android:layout_width="match_parent"
-                    android:layout_height="145dp"
-                    android:layout_marginTop="8dp"
-                    android:background="#0F172A"
+                    android:layout_height="160dp"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/bg_status_badge"
+                    android:backgroundTint="#151A2D"
                     android:fontFamily="monospace"
                     android:padding="12dp"
                     android:scrollbars="vertical"
-                    android:text="[Ready] Waiting for incoming bKash/Nagad/Rocket SMS...\n"
+                    android:text="[Ready] Waiting for incoming bKash, Nagad, Rocket or Upay SMS...\n"
                     android:textColor="#34D399"
                     android:textSize="11sp" />
             </LinearLayout>

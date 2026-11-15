@@ -12,12 +12,30 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
 
+data class SyncResult(
+    val ok: Boolean,
+    val httpCode: Int = 0,
+    val message: String = "",
+) {
+    val isAuthError: Boolean get() = httpCode == 401 || httpCode == 403
+}
+
 object SyncApiClient {
     private const val TAG = "SyncApiClient"
+    const val PREFS_NAME = "blumart_sync_prefs"
     const val ACTION_LOG_EVENT = "com.blumart.sync.ACTION_LOG_EVENT"
     const val EXTRA_LOG_MESSAGE = "extra_log_message"
 
     private val WHITELIST = listOf("bkash", "16216", "nagad", "16167", "rocket", "16221", "dbbl", "upay", "16268")
+    private val PERSONAL_PHONE_REGEX = Regex("^(?:88)?01[3-9]\\d{8,9}$")
+
+    fun isWhitelistedMfsSender(sender: String?): Boolean {
+        val clean = (sender ?: "").trim().lowercase()
+        if (clean.isEmpty()) return false
+        val digitsOnly = clean.replace(Regex("\\D"), "")
+        if (PERSONAL_PHONE_REGEX.matches(digitsOnly)) return false
+        return WHITELIST.any { clean == it || clean.contains(it) }
+    }
 
     private fun computeSmsKey(sender: String, body: String, date: Long): String {
         val raw = "${sender.trim().lowercase()}|${body.trim()}|${date / 60000L}"
@@ -30,7 +48,7 @@ object SyncApiClient {
     }
 
     private fun getSyncedHashes(context: Context): MutableSet<String> {
-        val prefs = context.getSharedPreferences("blumart_sync_prefs", Context.MODE_PRIVATE)
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val raw = prefs.getString("synced_sms_hashes", "") ?: ""
         if (raw.isEmpty()) return mutableSetOf()
         return raw.split(",").filter { it.isNotEmpty() }.toMutableSet()
@@ -38,17 +56,32 @@ object SyncApiClient {
 
     private fun recordSyncedHashes(context: Context, newHashes: Collection<String>) {
         if (newHashes.isEmpty()) return
-        val prefs = context.getSharedPreferences("blumart_sync_prefs", Context.MODE_PRIVATE)
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val combined = (getSyncedHashes(context) + newHashes).toList().takeLast(300)
         prefs.edit().putString("synced_sms_hashes", combined.joinToString(",")).apply()
     }
 
+    private fun updateConnectionState(context: Context, res: SyncResult) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val state = when {
+            res.ok -> "connected"
+            res.isAuthError -> "auth_error"
+            else -> "offline"
+        }
+        val edit = prefs.edit().putString("connection_state", state)
+        if (res.ok) {
+            val timeStr = android.text.format.DateFormat.format("hh:mm a", java.util.Date()).toString()
+            edit.putString("last_sync_time", timeStr)
+        }
+        edit.apply()
+    }
+
     fun broadcastLog(context: Context, message: String) {
-        val prefs = context.getSharedPreferences("blumart_sync_prefs", Context.MODE_PRIVATE)
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val time = android.text.format.DateFormat.format("HH:mm:ss", java.util.Date())
         val line = "[$time] $message"
         val existing = prefs.getString("persisted_logs", "") ?: ""
-        val updated = (line + "\n" + existing).lines().take(60).joinToString("\n")
+        val updated = (line + "\n" + existing).lines().take(80).joinToString("\n")
         prefs.edit().putString("persisted_logs", updated).apply()
 
         val intent = Intent(ACTION_LOG_EVENT).apply {
@@ -58,8 +91,33 @@ object SyncApiClient {
         context.sendBroadcast(intent)
     }
 
+    fun pingServer(context: Context): SyncResult {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val serverUrl = prefs.getString("server_url", "")?.trim() ?: ""
+        val apiKey = prefs.getString("api_key", "")?.trim() ?: ""
+
+        if (serverUrl.isEmpty() || apiKey.isEmpty()) {
+            return SyncResult(ok = false, message = "Configure Domain & API Key first")
+        }
+
+        val item = JSONObject().apply {
+            put("rawSms", "Heartbeat ping from Blumart Sync device")
+            put("sender", "TEST_PING")
+            put("timestamp", System.currentTimeMillis())
+        }
+
+        val res = sendBatchToServer(context, serverUrl, apiKey, JSONArray().apply { put(item) })
+        updateConnectionState(context, res)
+        when {
+            res.ok -> broadcastLog(context, "✓ Server heartbeat OK (HTTP ${res.httpCode}).")
+            res.isAuthError -> broadcastLog(context, "✕ Auth rejected (HTTP ${res.httpCode}): ${res.message}")
+            else -> broadcastLog(context, "✕ Connection failed: ${res.message}")
+        }
+        return res
+    }
+
     fun uploadSms(context: Context, rawSms: String, sender: String, timestamp: Long = System.currentTimeMillis()): Boolean {
-        val prefs = context.getSharedPreferences("blumart_sync_prefs", Context.MODE_PRIVATE)
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val serverUrl = prefs.getString("server_url", "")?.trim() ?: ""
         val apiKey = prefs.getString("api_key", "")?.trim() ?: ""
 
@@ -75,40 +133,33 @@ object SyncApiClient {
             put("timestamp", timestamp)
         }
 
-        val ok = sendBatchToServer(context, serverUrl, apiKey, JSONArray().apply { put(item) })
-        if (ok) {
-            if (!sender.equals("TEST_PING", ignoreCase = true)) {
-                recordSyncedHashes(context, listOf(computeSmsKey(sender, rawSms, timestamp)))
-            }
+        val res = sendBatchToServer(context, serverUrl, apiKey, JSONArray().apply { put(item) })
+        updateConnectionState(context, res)
+
+        if (res.ok) {
+            recordSyncedHashes(context, listOf(computeSmsKey(sender, rawSms, timestamp)))
             val syncedCount = prefs.getInt("synced_count", 0) + 1
-            val timeStr = android.text.format.DateFormat.format("hh:mm a", java.util.Date()).toString()
-            prefs.edit()
-                .putInt("synced_count", syncedCount)
-                .putString("last_sync_time", timeStr)
-                .apply()
-            broadcastLog(context, "✓ Forwarded [$sender] -> HTTP 200 OK")
-            // Also flush any pending offline queue items
+            prefs.edit().putInt("synced_count", syncedCount).apply()
+            broadcastLog(context, "✓ Forwarded [$sender] -> HTTP ${res.httpCode} OK")
             flushQueue(context)
+        } else if (res.isAuthError) {
+            broadcastLog(context, "✕ Auth rejected [$sender] (HTTP ${res.httpCode}): ${res.message}")
         } else {
-            if (!sender.equals("TEST_PING", ignoreCase = true)) {
-                enqueueFailedSms(context, item)
-                broadcastLog(context, "⏳ Network unavailable. Saved [$sender] to Offline Retry Queue.")
-            } else {
-                broadcastLog(context, "✕ Connection test failed: Server unreachable.")
-            }
+            enqueueFailedSms(context, item)
+            broadcastLog(context, "⏳ Network issue (${res.message}). Saved [$sender] to Retry Queue.")
         }
-        return ok
+        return res.ok
     }
 
     fun flushQueue(context: Context): Int {
-        val prefs = context.getSharedPreferences("blumart_sync_prefs", Context.MODE_PRIVATE)
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val serverUrl = prefs.getString("server_url", "")?.trim() ?: ""
         val apiKey = prefs.getString("api_key", "")?.trim() ?: ""
         val rawQueue = prefs.getString("offline_queue_json", "[]") ?: "[]"
 
         val queueArray = try {
             JSONArray(rawQueue)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             JSONArray()
         }
 
@@ -117,8 +168,10 @@ object SyncApiClient {
         }
 
         val count = queueArray.length()
-        val ok = sendBatchToServer(context, serverUrl, apiKey, queueArray)
-        return if (ok) {
+        val res = sendBatchToServer(context, serverUrl, apiKey, queueArray)
+        updateConnectionState(context, res)
+
+        return if (res.ok) {
             val hashes = mutableListOf<String>()
             for (i in 0 until queueArray.length()) {
                 val obj = queueArray.optJSONObject(i) ?: continue
@@ -133,41 +186,35 @@ object SyncApiClient {
             recordSyncedHashes(context, hashes)
 
             val syncedCount = prefs.getInt("synced_count", 0) + count
-            val timeStr = android.text.format.DateFormat.format("hh:mm a", java.util.Date()).toString()
             prefs.edit()
                 .putString("offline_queue_json", "[]")
                 .putInt("synced_count", syncedCount)
-                .putString("last_sync_time", timeStr)
                 .apply()
             broadcastLog(context, "✓ Flushed $count queued SMS to server!")
             count
         } else {
-            broadcastLog(context, "✕ Retry failed for $count queued SMS.")
+            val reason = if (res.isAuthError) "Auth failed (${res.httpCode})" else res.message
+            broadcastLog(context, "✕ Retry failed for $count queued SMS ($reason).")
             0
         }
     }
 
     fun getQueueCount(context: Context): Int {
-        val prefs = context.getSharedPreferences("blumart_sync_prefs", Context.MODE_PRIVATE)
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val rawQueue = prefs.getString("offline_queue_json", "[]") ?: "[]"
         return try {
             JSONArray(rawQueue).length()
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             0
         }
     }
 
-    /**
-     * Scans the phone's SMS inbox for MFS messages received in the last [minutesBack] minutes
-     * (default 24 hours = 1440m) and uploads any unsynced messages in a single batch so no payment
-     * is ever missed if the phone was off overnight or disconnected.
-     */
     fun scanRecentInboxMfsSms(
         context: Context,
         minutesBack: Int = 1440,
         onlyUnsynced: Boolean = false
     ): Int {
-        val prefs = context.getSharedPreferences("blumart_sync_prefs", Context.MODE_PRIVATE)
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val serverUrl = prefs.getString("server_url", "")?.trim() ?: ""
         val apiKey = prefs.getString("api_key", "")?.trim() ?: ""
         if (serverUrl.isEmpty() || apiKey.isEmpty()) return -1
@@ -195,10 +242,8 @@ object SyncApiClient {
                     val address = c.getString(addrIdx) ?: ""
                     val body = c.getString(bodyIdx) ?: ""
                     val date = c.getLong(dateIdx)
-                    val lowerAddr = address.lowercase()
 
-                    val isMfs = WHITELIST.any { lowerAddr == it || lowerAddr.contains(it) }
-                    if (isMfs && body.isNotBlank()) {
+                    if (isWhitelistedMfsSender(address) && body.isNotBlank()) {
                         val hashKey = computeSmsKey(address, body, date)
                         if (onlyUnsynced && knownHashes.contains(hashKey)) {
                             continue
@@ -227,34 +272,32 @@ object SyncApiClient {
             return 0
         }
 
-        val ok = sendBatchToServer(context, serverUrl, apiKey, foundBatch)
-        return if (ok) {
+        val res = sendBatchToServer(context, serverUrl, apiKey, foundBatch)
+        updateConnectionState(context, res)
+
+        return if (res.ok) {
             recordSyncedHashes(context, newHashes)
             val syncedCount = prefs.getInt("synced_count", 0) + foundBatch.length()
-            val timeStr = android.text.format.DateFormat.format("hh:mm a", java.util.Date()).toString()
-            prefs.edit()
-                .putInt("synced_count", syncedCount)
-                .putString("last_sync_time", timeStr)
-                .apply()
+            prefs.edit().putInt("synced_count", syncedCount).apply()
             broadcastLog(context, "✓ Inbox Recovery: Synced ${foundBatch.length()} MFS SMS (last ${minutesBack / 60}h).")
             foundBatch.length()
         } else {
             if (!onlyUnsynced) {
-                broadcastLog(context, "✕ Inbox Scan upload failed (check connection).")
+                val reason = if (res.isAuthError) "Auth failed (${res.httpCode})" else res.message
+                broadcastLog(context, "✕ Inbox Scan upload failed ($reason).")
             }
             0
         }
     }
 
     private fun enqueueFailedSms(context: Context, item: JSONObject) {
-        val prefs = context.getSharedPreferences("blumart_sync_prefs", Context.MODE_PRIVATE)
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val rawQueue = prefs.getString("offline_queue_json", "[]") ?: "[]"
         val arr = try {
             JSONArray(rawQueue)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             JSONArray()
         }
-        // Prevent duplicate queue entries for the exact same SMS
         val candidateRaw = item.optString("rawSms", "")
         for (i in 0 until arr.length()) {
             if (arr.optJSONObject(i)?.optString("rawSms", "") == candidateRaw) {
@@ -270,7 +313,7 @@ object SyncApiClient {
         serverUrl: String,
         apiKey: String,
         transactionsArray: JSONArray
-    ): Boolean {
+    ): SyncResult {
         val endpoint = if (serverUrl.endsWith("/")) "${serverUrl}api/gateway/sms/sync" else "${serverUrl}/api/gateway/sms/sync"
         return try {
             val batteryStatus = getBatteryInfo(context)
@@ -295,13 +338,25 @@ object SyncApiClient {
                 writer.flush()
             }
 
-            val responseCode = conn.responseCode
-            val success = responseCode in 200..299
+            val code = conn.responseCode
+            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+            val bodyText = stream?.bufferedReader()?.use { it.readText() } ?: ""
             conn.disconnect()
-            success
+
+            val serverMsg = try {
+                JSONObject(bodyText).optString("message", "")
+            } catch (_: Exception) {
+                ""
+            }
+
+            SyncResult(
+                ok = code in 200..299,
+                httpCode = code,
+                message = serverMsg.ifEmpty { if (code in 200..299) "OK" else "HTTP $code" },
+            )
         } catch (e: Exception) {
             Log.e(TAG, "Network exception uploading batch to $endpoint", e)
-            false
+            SyncResult(ok = false, httpCode = 0, message = e.javaClass.simpleName)
         }
     }
 

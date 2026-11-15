@@ -1,5 +1,6 @@
 package com.blumart.sync
 
+import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -12,10 +13,12 @@ import android.os.Build
 import android.os.Bundle
 import android.text.InputType
 import android.text.method.ScrollingMovementMethod
+import android.view.MotionEvent
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -24,6 +27,8 @@ import com.blumart.sync.service.PaymentSyncService
 import com.blumart.sync.util.OemBatteryHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -42,8 +47,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnGrantPermissions: Button
     private lateinit var btnBatterySettings: Button
     private lateinit var tvPermissionStatus: TextView
+    private lateinit var tvNotificationStatus: TextView
     private lateinit var tvBatteryStatus: TextView
     private lateinit var tvServiceStatusPill: TextView
+    private lateinit var tvConnectionPill: TextView
     private lateinit var tvStatSynced: TextView
     private lateinit var tvStatQueued: TextView
     private lateinit var tvStatLastSync: TextView
@@ -52,6 +59,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnClearLogs: TextView
 
     private var isKeyVisible = false
+    private val activityScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private val logReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -61,6 +69,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -78,8 +87,10 @@ class MainActivity : AppCompatActivity() {
         btnGrantPermissions = findViewById(R.id.btnGrantPermissions)
         btnBatterySettings = findViewById(R.id.btnBatterySettings)
         tvPermissionStatus = findViewById(R.id.tvPermissionStatus)
+        tvNotificationStatus = findViewById(R.id.tvNotificationStatus)
         tvBatteryStatus = findViewById(R.id.tvBatteryStatus)
         tvServiceStatusPill = findViewById(R.id.tvServiceStatusPill)
+        tvConnectionPill = findViewById(R.id.tvConnectionPill)
         tvStatSynced = findViewById(R.id.tvStatSynced)
         tvStatQueued = findViewById(R.id.tvStatQueued)
         tvStatLastSync = findViewById(R.id.tvStatLastSync)
@@ -88,15 +99,19 @@ class MainActivity : AppCompatActivity() {
         btnClearLogs = findViewById(R.id.btnClearLogs)
 
         tvLogsConsole.movementMethod = ScrollingMovementMethod()
+        // Allow scrolling inside the log console without the outer ScrollView hijacking drags.
+        tvLogsConsole.setOnTouchListener { v, event ->
+            v.parent.requestDisallowInterceptTouchEvent(event.action != MotionEvent.ACTION_UP)
+            false
+        }
 
-        val prefs = getSharedPreferences("blumart_sync_prefs", Context.MODE_PRIVATE)
+        val prefs = getSharedPreferences(SyncApiClient.PREFS_NAME, Context.MODE_PRIVATE)
         editServerUrl.setText(prefs.getString("server_url", "https://blumartbd.com"))
         editApiKey.setText(prefs.getString("api_key", ""))
 
         requestAppPermissions()
         refreshAllUi()
 
-        // Paste API Key button
         btnPasteKey.setOnClickListener {
             val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val clip = clipboard.primaryClip
@@ -109,7 +124,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Show / Hide API Key mask
         btnToggleKeyMask.setOnClickListener {
             isKeyVisible = !isKeyVisible
             if (isKeyVisible) {
@@ -122,40 +136,33 @@ class MainActivity : AppCompatActivity() {
             editApiKey.setSelection(editApiKey.text.length)
         }
 
-        // Save Configuration
         btnSave.setOnClickListener {
-            saveCurrentInputs()
+            if (!saveCurrentInputs()) return@setOnClickListener
             SyncApiClient.broadcastLog(this, "✓ Configuration saved.")
             Toast.makeText(this, "Configuration Saved!", Toast.LENGTH_SHORT).show()
         }
 
-        // Test Connection Ping
         btnTestPing.setOnClickListener {
             if (!saveCurrentInputs()) return@setOnClickListener
             btnTestPing.isEnabled = false
             btnTestPing.text = "Pinging..."
             SyncApiClient.broadcastLog(this, "Testing server connection...")
 
-            CoroutineScope(Dispatchers.IO).launch {
-                val ok = SyncApiClient.uploadSms(
-                    context = this@MainActivity,
-                    rawSms = "Heartbeat ping from Blumart Sync device",
-                    sender = "TEST_PING"
-                )
-                withContext(Dispatchers.Main) {
-                    btnTestPing.isEnabled = true
-                    btnTestPing.text = "Test Connection"
-                    refreshStatsAndLogs()
-                    if (ok) {
-                        Toast.makeText(this@MainActivity, "Server Connected (HTTP 200)!", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(this@MainActivity, "Connection failed! Check Domain & Key.", Toast.LENGTH_LONG).show()
-                    }
+            activityScope.launch {
+                val res = withContext(Dispatchers.IO) {
+                    SyncApiClient.pingServer(this@MainActivity)
+                }
+                btnTestPing.isEnabled = true
+                btnTestPing.text = "Test Connection"
+                refreshStatsAndLogs()
+                when {
+                    res.ok -> Toast.makeText(this@MainActivity, "Connected (HTTP ${res.httpCode})!", Toast.LENGTH_SHORT).show()
+                    res.isAuthError -> Toast.makeText(this@MainActivity, "Invalid Key or Paused Device (HTTP ${res.httpCode})", Toast.LENGTH_LONG).show()
+                    else -> Toast.makeText(this@MainActivity, "Connection failed: ${res.message}", Toast.LENGTH_LONG).show()
                 }
             }
         }
 
-        // True Toggle Start / Stop 24/7 Service
         btnToggleService.setOnClickListener {
             if (PaymentSyncService.isRunning) {
                 PaymentSyncService.stop(this)
@@ -171,7 +178,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Scan Last 24 Hours Inbox MFS SMS
         btnScanInbox.setOnClickListener {
             if (!hasSmsPermissions()) {
                 requestAppPermissions()
@@ -184,22 +190,21 @@ class MainActivity : AppCompatActivity() {
             btnScanInbox.text = "Scanning..."
             SyncApiClient.broadcastLog(this, "Scanning phone SMS inbox (last 24 hours)...")
 
-            CoroutineScope(Dispatchers.IO).launch {
-                val synced = SyncApiClient.scanRecentInboxMfsSms(this@MainActivity, 1440, onlyUnsynced = false)
-                withContext(Dispatchers.Main) {
-                    btnScanInbox.isEnabled = true
-                    btnScanInbox.text = "Scan Inbox (24h)"
-                    refreshStatsAndLogs()
-                    Toast.makeText(
-                        this@MainActivity,
-                        if (synced > 0) "Synced $synced MFS SMS from last 24h!" else "No MFS SMS found in last 24h",
-                        Toast.LENGTH_SHORT
-                    ).show()
+            activityScope.launch {
+                val synced = withContext(Dispatchers.IO) {
+                    SyncApiClient.scanRecentInboxMfsSms(this@MainActivity, 1440, onlyUnsynced = false)
                 }
+                btnScanInbox.isEnabled = true
+                btnScanInbox.text = "Scan Inbox (24h)"
+                refreshStatsAndLogs()
+                Toast.makeText(
+                    this@MainActivity,
+                    if (synced > 0) "Synced $synced MFS SMS from last 24h!" else "No MFS SMS found in last 24h",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         }
 
-        // Flush Offline Retry Queue
         btnFlushQueue.setOnClickListener {
             if (!saveCurrentInputs()) return@setOnClickListener
             val queued = SyncApiClient.getQueueCount(this)
@@ -210,63 +215,64 @@ class MainActivity : AppCompatActivity() {
 
             btnFlushQueue.isEnabled = false
             btnFlushQueue.text = "Retrying..."
-            CoroutineScope(Dispatchers.IO).launch {
-                val flushed = SyncApiClient.flushQueue(this@MainActivity)
-                withContext(Dispatchers.Main) {
-                    btnFlushQueue.isEnabled = true
-                    btnFlushQueue.text = "Retry Queued SMS"
-                    refreshStatsAndLogs()
-                    Toast.makeText(this@MainActivity, "Flushed $flushed SMS from queue", Toast.LENGTH_SHORT).show()
+            activityScope.launch {
+                val flushed = withContext(Dispatchers.IO) {
+                    SyncApiClient.flushQueue(this@MainActivity)
                 }
+                btnFlushQueue.isEnabled = true
+                btnFlushQueue.text = "Retry Queued SMS"
+                refreshStatsAndLogs()
+                Toast.makeText(this@MainActivity, "Flushed $flushed SMS from queue", Toast.LENGTH_SHORT).show()
             }
         }
 
-        // Simulate Test bKash SMS Pipeline
         btnSimulateSms.setOnClickListener {
             if (!saveCurrentInputs()) return@setOnClickListener
-            val randomTrx = "SIM" + (1000000..9999999).random()
-            val sampleSms = "You have received Tk 25.00 from 01847474747. Ref BlumartTest. Fee Tk 0.00. Balance Tk 1,250.00. TrxID $randomTrx at 09/11/2026 13:20"
-            SyncApiClient.broadcastLog(this, "Simulating bKash SMS ($randomTrx)...")
+            AlertDialog.Builder(this)
+                .setTitle("Send Test bKash SMS?")
+                .setMessage("This sends a dummy Tk 25.00 bKash SMS to your live Admin SMS Logs to verify the end-to-end pipeline.")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Send Test") { _, _ ->
+                    val randomTrx = "SIM" + (1000000..9999999).random()
+                    val sampleSms = "You have received Tk 25.00 from 01847474747. Ref BlumartTest. Fee Tk 0.00. Balance Tk 1,250.00. TrxID $randomTrx at 09/11/2026 13:20"
+                    SyncApiClient.broadcastLog(this, "Simulating bKash SMS ($randomTrx)...")
 
-            CoroutineScope(Dispatchers.IO).launch {
-                val ok = SyncApiClient.uploadSms(this@MainActivity, sampleSms, "bKash")
-                withContext(Dispatchers.Main) {
-                    refreshStatsAndLogs()
-                    Toast.makeText(
-                        this@MainActivity,
-                        if (ok) "Simulated SMS verified ($randomTrx)!" else "Simulation queued (offline)",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    activityScope.launch {
+                        val ok = withContext(Dispatchers.IO) {
+                            SyncApiClient.uploadSms(this@MainActivity, sampleSms, "bKash")
+                        }
+                        refreshStatsAndLogs()
+                        Toast.makeText(
+                            this@MainActivity,
+                            if (ok) "Simulated SMS sent ($randomTrx)!" else "Simulation failed — check console",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
                 }
-            }
+                .show()
         }
 
-        // Permissions Button
         btnGrantPermissions.setOnClickListener {
             requestAppPermissions()
         }
 
-        // OEM Battery & Sleep Killer Settings
         btnBatterySettings.setOnClickListener {
             OemBatteryHelper.requestIgnoreBatteryOptimization(this)
             OemBatteryHelper.openOemAutoStartSettings(this)
             SyncApiClient.broadcastLog(this, "Opened battery & background protection settings.")
         }
 
-        // Copy Console Logs
         btnCopyLogs.setOnClickListener {
             val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText("BlumartSyncLogs", tvLogsConsole.text.toString()))
             Toast.makeText(this, "Logs copied to clipboard", Toast.LENGTH_SHORT).show()
         }
 
-        // Clear Console Logs
         btnClearLogs.setOnClickListener {
             prefs.edit().putString("persisted_logs", "[Console cleared]\n").apply()
             tvLogsConsole.text = "[Console cleared]\n"
         }
 
-        // Auto-start if API key is already configured
         if (prefs.getString("api_key", "")?.isNotEmpty() == true && !PaymentSyncService.isRunning) {
             PaymentSyncService.start(this)
             updateServiceRunningState(true)
@@ -287,7 +293,7 @@ class MainActivity : AppCompatActivity() {
             rawUrl
         }
         editServerUrl.setText(normalizedUrl)
-        getSharedPreferences("blumart_sync_prefs", Context.MODE_PRIVATE)
+        getSharedPreferences(SyncApiClient.PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putString("server_url", normalizedUrl)
             .putString("api_key", key)
@@ -302,16 +308,40 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshStatsAndLogs() {
-        val prefs = getSharedPreferences("blumart_sync_prefs", Context.MODE_PRIVATE)
+        val prefs = getSharedPreferences(SyncApiClient.PREFS_NAME, Context.MODE_PRIVATE)
         val synced = prefs.getInt("synced_count", 0)
         val queued = SyncApiClient.getQueueCount(this)
         val lastSync = prefs.getString("last_sync_time", "Never") ?: "Never"
-        val logs = prefs.getString("persisted_logs", "[Ready] Waiting for incoming bKash/Nagad/Rocket SMS...\n")
+        val connState = prefs.getString("connection_state", "unknown") ?: "unknown"
+        val logs = prefs.getString("persisted_logs", "[Ready] Waiting for incoming bKash, Nagad, Rocket or Upay SMS...\n")
 
         tvStatSynced.text = synced.toString()
         tvStatQueued.text = queued.toString()
         tvStatLastSync.text = lastSync
         tvLogsConsole.text = logs
+
+        when (connState) {
+            "connected" -> {
+                tvConnectionPill.text = "Connected"
+                tvConnectionPill.setTextColor(0xFF065F46.toInt())
+                tvConnectionPill.backgroundTintList = ColorStateList.valueOf(0xFFD1FAE5.toInt())
+            }
+            "auth_error" -> {
+                tvConnectionPill.text = "Auth Rejected"
+                tvConnectionPill.setTextColor(0xFF991B1B.toInt())
+                tvConnectionPill.backgroundTintList = ColorStateList.valueOf(0xFFFEE2E2.toInt())
+            }
+            "offline" -> {
+                tvConnectionPill.text = "Offline / Retry"
+                tvConnectionPill.setTextColor(0xFF92400E.toInt())
+                tvConnectionPill.backgroundTintList = ColorStateList.valueOf(0xFFFEF3C7.toInt())
+            }
+            else -> {
+                tvConnectionPill.text = "Not tested"
+                tvConnectionPill.setTextColor(0xFF475569.toInt())
+                tvConnectionPill.backgroundTintList = ColorStateList.valueOf(0xFFF1F5F9.toInt())
+            }
+        }
     }
 
     private fun updateServiceRunningState(running: Boolean) {
@@ -320,14 +350,14 @@ class MainActivity : AppCompatActivity() {
             tvServiceStatusPill.setTextColor(0xFF34D399.toInt())
             tvServiceStatusPill.backgroundTintList = ColorStateList.valueOf(0xFF064E3B.toInt())
 
-            btnToggleService.text = "■ Stop 24/7 Auto-Sync Service"
+            btnToggleService.text = "Stop 24/7 Auto-Sync Service"
             btnToggleService.backgroundTintList = ColorStateList.valueOf(0xFFDC2626.toInt())
         } else {
             tvServiceStatusPill.text = "● Stopped"
             tvServiceStatusPill.setTextColor(0xFFF87171.toInt())
-            tvServiceStatusPill.backgroundTintList = ColorStateList.valueOf(0xFF1E293B.toInt())
+            tvServiceStatusPill.backgroundTintList = ColorStateList.valueOf(0xFF232B47.toInt())
 
-            btnToggleService.text = "▶ Start 24/7 Auto-Sync Service"
+            btnToggleService.text = "Start 24/7 Auto-Sync Service"
             btnToggleService.backgroundTintList = ColorStateList.valueOf(0xFF059669.toInt())
         }
     }
@@ -344,22 +374,43 @@ class MainActivity : AppCompatActivity() {
         return receiveGranted && readGranted
     }
 
+    private fun hasNotificationPermission(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
+        return ContextCompat.checkSelfPermission(
+            this,
+            android.Manifest.permission.POST_NOTIFICATIONS
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
     private fun refreshPermissionAndBatteryBadges() {
         if (hasSmsPermissions()) {
             tvPermissionStatus.text = "✓ SMS Read & Receive Permissions Granted"
-            tvPermissionStatus.setTextColor(0xFF059669.toInt())
+            tvPermissionStatus.setTextColor(0xFF065F46.toInt())
+            tvPermissionStatus.backgroundTintList = ColorStateList.valueOf(0xFFECFDF5.toInt())
         } else {
-            tvPermissionStatus.text = "⚠ SMS Permission Missing — Tap 'SMS Permissions' below"
-            tvPermissionStatus.setTextColor(0xFFDC2626.toInt())
+            tvPermissionStatus.text = "⚠ SMS Permission Missing — Tap 'Grant Permissions'"
+            tvPermissionStatus.setTextColor(0xFF991B1B.toInt())
+            tvPermissionStatus.backgroundTintList = ColorStateList.valueOf(0xFFFEF2F2.toInt())
         }
 
-        val isIgnored = OemBatteryHelper.isBatteryOptimizationIgnored(this)
-        if (isIgnored) {
+        if (hasNotificationPermission()) {
+            tvNotificationStatus.text = "✓ Foreground Notifications Allowed"
+            tvNotificationStatus.setTextColor(0xFF065F46.toInt())
+            tvNotificationStatus.backgroundTintList = ColorStateList.valueOf(0xFFECFDF5.toInt())
+        } else {
+            tvNotificationStatus.text = "⚠ Notification Permission Off — Tap 'Grant Permissions'"
+            tvNotificationStatus.setTextColor(0xFF92400E.toInt())
+            tvNotificationStatus.backgroundTintList = ColorStateList.valueOf(0xFFFFFBEB.toInt())
+        }
+
+        if (OemBatteryHelper.isBatteryOptimizationIgnored(this)) {
             tvBatteryStatus.text = "✓ Unrestricted Battery Mode Active (24/7 Safe)"
-            tvBatteryStatus.setTextColor(0xFF059669.toInt())
+            tvBatteryStatus.setTextColor(0xFF065F46.toInt())
+            tvBatteryStatus.backgroundTintList = ColorStateList.valueOf(0xFFECFDF5.toInt())
         } else {
             tvBatteryStatus.text = "⚠ Battery Optimization Active — Tap 'Disable Sleep Killer'"
-            tvBatteryStatus.setTextColor(0xFFD97706.toInt())
+            tvBatteryStatus.setTextColor(0xFF92400E.toInt())
+            tvBatteryStatus.backgroundTintList = ColorStateList.valueOf(0xFFFFFBEB.toInt())
         }
     }
 
@@ -409,5 +460,10 @@ class MainActivity : AppCompatActivity() {
             unregisterReceiver(logReceiver)
         } catch (_: Exception) {
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        activityScope.cancel()
     }
 }
