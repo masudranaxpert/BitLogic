@@ -71,6 +71,7 @@ const TAB_TO_PERMISSION: Record<AdminTab, StaffPermissionKey | 'staff' | null> =
     overview: 'overview',
     products: 'products',
     'product-add': 'products',
+    'product-highlights': 'products',
     'product-view': 'products',
     'product-option': 'products',
     warranties: 'products',

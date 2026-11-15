@@ -135,11 +135,13 @@ function ClassicHomeView() {
   const sides = homeBanners.filter((b) => b.slot === 'side').map(resolve);
   const slide = slides[Math.min(index, slides.length - 1)] ?? slides[0];
 
-  const featured = products.slice(0, 7);
+  const featuredPool = products.filter((p) => p.featured);
+  const featured =
+    featuredPool.length > 0 ? featuredPool : products.slice(0, 7);
+
+  const offerPool = products.filter((p) => p.sale);
   const offers =
-    products.filter((p) => p.sale || p.featured).length > 0
-      ? products.filter((p) => p.sale || p.featured)
-      : products.slice(0, 5);
+    offerPool.length > 0 ? offerPool : products.slice(0, 5);
 
   useEffect(() => {
     if (slides.length <= 1) return;

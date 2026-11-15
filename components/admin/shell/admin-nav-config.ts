@@ -50,6 +50,7 @@ export function buildAdminNavMenus(
       subItems: [
         { id: 'products', label: 'All Products' },
         { id: 'product-add', label: 'Add Product' },
+        { id: 'product-highlights', label: 'Special & Featured' },
         { id: 'warranties', label: 'Warranties' },
         { id: 'credential-types', label: 'Credential Types' },
         { id: 'categories', label: 'Categories' },

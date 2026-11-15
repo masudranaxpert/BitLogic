@@ -8,6 +8,7 @@ export type AdminTab =
   | 'overview'
   | 'products'
   | 'product-add'
+  | 'product-highlights'
   | 'product-view'
   | 'product-option'
   | 'warranties'
@@ -160,6 +161,10 @@ export interface DigitalProduct {
   galleryUrls?: string[];
   /** active = show on storefront; draft = hidden (no new buy/renew). */
   status: 'active' | 'draft';
+  /** Shown in storefront Special offer rail. */
+  sale?: boolean;
+  /** Shown in storefront Featured products grid. */
+  featured?: boolean;
   shortDescription: string;
   description?: string;
   descriptionMode?: 'global' | 'per_option';

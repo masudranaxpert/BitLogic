@@ -126,6 +126,8 @@ export function mapDbProduct(row: DbProductWithPlans): DigitalProduct {
     imageUrl: row.imageUrl || gallery[0] || undefined,
     galleryUrls: gallery.length ? gallery : undefined,
     status,
+    sale: Boolean(row.sale),
+    featured: Boolean(row.featured),
     shortDescription: row.tagline || '',
     description: row.description || undefined,
     descriptionMode: 'global',

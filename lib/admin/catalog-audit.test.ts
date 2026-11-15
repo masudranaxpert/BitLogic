@@ -3,6 +3,7 @@ import {
   buildProductAuditEvents,
   planLinkAuditEvent,
   planToggleAuditEvent,
+  productPlacementAuditEvent,
   productToggleAuditEvent,
 } from './catalog-audit';
 
@@ -74,5 +75,13 @@ assert.equal(hiddenProd.summary, 'Hidden product "ChatGPT" on storefront');
 const shownProd = productToggleAuditEvent('ChatGPT', 'prod-chatgpt', true);
 assert.equal(shownProd.action, 'product.show');
 assert.equal(shownProd.summary, 'Shown product "ChatGPT" on storefront');
+
+const saleOn = productPlacementAuditEvent('ChatGPT', 'chatgpt', 'sale', true);
+assert.equal(saleOn.action, 'product.save');
+assert.equal(saleOn.summary, 'Added "ChatGPT" to Special offer');
+
+const featOff = productPlacementAuditEvent('Canva', 'canva', 'featured', false);
+assert.equal(featOff.action, 'product.save');
+assert.equal(featOff.summary, 'Removed "Canva" from Featured products');
 
 console.log('catalog-audit: ok');

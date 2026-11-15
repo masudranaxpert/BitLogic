@@ -60,6 +60,19 @@ export async function persistProductActive(
   return res.ok;
 }
 
+export async function persistProductPlacement(
+  productId: string,
+  field: 'sale' | 'featured',
+  value: boolean,
+): Promise<boolean> {
+  const res = await fetch('/api/admin/catalog/products/toggle', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ productId, field, value }),
+  });
+  return res.ok;
+}
+
 export async function persistAdminTaxonomies(patch: {
   productCategories?: ProductCategory[];
   warranties?: WarrantyPlan[];

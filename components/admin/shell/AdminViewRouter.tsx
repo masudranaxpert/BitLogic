@@ -18,6 +18,7 @@ import type {
 } from '@/lib/admin/types';
 import OverviewView from '@/components/admin/views/OverviewView';
 import ProductsView from '@/components/admin/views/ProductsView';
+import { ProductHighlightsView } from '@/components/admin/views/products/ProductHighlightsView';
 import ProductAddView from '@/components/admin/views/ProductAddView';
 import ProductDetailView from '@/components/admin/views/ProductDetailView';
 import WarrantiesView from '@/components/admin/views/WarrantiesView';
@@ -138,6 +139,11 @@ export type AdminViewRouterProps = {
   handleToggleProductActive: (
     productId: string,
     nextActive: boolean,
+  ) => void;
+  handleToggleProductPlacement: (
+    productId: string,
+    field: 'sale' | 'featured',
+    nextValue: boolean,
   ) => void;
   consoleUser: ConsoleUser | null;
   onProfileUpdated: (nextUser: ConsoleUser) => void;
@@ -352,6 +358,14 @@ export function AdminViewRouter(props: AdminViewRouterProps) {
               categories={productCategories}
               products={products}
               onChange={onProductCategoriesChange}
+            />
+          )}
+
+          {activeTab === 'product-highlights' && (
+            <ProductHighlightsView
+              products={products}
+              onTogglePlacement={props.handleToggleProductPlacement}
+              onOpenProduct={(productId) => openProductEditPage(productId)}
             />
           )}
 

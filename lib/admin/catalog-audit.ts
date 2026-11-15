@@ -62,6 +62,21 @@ export function productToggleAuditEvent(
   };
 }
 
+export function productPlacementAuditEvent(
+  productName: string,
+  productSlug: string,
+  field: 'sale' | 'featured',
+  enabled: boolean,
+): ProductAuditEvent {
+  const section = field === 'sale' ? 'Special offer' : 'Featured products';
+  return {
+    action: 'product.save',
+    entityType: 'product',
+    entityId: productSlug,
+    summary: `${enabled ? 'Added' : 'Removed'} "${productName}" ${enabled ? 'to' : 'from'} ${section}`,
+  };
+}
+
 export function buildProductAuditEvents(args: {
   isNew: boolean;
   productName: string;

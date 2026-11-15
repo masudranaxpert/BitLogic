@@ -26,7 +26,11 @@ import {
   persistAdminTaxonomies,
   persistAdminWorkspace,
 } from '@/lib/admin/workspace-client';
-import { persistPlanActive, persistProductActive } from '@/lib/admin/catalog-client';
+import {
+  persistPlanActive,
+  persistProductActive,
+  persistProductPlacement,
+} from '@/lib/admin/catalog-client';
 import {
   AdminTab,
   DigitalProduct,
@@ -215,6 +219,7 @@ export default function AdminDashboard() {
     if (
       tab === 'products' ||
       tab === 'product-add' ||
+      tab === 'product-highlights' ||
       tab === 'product-view' ||
       tab === 'product-option' ||
       tab === 'warranties' ||
@@ -937,6 +942,34 @@ export default function AdminDashboard() {
           ),
         );
         showToast('DB write failed — reverted product visibility.');
+      }
+    });
+  };
+
+  const handleToggleProductPlacement = (
+    productId: string,
+    field: 'sale' | 'featured',
+    nextValue: boolean,
+  ) => {
+    const prevValue = !nextValue;
+    let targetName = productId;
+    setProducts((prev) =>
+      prev.map((p) => {
+        if (p.id !== productId) return p;
+        targetName = p.name;
+        return { ...p, [field]: nextValue };
+      }),
+    );
+    const section = field === 'sale' ? 'Special offer' : 'Featured products';
+    showToast(
+      `${nextValue ? 'Added' : 'Removed'} "${targetName}" ${nextValue ? 'to' : 'from'} ${section}.`,
+    );
+    void persistProductPlacement(productId, field, nextValue).then((ok) => {
+      if (!ok) {
+        setProducts((prev) =>
+          prev.map((p) => (p.id !== productId ? p : { ...p, [field]: prevValue })),
+        );
+        showToast(`DB write failed — reverted ${section.toLowerCase()}.`);
       }
     });
   };
@@ -2018,6 +2051,7 @@ export default function AdminDashboard() {
             handleUpdateVariant={handleUpdateVariant}
             handleTogglePlanActive={handleTogglePlanActive}
             handleToggleProductActive={handleToggleProductActive}
+            handleToggleProductPlacement={handleToggleProductPlacement}
             consoleUser={consoleUser}
             onProfileUpdated={(nextUser) => {
               setConsoleUser(nextUser);
@@ -2082,6 +2116,7 @@ export default function AdminDashboard() {
           { id: 'user-add' as AdminTab, label: 'Add customer' },
           { id: 'products' as AdminTab, label: 'Products' },
           { id: 'product-add' as AdminTab, label: 'Add product' },
+          { id: 'product-highlights' as AdminTab, label: 'Special & Featured', keywords: 'special offer featured homepage rail' },
           { id: 'vault' as AdminTab, label: 'Credentials inventory' },
           { id: 'vault-manual' as AdminTab, label: 'Add credentials' },
           { id: 'vault-bulk' as AdminTab, label: 'Bulk import credentials' },

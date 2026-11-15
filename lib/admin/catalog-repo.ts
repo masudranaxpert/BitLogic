@@ -14,6 +14,7 @@ import {
   buildProductAuditEvents,
   planLinkAuditEvent,
   planToggleAuditEvent,
+  productPlacementAuditEvent,
   productToggleAuditEvent,
   type ProductAuditEvent,
 } from '@/lib/admin/catalog-audit';
@@ -440,6 +441,30 @@ export async function toggleProductActive(
   }
 
   return productToggleAuditEvent(product.name, product.slug, isActive);
+}
+
+export type ProductPlacementField = 'sale' | 'featured';
+
+/** Toggle storefront Special offer (`sale`) or Featured (`featured`) placement. */
+export async function toggleProductPlacement(
+  productIdOrSlug: string,
+  field: ProductPlacementField,
+  enabled: boolean,
+): Promise<ProductAuditEvent | null> {
+  const product = await db.product.findFirst({
+    where: { OR: [{ slug: productIdOrSlug }, { id: productIdOrSlug }] },
+    select: { id: true, slug: true, name: true, sale: true, featured: true },
+  });
+  if (!product) return null;
+
+  if (product[field] !== enabled) {
+    await db.product.update({
+      where: { id: product.id },
+      data: field === 'sale' ? { sale: enabled } : { featured: enabled },
+    });
+  }
+
+  return productPlacementAuditEvent(product.name, product.slug, field, enabled);
 }
 
 export async function replaceCategories(categories: ProductCategory[]) {
