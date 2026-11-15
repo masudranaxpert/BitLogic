@@ -38,6 +38,8 @@ export interface DraftVariant {
   credentialSchemeId: string;
   /** Buyer details — one bullet per line (storefront Plan.details) */
   detailsText: string;
+  /** Sent to buyer when delivered credential (e.g. auto-supply) has no description */
+  defaultCredentialDescription: string;
   /** Plan On/Off visibility toggle on storefront */
   isActive: boolean;
   sourcing: SourcingValue;
@@ -63,6 +65,7 @@ export function emptyDraftVariant(
     warrantyId: defaultWarrantyId,
     credentialSchemeId: defaultCredentialSchemeId,
     detailsText: '',
+    defaultCredentialDescription: '',
     isActive: true,
     sourcing: 'own',
     supplierLinks: [],
@@ -163,6 +166,7 @@ export function variantToDraft(
     warrantyId: match?.id || '',
     credentialSchemeId: scheme?.id || variant.credentialSchemeId || '',
     detailsText: (variant.loginInstructions || []).join('\n'),
+    defaultCredentialDescription: variant.defaultCredentialDescription || '',
     isActive: variant.isActive !== false,
     sourcing: (variant.sourcing as any) || 'own',
     supplierLinks: [],

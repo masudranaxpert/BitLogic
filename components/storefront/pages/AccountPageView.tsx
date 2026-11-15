@@ -269,6 +269,9 @@ function AccountPageInner({
             loginPassword: o.isPaymentVerified ? o.units?.[0]?.password : undefined,
             profilePin: o.units?.[0]?.profilePin,
             secretText: o.units?.[0]?.secretValue,
+            credentialDescription: o.isPaymentVerified
+              ? (o.units?.[0]?.credentialDescription || o.credentialDescription)
+              : undefined,
             chatMessages: o.chatMessages || [],
             unreadChatCount: o.unreadChatCount || 0,
             quantity: o.quantity || 1,
@@ -1255,7 +1258,7 @@ function AccountPageInner({
           drawerOpen
             ? 'fixed inset-y-0 left-0 z-50 flex shadow-xl'
             : 'hidden'
-        } lg:sticky lg:top-0 lg:h-dvh lg:flex w-60 shrink-0 bg-white border-r border-slate-200 flex-col justify-between select-none`}
+        } lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex w-60 shrink-0 bg-white border-r border-slate-200 flex-col justify-between select-none`}
       >
         <div className="p-4 space-y-5 overflow-y-auto">
           {/* Signature Brand Logo (Matches Storefront Header) */}
@@ -1371,7 +1374,7 @@ function AccountPageInner({
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 lg:pl-60">
         {/* Top Bar (Desktop & Mobile) with Clean Notification Icon & Popover */}
         <header className="sticky top-0 z-30 bg-white border-b border-slate-200">
           <div className="w-full max-w-7xl mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-8 h-13">

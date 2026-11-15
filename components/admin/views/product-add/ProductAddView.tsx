@@ -284,6 +284,7 @@ export default function ProductAddView({
         importantNote: warrantyBadgeFor(dv, warranties),
         warningNote: '',
         optionDescription: '',
+        defaultCredentialDescription: dv.defaultCredentialDescription.trim(),
         specifications: [],
         renewable: dv.renewable,
         renewalPricing: dv.renewalPricing,

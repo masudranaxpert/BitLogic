@@ -3,6 +3,11 @@ import { getEmailConfig } from '@/lib/email/config';
 import { sendEmail } from '@/lib/email/send';
 import { decryptSecret } from '@/lib/crypto/secrets';
 import {
+  buildPlanDefaultDescriptionMap,
+  lookupPlanDefaultDescription,
+  resolveCredentialDescription,
+} from '@/lib/orders/credential-description';
+import {
   orderPlacedCustomerMail,
   orderPlacedAdminMail,
   paymentVerifiedCustomerMail,
@@ -121,6 +126,20 @@ export async function dispatchPaymentStatusEmail(payment: {
 
       const vaultMap = new Map(vaultItems.map((v) => [v.id, v]));
 
+      const productKeys = Array.from(new Set(deliveries.map((d) => d.productId).filter(Boolean)));
+      const planRows = productKeys.length > 0
+        ? await db.productPlan.findMany({
+            where: { product: { OR: [{ slug: { in: productKeys } }, { id: { in: productKeys } }] } },
+            select: {
+              id: true,
+              code: true,
+              defaultCredentialDescription: true,
+              product: { select: { id: true, slug: true } },
+            },
+          })
+        : [];
+      const planDescMap = buildPlanDefaultDescriptionMap(planRows);
+
       const creds = deliveries
         .filter((d) => d.vaultCredentialId || d.status === 'delivered')
         .map((d) => {
@@ -132,7 +151,10 @@ export async function dispatchPaymentStatusEmail(payment: {
             email: v?.email || (plainSecret && !v?.email ? 'License Key' : undefined),
             password: plainPassword || plainSecret || undefined,
             pin: v?.profilePin || undefined,
-            note: v?.noteBBCode || undefined,
+            note: resolveCredentialDescription(
+              v?.noteBBCode,
+              lookupPlanDefaultDescription(planDescMap, d.productId, d.variantId),
+            ),
           };
         });
 

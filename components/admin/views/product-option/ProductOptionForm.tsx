@@ -318,6 +318,16 @@ export function ProductOptionForm({
       </div>
 
       <div>
+        <BBCodeEditor
+          label="Default credential description"
+          value={values.defaultCredentialDescription}
+          onChange={(next) => onChange('defaultCredentialDescription', next)}
+          rows={3}
+          placeholder="How to use instructions sent with auto-supply or credentials without a description…"
+        />
+      </div>
+
+      <div>
         <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
           Source / Sourcing <span className="font-normal text-slate-500">(Where credentials come from)</span>
         </label>

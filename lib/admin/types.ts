@@ -137,6 +137,7 @@ export interface ProductVariant {
   importantNote: string;
   warningNote?: string;
   optionDescription?: string;
+  defaultCredentialDescription?: string;
   specifications?: ProductSpecification[];
   /** false = one-time plan */
   renewable?: boolean;

@@ -394,6 +394,13 @@ async function deliverToUnit(
       return;
     }
     const previous = unit.vaultCredentialId ? await tx.vaultCredential.findUnique({ where: { id: unit.vaultCredentialId } }) : null;
+    const plan = await tx.productPlan.findFirst({
+      where: {
+        product: { OR: [{ slug: unit.productId }, { id: unit.productId }] },
+        OR: [{ code: unit.variantId }, { id: unit.variantId }],
+      },
+      select: { defaultCredentialDescription: true },
+    });
     const vaultId = `vc-sup-${so.id}`;
     await tx.vaultCredential.create({
       data: {
@@ -404,6 +411,7 @@ async function deliverToUnit(
         variantName: unit.variantName,
         credentialType: unit.credentialType,
         secretValue: encryptSecret(secret),
+        noteBBCode: plan?.defaultCredentialDescription?.trim() || null,
         status: 'delivered',
         validDays: unit.credentialValidDays,
         batchNote: `Supplier: ${so.supplier.name} · ${base.externalOrderId}`.slice(0, 200),

@@ -32,8 +32,8 @@ export function CredentialSecretBox({
       : secretText;
 
   return (
-    <div className="p-2.5 rounded-md bg-[#0F172A] text-slate-100 font-mono text-xs flex items-center justify-between gap-2.5">
-      <span className="truncate text-slate-200 select-all font-semibold">
+    <div className="p-2.5 rounded-md bg-[#0F172A] text-slate-100 font-mono text-xs flex items-start justify-between gap-2.5">
+      <span className="min-w-0 flex-1 break-all whitespace-pre-wrap text-slate-200 select-all font-semibold">
         {displayValue}
       </span>
 

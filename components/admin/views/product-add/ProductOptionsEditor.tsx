@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Eye, Link2, Plus, Search, Trash2, X } from 'lucide-react';
 import type { CredentialScheme, WarrantyPlan } from '@/lib/admin-data';
-import { Card, SourcingSelect, SwitchToggle } from '@/components/admin/ui/primitives';
+import { BBCodeEditor, Card, SourcingSelect, SwitchToggle } from '@/components/admin/ui/primitives';
 import { allWarranties, type DraftSupplierLink, type DraftVariant } from './draft-helpers';
 import ProductSchedulePicker from './ProductSchedulePicker';
 import { formatDurationChipLabel, parseDurationDays } from '@/lib/warranty';
@@ -386,6 +386,16 @@ export default function ProductOptionsEditor({
                 />
               );
             })()}
+          </div>
+
+          <div>
+            <BBCodeEditor
+              label="Default credential description"
+              value={dv.defaultCredentialDescription}
+              onChange={(next) => onUpdate(dv.tempId, 'defaultCredentialDescription', next)}
+              rows={3}
+              placeholder="How to use instructions sent with auto-supply or credentials without a description…"
+            />
           </div>
 
           <div>

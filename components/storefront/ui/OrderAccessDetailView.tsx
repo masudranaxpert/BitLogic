@@ -38,6 +38,7 @@ import { StoreSurfaceCard } from './StoreSurfaceCard';
 import { useStoreSettings } from '@/context/StoreSettingsContext';
 import { whatsappHref } from '@/lib/whatsapp';
 import { WhatsAppIcon } from './BrandIcons';
+import { BBCodeRenderer } from '@/components/admin/ui/BBCode';
 
 type OrderAccessDetailViewProps = {
   order: CustomerOrderItem;
@@ -497,10 +498,10 @@ export function OrderAccessDetailView({
                       ) : unit.email || unit.password || unit.profilePin || unit.secretValue ? (
                         <div className="space-y-1.5 pt-1">
                           {unit.email && (
-                            <div className="flex items-center justify-between gap-2 p-2 rounded bg-slate-50 border border-slate-200 text-xs">
-                              <div className="min-w-0">
+                            <div className="flex items-start justify-between gap-2 p-2 rounded bg-slate-50 border border-slate-200 text-xs">
+                              <div className="min-w-0 flex-1">
                                 <span className="text-[11px] font-semibold text-slate-500 block">Email / Username</span>
-                                <span className="font-semibold text-slate-900 select-all truncate block">{unit.email}</span>
+                                <span className="font-semibold text-slate-900 select-all break-all whitespace-pre-wrap block">{unit.email}</span>
                               </div>
                               <button
                                 type="button"
@@ -519,10 +520,10 @@ export function OrderAccessDetailView({
                           )}
 
                           {unit.password && (
-                            <div className="flex items-center justify-between gap-2 p-2 rounded bg-slate-50 border border-slate-200 text-xs">
-                              <div className="min-w-0">
+                            <div className="flex items-start justify-between gap-2 p-2 rounded bg-slate-50 border border-slate-200 text-xs">
+                              <div className="min-w-0 flex-1">
                                 <span className="text-[11px] font-semibold text-slate-500 block">Password</span>
-                                <span className="font-mono text-slate-900 select-all block">{unit.password}</span>
+                                <span className="font-mono text-slate-900 select-all break-all whitespace-pre-wrap block">{unit.password}</span>
                               </div>
                               <button
                                 type="button"
@@ -563,10 +564,10 @@ export function OrderAccessDetailView({
                           )}
 
                           {unit.secretValue && (!unit.email || !unit.password || ![unit.email, `${unit.email}:${unit.password}`, `${unit.email}|${unit.password}`].includes(unit.secretValue.replace(/\s+/g, ''))) && (
-                            <div className="flex items-center justify-between gap-2 p-2 rounded bg-slate-50 border border-slate-200 text-xs">
-                              <div className="min-w-0">
+                            <div className="flex items-start justify-between gap-2 p-2 rounded bg-slate-50 border border-slate-200 text-xs">
+                              <div className="min-w-0 flex-1">
                                 <span className="text-[11px] font-semibold text-slate-500 block">Key / Secret</span>
-                                <span className="font-mono text-xs select-all truncate block text-slate-800">{unit.secretValue}</span>
+                                <span className="font-mono text-xs select-all break-all whitespace-pre-wrap block text-slate-800">{unit.secretValue}</span>
                               </div>
                               <button
                                 type="button"
@@ -592,6 +593,17 @@ export function OrderAccessDetailView({
                         <p className="text-xs text-amber-700 font-medium m-0">
                           Activation in queue (10–24h)
                         </p>
+                      )}
+
+                      {!isUnitPending && !unit.isLocked && unit.credentialDescription?.trim() && (
+                        <div className="p-2.5 rounded bg-slate-50 border border-slate-200 text-xs space-y-1">
+                          <span className="text-[11px] font-semibold text-slate-500 block">
+                            How to Use
+                          </span>
+                          <div className="text-slate-800 leading-relaxed break-words">
+                            <BBCodeRenderer content={unit.credentialDescription} />
+                          </div>
+                        </div>
                       )}
                     </div>
                   );
@@ -622,12 +634,12 @@ export function OrderAccessDetailView({
             ) : (
               <div className="divide-y divide-slate-200/70 border border-slate-200 rounded overflow-hidden">
                 {order.loginEmail && (
-                  <div className="px-3.5 py-2.5 flex items-center justify-between gap-3 bg-white">
-                    <div className="min-w-0">
+                  <div className="px-3.5 py-2.5 flex items-start justify-between gap-3 bg-white">
+                    <div className="min-w-0 flex-1">
                       <div className="text-xs font-semibold text-slate-600">
                         Email / Username
                       </div>
-                      <div className="text-[13px] font-bold text-slate-900 select-all mt-0.5">
+                      <div className="text-[13px] font-bold text-slate-900 select-all break-all whitespace-pre-wrap mt-0.5">
                         {order.loginEmail}
                       </div>
                     </div>
@@ -652,12 +664,12 @@ export function OrderAccessDetailView({
                 )}
 
                 {order.loginPassword && (
-                  <div className="px-3.5 py-2.5 flex items-center justify-between gap-3 bg-white">
-                    <div className="min-w-0">
+                  <div className="px-3.5 py-2.5 flex items-start justify-between gap-3 bg-white">
+                    <div className="min-w-0 flex-1">
                       <div className="text-xs font-semibold text-slate-600">
                         Password
                       </div>
-                      <div className="text-[13px] font-bold text-slate-900 select-all mt-0.5 tabular-nums">
+                      <div className="text-[13px] font-bold text-slate-900 select-all break-all whitespace-pre-wrap mt-0.5 tabular-nums">
                         {showPassword ? order.loginPassword : '••••••••••••'}
                       </div>
                     </div>
@@ -731,12 +743,12 @@ export function OrderAccessDetailView({
                 )}
 
                 {order.secretText && (
-                  <div className="px-3.5 py-2.5 flex items-center justify-between gap-3 bg-white">
-                    <div className="min-w-0">
+                  <div className="px-3.5 py-2.5 flex items-start justify-between gap-3 bg-white">
+                    <div className="min-w-0 flex-1">
                       <div className="text-xs font-semibold text-slate-600">
                         License Key / Secret
                       </div>
-                      <div className="text-[13px] font-mono font-bold text-slate-900 select-all truncate mt-0.5">
+                      <div className="text-[13px] font-mono font-bold text-slate-900 select-all break-all whitespace-pre-wrap mt-0.5">
                         {order.secretText}
                       </div>
                     </div>
@@ -761,8 +773,8 @@ export function OrderAccessDetailView({
                 )}
 
                 {order.accessUrl && (
-                  <div className="px-3.5 py-2.5 flex items-center justify-between gap-3 bg-white">
-                    <div className="min-w-0">
+                  <div className="px-3.5 py-2.5 flex items-start justify-between gap-3 bg-white">
+                    <div className="min-w-0 flex-1">
                       <div className="text-xs font-semibold text-slate-600">
                         Access Link
                       </div>
@@ -770,7 +782,7 @@ export function OrderAccessDetailView({
                         href={order.accessUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[13px] font-medium text-blue-600 hover:underline select-all truncate mt-0.5 inline-flex items-center gap-1"
+                        className="text-[13px] font-medium text-blue-600 hover:underline select-all break-all mt-0.5 inline-flex flex-wrap items-center gap-1"
                       >
                         {order.accessUrl}
                         <ExternalLink size={12} />
@@ -797,12 +809,12 @@ export function OrderAccessDetailView({
                 )}
 
                 {order.twoFactorCode && (
-                  <div className="px-3.5 py-2.5 flex items-center justify-between gap-3 bg-white">
-                    <div>
+                  <div className="px-3.5 py-2.5 flex items-start justify-between gap-3 bg-white">
+                    <div className="min-w-0 flex-1">
                       <div className="text-xs font-semibold text-slate-600">
                         Backup / 2FA Code
                       </div>
-                      <div className="text-[13px] font-bold text-slate-900 tabular-nums mt-0.5">
+                      <div className="text-[13px] font-bold text-slate-900 select-all break-all whitespace-pre-wrap tabular-nums mt-0.5">
                         {order.twoFactorCode}
                       </div>
                     </div>
@@ -823,6 +835,17 @@ export function OrderAccessDetailView({
                         <Copy size={14} />
                       )}
                     </button>
+                  </div>
+                )}
+
+                {order.credentialDescription?.trim() && (
+                  <div className="px-3.5 py-2.5 bg-slate-50/70 space-y-1">
+                    <div className="text-xs font-semibold text-slate-600">
+                      How to Use
+                    </div>
+                    <div className="text-[13px] text-slate-800 leading-relaxed break-words">
+                      <BBCodeRenderer content={order.credentialDescription} />
+                    </div>
                   </div>
                 )}
               </div>

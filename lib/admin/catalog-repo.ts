@@ -252,6 +252,7 @@ export async function saveDigitalProduct(product: DigitalProduct, actor = '') {
           importantNote: planData.importantNote,
           warningNote: planData.warningNote,
           optionDescription: planData.optionDescription,
+          defaultCredentialDescription: planData.defaultCredentialDescription,
           specificationsJson: planData.specificationsJson,
           renewable: planData.renewable,
           renewalPricing: planData.renewalPricing,

@@ -7,6 +7,11 @@ import { getBuyerAccess } from '@/lib/auth/buyer-access';
 import { accessTokensMatch } from '@/lib/orders/access-token';
 import { decryptSecret } from '@/lib/crypto/secrets';
 import { runServerCredentialLifecycle } from '@/lib/admin/run-lifecycle-server';
+import {
+  buildPlanDefaultDescriptionMap,
+  lookupPlanDefaultDescription,
+  resolveCredentialDescription,
+} from '@/lib/orders/credential-description';
 
 function parseJson<T>(raw: string, fallback: T): T {
   try {
@@ -168,7 +173,8 @@ export async function GET(request: Request) {
     const vaultMap = new Map(vaultRows.map((v) => [v.id, v]));
 
     const uniqueOrderIds = Array.from(new Set(deliveries.map((d) => d.orderId)));
-    const [payments, orderRows] = await Promise.all([
+    const uniqueProductIds = Array.from(new Set(deliveries.map((d) => d.productId).filter(Boolean)));
+    const [payments, orderRows, planRows] = await Promise.all([
       uniqueOrderIds.length > 0
         ? db.paymentTransaction.findMany({
             where: { orderId: { in: uniqueOrderIds } },
@@ -180,9 +186,23 @@ export async function GET(request: Request) {
             select: { id: true, paymentStatus: true, status: true },
           })
         : [],
+      uniqueProductIds.length > 0
+        ? db.productPlan.findMany({
+            where: {
+              product: { OR: [{ slug: { in: uniqueProductIds } }, { id: { in: uniqueProductIds } }] },
+            },
+            select: {
+              id: true,
+              code: true,
+              defaultCredentialDescription: true,
+              product: { select: { id: true, slug: true } },
+            },
+          })
+        : [],
     ]);
     const paymentByOrderId = new Map(payments.map((p) => [p.orderId, p]));
     const orderByOrderId = new Map(orderRows.map((o) => [o.id, o]));
+    const planDescMap = buildPlanDefaultDescriptionMap(planRows);
 
     const orderGroups = new Map<string, typeof deliveries>();
     for (const d of deliveries) {
@@ -247,6 +267,12 @@ export async function GET(request: Request) {
             : undefined;
           const email = canExposeCredential ? (v?.email || undefined) : undefined;
           const profilePin = canExposeCredential ? (v?.profilePin || undefined) : undefined;
+          const credentialDescription = canExposeCredential
+            ? resolveCredentialDescription(
+                v?.noteBBCode,
+                lookupPlanDefaultDescription(planDescMap, d.productId, d.variantId),
+              )
+            : undefined;
           const isLocked = !canExposeCredential;
           const lockReason = isPaymentRejected
             ? 'Payment was rejected'
@@ -272,6 +298,7 @@ export async function GET(request: Request) {
             email,
             password,
             profilePin,
+            credentialDescription,
             vpnRequired: d.vpnRequired,
             vpnRegionNote: d.vpnRegionNote,
             hasWarranty: d.hasWarranty,
@@ -330,6 +357,7 @@ export async function GET(request: Request) {
           loginPassword: isPaymentVerified ? units[0]?.password : undefined,
           profilePin: isPaymentVerified ? units[0]?.profilePin : undefined,
           secretText: isPaymentVerified ? units[0]?.secretValue : undefined,
+          credentialDescription: isPaymentVerified ? units[0]?.credentialDescription : undefined,
           units,
           chatMessages: units[0]?.chatMessages || [],
           unreadChatCount: group.reduce(

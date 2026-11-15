@@ -67,6 +67,7 @@ export interface CustomerOrderUnit {
   email?: string;
   password?: string;
   profilePin?: string;
+  credentialDescription?: string;
   vpnRequired?: boolean;
   vpnRegionNote?: string;
   hasWarranty?: boolean;
@@ -103,6 +104,7 @@ export interface CustomerOrderItem {
   twoFactorCode?: string;
   accessUrl?: string;
   secretText?: string;
+  credentialDescription?: string;
   extraInfo?: Array<{ label: string; value: string }>;
   usageRules?: string[];
   chatMessages?: OrderChatMessage[];

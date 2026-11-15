@@ -201,6 +201,7 @@ model ProductPlan {
   importantNote       String      @default("")
   warningNote         String      @default("")
   optionDescription   String      @default("")
+  defaultCredentialDescription String @default("")
   specificationsJson  String      @default("[]")
   /// Where credentials come from: own | own_then_supplier | supplier_auto | supplier_manual
   sourcing            String      @default("own")

@@ -25,6 +25,7 @@ export type ProductOptionFormValues = {
   deviceLimit: string;
   loginStepsText: string;
   optionDescription: string;
+  defaultCredentialDescription: string;
   warningNote: string;
   sourcing: SourcingValue;
   renewable: boolean;
@@ -53,6 +54,7 @@ export function defaultOptionFormValues(): ProductOptionFormValues {
       'Open the service login page.\nEnter or inject your delivered credential.\nKeep your Order ID for warranty support.',
     optionDescription:
       'Instant pre-authenticated session delivered immediately from Vault.',
+    defaultCredentialDescription: '',
     warningNote:
       '[warning]Close the browser tab instead of clicking Log Out on shared token sessions.[/warning]',
     sourcing: 'own',
@@ -83,6 +85,7 @@ export function optionFormValuesFromVariant(
     deviceLimit: variant.deviceLimit,
     loginStepsText: variant.loginInstructions.join('\n'),
     optionDescription: variant.optionDescription || '',
+    defaultCredentialDescription: variant.defaultCredentialDescription || '',
     warningNote: variant.warningNote || variant.importantNote || '',
     sourcing: (variant.sourcing as any) || 'own',
     renewable: variant.renewable !== false,
@@ -133,6 +136,7 @@ export function buildVariantFromOptionForm(
     importantNote: values.warningNote,
     warningNote: values.warningNote,
     optionDescription: values.optionDescription,
+    defaultCredentialDescription: values.defaultCredentialDescription.trim(),
     sourcing: values.sourcing,
     renewable: values.renewable,
     allowOrderWhenOutOfStock: values.allowOrderWhenOutOfStock,
