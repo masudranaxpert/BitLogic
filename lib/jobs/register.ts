@@ -5,4 +5,9 @@
 export function startBackgroundJobs() {
   // Every 60s: poll supplier orders, sweep paid units, sync catalogs due by syncIntervalMin (min 5).
   void import('@/lib/suppliers/scheduler').then((m) => m.startSupplierScheduler());
+  void import('@/lib/catalog/clean-legacy-slugs').then((m) =>
+    m.cleanLegacyProductSlugs().catch((err) => {
+      console.warn('[catalog] legacy slug cleanup skipped:', err);
+    }),
+  );
 }
